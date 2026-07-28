@@ -1,6 +1,6 @@
 .build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
 .DS_Store
-telemetry.jsonl
-selfcheck.*
-InkLayer.app/
-*.app/

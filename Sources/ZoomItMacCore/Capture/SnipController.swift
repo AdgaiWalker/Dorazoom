@@ -1,0 +1,372 @@
+import AppKit
+
+/// A borderless window that can still become key, so the selection view
+/// receives key events (Escape) and the crosshair cursor is shown. Shared by
+/// the snip and region-recording selectors.
+final class SnipWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+/// Owns temporary crosshair cursor pushes for region selection. The second push
+/// happens after app/window activation has had a chance to reset the cursor.
+@MainActor
+final class CrosshairCursorLease {
+    private weak var window: NSWindow?
+    private var active = false
+    private var pushCount = 0
+    let pointerResource: PointerResource
+
+    init(window: NSWindow, purpose: PointerPurpose) {
+        self.window = window
+        self.pointerResource = PointerResourceCatalog.resource(for: purpose)
+    }
+
+    func activate() {
+        active = true
+        pushIfActive()
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                self?.setIfActive()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            MainActor.assumeIsolated {
+                self?.pushIfActive()
+            }
+        }
+    }
+
+    func invalidate() {
+        active = false
+        while pushCount > 0 {
+            NSCursor.pop()
+            pushCount -= 1
+        }
+    }
+
+    private func pushIfActive() {
+        guard active, window != nil else { return }
+        NSCursor.crosshair.push()
+        pushCount += 1
+        NSCursor.crosshair.set()
+    }
+
+    private func setIfActive() {
+        guard active, window != nil else { return }
+        NSCursor.crosshair.set()
+    }
+}
+
+/// A full-screen region selector used by the snip feature. It freezes a capture
+/// of the display, dims it, and lets the user drag out a rectangle. On mouse-up
+/// it reports the selected rectangle (in top-left view points); Escape cancels.
+@MainActor
+final class SnipSelectionView: NSView {
+    private let image: CGImage
+    /// Colour of the selection rectangle border. Defaults to white (snip/record
+    /// selectors); the panorama selector uses blue to stay distinct from the
+    /// orange screen-recording border.
+    private let borderColor: NSColor
+    /// Called with the selected rectangle in view points (top-left origin), or
+    /// nil if the selection was cancelled or empty.
+    var onComplete: ((CGRect?) -> Void)?
+
+    private var selectionLifecycle = RegionSelectionLifecycle.active()
+
+    init(frame frameRect: CGRect, image: CGImage, borderColor: NSColor = .white) {
+        self.image = image
+        self.borderColor = borderColor
+        super.init(frame: frameRect)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+
+    override func resetCursorRects() {
+        // Show a crosshair (plus-sign) cursor over the whole selection area.
+        addCursorRect(bounds, cursor: .crosshair)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas {
+            removeTrackingArea(area)
+        }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.activeAlways, .cursorUpdate, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        NSCursor.crosshair.set()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            NSCursor.crosshair.set()
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        // Draw the frozen capture (CGImage draws bottom-up, so flip it).
+        drawImage(in: context)
+
+        // Dim the whole screen, then re-draw the selected region at full
+        // brightness with a bright border, like a region screenshot tool.
+        context.setFillColor(NSColor(white: 0, alpha: 0.45).cgColor)
+        context.fill(bounds)
+
+        let selectionRect = selectionLifecycle.currentSelection
+        guard selectionRect.width > 0, selectionRect.height > 0 else { return }
+        context.saveGState()
+        context.clip(to: selectionRect)
+        drawImage(in: context)
+        context.restoreGState()
+
+        context.setStrokeColor(borderColor.cgColor)
+        context.setLineWidth(1)
+        context.stroke(selectionRect.insetBy(dx: 0.5, dy: 0.5))
+        drawFeedback()
+    }
+
+    private func drawImage(in context: CGContext) {
+        context.saveGState()
+        context.translateBy(x: 0, y: bounds.height)
+        context.scaleBy(x: 1, y: -1)
+        context.draw(image, in: bounds)
+        context.restoreGState()
+    }
+
+    private func drawFeedback() {
+        guard let feedback = selectionLifecycle.currentFeedback else { return }
+
+        NSColor(white: 0, alpha: 0.72).setFill()
+        NSBezierPath(roundedRect: feedback.frame, xRadius: 4, yRadius: 4).fill()
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: NSColor.white
+        ]
+        NSString(string: feedback.text).draw(
+            in: feedback.frame.insetBy(dx: 8, dy: 3),
+            withAttributes: attributes
+        )
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        selectionLifecycle.beginSelection(at: convert(event.locationInWindow, from: nil))
+        needsDisplay = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        selectionLifecycle.updateSelection(
+            to: convert(event.locationInWindow, from: nil),
+            scale: window?.backingScaleFactor ?? 1,
+            container: bounds
+        )
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        onComplete?(selectionLifecycle.finish())
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { // Escape cancels.
+            onComplete?(selectionLifecycle.cancel())
+        }
+    }
+
+    /// Renders the selector with a fixed selection rectangle into a bitmap so
+    /// tests can inspect the border colour without synthesizing mouse events.
+    func renderForTesting(selection: CGRect) -> NSBitmapImageRep? {
+        selectionLifecycle.beginSelection(at: selection.origin)
+        selectionLifecycle.updateSelection(
+            to: CGPoint(x: selection.maxX, y: selection.maxY),
+            scale: window?.backingScaleFactor ?? 1,
+            container: bounds
+        )
+        guard let rep = bitmapImageRepForCachingDisplay(in: bounds) else { return nil }
+        cacheDisplay(in: bounds, to: rep)
+        return rep
+    }
+}
+
+/// What to do with a selected region: copy the image, save it to a file, or
+/// recognize its text and copy that to the clipboard (OCR).
+enum SnipAction {
+    case copyImage
+    case saveImage
+    case recognizeText
+
+    var pointerPurpose: PointerPurpose {
+        switch self {
+        case .copyImage, .saveImage:
+            return .screenshot
+        case .recognizeText:
+            return .ocr
+        }
+    }
+}
+
+/// Drives the region snip: captures the active display, shows the selection
+/// overlay, and copies or saves the chosen region when the drag is released.
+@MainActor
+final class SnipController {
+    private let captureService: ScreenCaptureService
+    private let displayManager: DisplayManager
+    private let permissionService: PermissionService
+    private let settingsStore: SettingsStore
+
+    private var window: NSWindow?
+    private var capturedFrame: CapturedFrame?
+    private var action: SnipAction = .copyImage
+    private var onFinished: (() -> Void)?
+    private let onCopiedToPasteboard: ((Int) -> Void)?
+    private var cursorLease: CrosshairCursorLease?
+
+    init(
+        captureService: ScreenCaptureService,
+        displayManager: DisplayManager,
+        permissionService: PermissionService,
+        settingsStore: SettingsStore,
+        onCopiedToPasteboard: ((Int) -> Void)? = nil
+    ) {
+        self.captureService = captureService
+        self.displayManager = displayManager
+        self.permissionService = permissionService
+        self.settingsStore = settingsStore
+        self.onCopiedToPasteboard = onCopiedToPasteboard
+    }
+
+    /// Begins a region selection. `action` chooses what to do with the selected
+    /// region: copy the image, save it to a file, or OCR it to the clipboard.
+    /// When `frame` is supplied (e.g. a snapshot of the zoomed viewport) it is
+    /// selected directly; otherwise the active display is captured.
+    /// `onFinished` is always called once, when the selection completes or is
+    /// cancelled.
+    func begin(action: SnipAction, frame providedFrame: CapturedFrame? = nil, onFinished: @escaping () -> Void) {
+        self.action = action
+        self.onFinished = onFinished
+
+        if let providedFrame {
+            show(frame: providedFrame)
+            return
+        }
+
+        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+            finish()
+            return
+        }
+        guard let display = displayManager.activeDisplay() else {
+            NSSound.beep()
+            finish()
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                let frame = try await captureService.captureDisplay(display)
+                self.show(frame: frame)
+            } catch {
+                NSSound.beep()
+                self.finish()
+            }
+        }
+    }
+
+    private func show(frame: CapturedFrame) {
+        capturedFrame = frame
+
+        let window = SnipWindow(
+            contentRect: frame.display.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.level = .screenSaver
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.isReleasedWhenClosed = false
+
+        let view = SnipSelectionView(
+            frame: CGRect(origin: .zero, size: frame.display.frame.size),
+            image: frame.image
+        )
+        view.onComplete = { [weak self] rect in
+            self?.handleSelection(rect)
+        }
+        window.contentView = view
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeFirstResponder(view)
+        let cursorLease = CrosshairCursorLease(window: window, purpose: action.pointerPurpose)
+        cursorLease.activate()
+        self.cursorLease = cursorLease
+        self.window = window
+    }
+
+    private func handleSelection(_ rect: CGRect?) {
+        let frame = capturedFrame
+        // Tear down the overlay first so a Save dialog isn't hidden behind it.
+        closeWindow()
+
+        guard let rect, let frame else {
+            finish()
+            return
+        }
+
+        let scale = frame.display.scaleFactor
+        let pixelRect = CGRect(
+            x: rect.minX * scale,
+            y: rect.minY * scale,
+            width: rect.width * scale,
+            height: rect.height * scale
+        ).integral
+
+        guard let cropped = frame.image.cropping(to: pixelRect) else {
+            finish()
+            return
+        }
+
+        let settings = settingsStore.load()
+        let executor = SnipExportExecutor<CGImage>(
+            copyToPasteboard: { ImageExporter.copyToPasteboard($0) },
+            writeToDirectory: { ImageExporter.writeToDirectory($0, directoryPath: settings.snipSaveDirectory) },
+            presentSavePanel: { ImageExporter.presentSavePanel(for: $0) },
+            copyOCR: { OcrService.recognizeAndCopy($0) }
+        )
+        for changeCount in executor.execute(
+            image: cropped,
+            operations: SnipExportPlan.operations(for: action, settings: settings)
+        ) {
+            onCopiedToPasteboard?(changeCount)
+        }
+        finish()
+    }
+
+    private func closeWindow() {
+        cursorLease?.invalidate()
+        cursorLease = nil
+        window?.orderOut(nil)
+        window = nil
+    }
+
+    private func finish() {
+        capturedFrame = nil
+        let callback = onFinished
+        onFinished = nil
+        callback?()
+    }
+}
