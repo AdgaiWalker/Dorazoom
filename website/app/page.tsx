@@ -36,6 +36,7 @@ const flow = [
 ];
 
 const localPoints = ["无需账号", "不依赖云服务", "截图可不落盘", "按需申请权限"];
+const githubUrl = "https://github.com/AdgaiWalker/zoomit";
 
 function project(velocity: number, decelerationRate = 0.99) {
   return (velocity / 1000) * (decelerationRate / (1 - decelerationRate));
@@ -251,6 +252,7 @@ export default function Home() {
           <a href="#why">为什么</a>
           <a href="#workflow">怎么用</a>
           <a href="#privacy">本地优先</a>
+          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
         </nav>
         <a className="nav-download pressable" href="/DoraZoom.zip" download>
           下载 Mac 版 <span aria-hidden="true">↓</span>
@@ -459,13 +461,19 @@ export default function Home() {
             <span>下载 macOS 版</span><span aria-hidden="true">↓</span>
           </a>
         </Magnet>
-        <small>适用于 macOS 14 及以上 · 个人测试版</small>
+        <div className="cta-meta">
+          <small>适用于 macOS 14 及以上 · 个人测试版</small>
+          <a href={githubUrl} target="_blank" rel="noreferrer">在 GitHub 查看源码 <span aria-hidden="true">↗</span></a>
+        </div>
       </section>
 
       <footer>
         <a className="brand footer-brand" href="#top"><img src="/dorazoom-icon.png" alt="" width="32" height="32" />DoraZoom</a>
         <p>为讲清楚而做。</p>
-        <span>© 2026 DoraZoom</span>
+        <div className="footer-meta">
+          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub ↗</a>
+          <span>© 2026 DoraZoom</span>
+        </div>
       </footer>
     </main>
   );

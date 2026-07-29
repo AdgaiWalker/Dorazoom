@@ -29,6 +29,8 @@ test("renders the DoraZoom product story and real download", async () => {
   assert.match(html, /把注意力/);
   assert.match(html, /带到你正在讲的地方/);
   assert.match(html, /href="\/DoraZoom\.zip"/);
+  assert.match(html, /href="https:\/\/github\.com\/AdgaiWalker\/zoomit"/);
+  assert.match(html, /在 GitHub 查看源码/);
   assert.match(html, /本地优先/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
