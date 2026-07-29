@@ -115,7 +115,7 @@
 | macOS 没有桌面 App 官方 Simulator | confirmed | “全部走模拟器”不能被理解为 iOS Simulator | 使用进程内模拟；Phase 7 改为本地模拟验收 |
 | 可用的稳定代码签名身份 | confirmed | 影响本地产物身份元数据 | 由交付门禁读取并验证，不再阻塞真实安装验收 |
 | 目标 Mac 机型、CPU 架构、刷新率和 macOS 小版本 | unresolved | 决定性能基线条件 | Phase 1 自动记录 |
-| listen/post event access 在目标系统上的设置入口和重启要求 | deferred | 决定真实 `Control+V` 首次授权体验 | 当前只做 Phase 3 全矩阵模拟；真实行为另开目标 |
+| post/辅助功能权限在目标系统上的设置入口和重启要求 | deferred | 决定真实 `Control+V` 首次授权体验；listen 只影响 Event Tap 兜底 | 当前用 Phase 3 全矩阵模拟，真实行为由当前人工测试反馈推进 |
 | 目标 Windows 播放环境、剪映和 DaVinci Resolve 版本 | unresolved | 决定 MOV 兼容验收范围 | Phase 5 前由“哆啦”确认实际使用版本 |
 | 是否需要 Universal 构建 | assumed no | 影响包体和构建时间 | 仅当实际第二种 CPU 架构需要时启用 |
 | 公网下载、notarization 与自动更新 | deferred | 不影响本机个人版核心目标 | 作为独立交付目标另行决策 |
@@ -197,7 +197,7 @@
 - **Entry condition**：Phase 2 的粘贴、权限和 feedback 契约通过。
 - **Phase rules**：
   - `Command+V` 永不由 DoraZoom 接管。
-  - 未同时获得 listen/post event access 时不创建 active Event Tap、不吞键。
+  - Carbon 临时 `Control+V` 主路径只依赖 post/辅助功能权限；未同时获得 listen/post event access 时不创建 active Event Tap 兜底、不吞键。
   - 权限说明发生在首次成功截图之后、系统请求之前；不在首次启动集中申请。
   - 本阶段不请求真实 TCC、不创建真实 Event Tap、不改写真实系统剪贴板；全部自动测试走模拟服务。
   - 截图到剪贴板路径不得创建临时或永久图片文件。
@@ -206,14 +206,14 @@
     - **Surface**：Snip、Pasteboard 协议、pointer/HUD feedback。
     - **Proof**：模拟选区图片进入内存剪贴板；取消后虚拟窗口集合为空；模拟文件系统没有新增图片。
     - **Depends on**：Phase 2 feedback 契约。
-  - [x] 实现首次截图后的权限说明、listen/post 请求与设置状态呈现。
+  - [x] 实现首次截图后的权限说明、post/辅助功能请求与设置状态呈现；listen 只属于 Event Tap 兜底。
     - **Surface**：权限 UI、`PermissionService`、设置状态。
-    - **Proof**：未决定/允许/拒绝/部分授权/授权后重启五种模拟状态均得到正确请求动作；拒绝和部分授权时不拦截按键、不安装 active Event Tap；设置状态和说明文案有模拟契约覆盖。
+    - **Proof**：未决定/允许/拒绝/部分授权/授权后重启五种模拟状态均得到正确请求动作；post-only 状态可启用 Carbon 主路径，拒绝时不拦截按键，listen/post 完整时可安装 Event Tap 兜底；设置状态和说明文案有模拟契约覆盖。
     - **Depends on**：截图成功路径。
   - [x] 接通有条件的 `Control+V` 转换。
-    - **Surface**：Event Tap 协议、事件标记、pasteboard changeCount。
-    - **Proof**：确定性键盘事件流证明同一截图可重复 `Control+V`、复制其他内容后立即放行、其他 Control 组合不受影响、合成事件不递归。
-    - **Depends on**：listen/post 权限矩阵通过。
+    - **Surface**：Carbon 临时热键、Event Tap 兜底、事件标记、pasteboard changeCount。
+    - **Proof**：确定性事件流证明 post-only 时可转换、同一截图可重复 `Control+V`、复制其他内容后撤销临时热键、其他 Control 组合不受影响、合成事件不递归。
+    - **Depends on**：post 权限与 listen/post 兜底矩阵通过。
   - [x] 验证原生 `Command+V` 路径。
     - **Surface**：Pasteboard 与目标应用协议。
     - **Proof**：模拟目标应用证明兼容模式关闭、未授权和已授权三种状态均不接管 `Command+V`。

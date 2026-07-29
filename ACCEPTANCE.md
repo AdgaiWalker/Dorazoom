@@ -65,9 +65,9 @@ Scripts/verify-acceptance-record.sh ACCEPTANCE.md
 | 权限页状态矩阵 | 通过 | `Phase6SettingsPermissionsSimulationTests` 覆盖 Screen Recording、input listen/post、microphone、camera 的状态与动作映射 |
 | 权限请求边界 | 通过 | 模拟页 `touchesRealTCC=false`，不会打开真实 System Settings |
 | `Command+V` 原生放行 | 通过 | 模拟事件流证明 DoraZoom 不拦截原生粘贴 |
-| `Control+V` 兼容策略 | 通过 | 只在 DoraZoom 截图仍位于内存剪贴板且 listen/post 权限完整时转换 |
+| `Control+V` 兼容策略 | 通过 | Carbon 临时热键主路径只需 post/辅助功能权限；截图仍位于内存剪贴板时转换，listen/post Event Tap 仅作兜底 |
 | 未授权 `Control+V` | 通过 | 模拟矩阵证明不拦截，目标 App 原行为保留 |
-| 剪贴板失效 | 通过 | 模拟剪贴板内容变化后不再转换 `Control+V` |
+| 剪贴板失效 | 通过 | 模拟剪贴板内容变化后撤销临时 `Control+V`，不再转换 |
 | 截图不留本地文件 | 通过 | 截图导出执行器使用内存剪贴板替身，模拟文件系统不出现本地截图写入 |
 | 测试逃逸防护 | 通过 | 边界脚本拒绝 `pbcopy`、`pbpaste`、`screencapture`、`osascript`、`Process`、`NSTask` 等真实系统路径 |
 

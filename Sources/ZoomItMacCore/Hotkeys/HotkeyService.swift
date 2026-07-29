@@ -21,9 +21,17 @@ final class HotkeyService {
     private var zoomInNavRef: EventHotKeyRef?
     private var zoomOutNavRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
+    private var fallbackEventTap: SystemHotkeyFallbackEventTap?
+    private let fallbackPermissionSession = HotkeyFallbackPermissionSession()
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
 
-    init(settingsStore: SettingsStore, commandHandler: @escaping (AppCommand) -> Void) {
+    init(
+        settingsStore: SettingsStore,
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
+        commandHandler: @escaping (AppCommand) -> Void
+    ) {
         self.settingsStore = settingsStore
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
         self.commandHandler = commandHandler
     }
 
@@ -113,6 +121,7 @@ final class HotkeyService {
                     &hotKeyID
                 )
                 guard parameterStatus == noErr else { return parameterStatus }
+                guard hotKeyID.signature == fourCharacterCode("ZITM") else { return OSStatus(eventNotHandledErr) }
 
                 let command: AppCommand
                 switch hotKeyID.id {
@@ -131,7 +140,7 @@ final class HotkeyService {
                 case 13: command = .snipOcr
                 case 14: command = .startDemoType
                 case 15: command = .resetDemoType
-                default: return noErr
+                default: return OSStatus(eventNotHandledErr)
                 }
 
                 let service = Unmanaged<HotkeyService>.fromOpaque(userData).takeUnretainedValue()
@@ -153,151 +162,170 @@ final class HotkeyService {
         let settings = settingsStore.load()
         let target = GetApplicationEventTarget()
         let signature = fourCharacterCode("ZITM")
+        var fallbackBindings: [HotkeyFallbackBinding] = []
 
         let zoomModifiers = NSEvent.ModifierFlags(rawValue: settings.hotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.hotKeyCode),
-            carbonModifiers(from: zoomModifiers),
-            EventHotKeyID(signature: signature, id: 1),
-            target,
-            0,
-            &hotKeyRef
+        register(
+            command: .activateStaticZoom,
+            keyCode: settings.hotKeyCode,
+            modifiers: zoomModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 1),
+            target: target,
+            ref: &hotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         let drawModifiers = NSEvent.ModifierFlags(rawValue: settings.drawHotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.drawHotKeyCode),
-            carbonModifiers(from: drawModifiers),
-            EventHotKeyID(signature: signature, id: 2),
-            target,
-            0,
-            &drawHotKeyRef
+        register(
+            command: .activateDrawWithoutZoom,
+            keyCode: settings.drawHotKeyCode,
+            modifiers: drawModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 2),
+            target: target,
+            ref: &drawHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         let liveModifiers = NSEvent.ModifierFlags(rawValue: settings.liveHotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.liveHotKeyCode),
-            carbonModifiers(from: liveModifiers),
-            EventHotKeyID(signature: signature, id: 3),
-            target,
-            0,
-            &liveHotKeyRef
+        register(
+            command: .activateLiveZoom,
+            keyCode: settings.liveHotKeyCode,
+            modifiers: liveModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 3),
+            target: target,
+            ref: &liveHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         // Region snip: the base shortcut copies the region; the same shortcut
         // with Shift toggled saves it to a file.
         let snipModifiers = NSEvent.ModifierFlags(rawValue: settings.snipHotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.snipHotKeyCode),
-            carbonModifiers(from: snipModifiers),
-            EventHotKeyID(signature: signature, id: 6),
-            target,
-            0,
-            &snipCopyHotKeyRef
+        register(
+            command: .snipRegion(save: false),
+            keyCode: settings.snipHotKeyCode,
+            modifiers: snipModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 6),
+            target: target,
+            ref: &snipCopyHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         let snipSaveModifiers = NSEvent.ModifierFlags(rawValue: settings.snipHotKeyModifiers ^ NSEvent.ModifierFlags.shift.rawValue)
-        RegisterEventHotKey(
-            UInt32(settings.snipHotKeyCode),
-            carbonModifiers(from: snipSaveModifiers),
-            EventHotKeyID(signature: signature, id: 7),
-            target,
-            0,
-            &snipSaveHotKeyRef
+        register(
+            command: .snipRegion(save: true),
+            keyCode: settings.snipHotKeyCode,
+            modifiers: snipSaveModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 7),
+            target: target,
+            ref: &snipSaveHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         // OCR snip: recognizes text in the selected region and copies it to the
         // clipboard. A key code of 0 disables the hotkey, matching ZoomIt.
         if settings.snipOcrHotKeyCode != 0 {
             let snipOcrModifiers = NSEvent.ModifierFlags(rawValue: settings.snipOcrHotKeyModifiers)
-            RegisterEventHotKey(
-                UInt32(settings.snipOcrHotKeyCode),
-                carbonModifiers(from: snipOcrModifiers),
-                EventHotKeyID(signature: signature, id: 13),
-                target,
-                0,
-                &snipOcrHotKeyRef
+            register(
+                command: .snipOcr,
+                keyCode: settings.snipOcrHotKeyCode,
+                modifiers: snipOcrModifiers,
+                hotKeyID: EventHotKeyID(signature: signature, id: 13),
+                target: target,
+                ref: &snipOcrHotKeyRef,
+                fallbackBindings: &fallbackBindings
             )
         }
 
         // Recording: the base shortcut records the whole screen; the same
         // shortcut with Shift toggled records a selected region.
         let recordModifiers = NSEvent.ModifierFlags(rawValue: settings.recordHotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.recordHotKeyCode),
-            carbonModifiers(from: recordModifiers),
-            EventHotKeyID(signature: signature, id: 8),
-            target,
-            0,
-            &recordHotKeyRef
+        register(
+            command: .toggleRecording(region: false),
+            keyCode: settings.recordHotKeyCode,
+            modifiers: recordModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 8),
+            target: target,
+            ref: &recordHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         let recordRegionModifiers = NSEvent.ModifierFlags(rawValue: settings.recordHotKeyModifiers ^ NSEvent.ModifierFlags.shift.rawValue)
-        RegisterEventHotKey(
-            UInt32(settings.recordHotKeyCode),
-            carbonModifiers(from: recordRegionModifiers),
-            EventHotKeyID(signature: signature, id: 9),
-            target,
-            0,
-            &recordRegionHotKeyRef
+        register(
+            command: .toggleRecording(region: true),
+            keyCode: settings.recordHotKeyCode,
+            modifiers: recordRegionModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 9),
+            target: target,
+            ref: &recordRegionHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         if settings.demoTypeHotKeyCode != 0 {
             let demoTypeModifiers = NSEvent.ModifierFlags(rawValue: settings.demoTypeHotKeyModifiers)
-            RegisterEventHotKey(
-                UInt32(settings.demoTypeHotKeyCode),
-                carbonModifiers(from: demoTypeModifiers),
-                EventHotKeyID(signature: signature, id: 14),
-                target,
-                0,
-                &demoTypeHotKeyRef
+            register(
+                command: .startDemoType,
+                keyCode: settings.demoTypeHotKeyCode,
+                modifiers: demoTypeModifiers,
+                hotKeyID: EventHotKeyID(signature: signature, id: 14),
+                target: target,
+                ref: &demoTypeHotKeyRef,
+                fallbackBindings: &fallbackBindings
             )
 
             let demoTypeResetModifiers = NSEvent.ModifierFlags(rawValue: settings.demoTypeHotKeyModifiers ^ NSEvent.ModifierFlags.shift.rawValue)
-            RegisterEventHotKey(
-                UInt32(settings.demoTypeHotKeyCode),
-                carbonModifiers(from: demoTypeResetModifiers),
-                EventHotKeyID(signature: signature, id: 15),
-                target,
-                0,
-                &demoTypeResetHotKeyRef
+            register(
+                command: .resetDemoType,
+                keyCode: settings.demoTypeHotKeyCode,
+                modifiers: demoTypeResetModifiers,
+                hotKeyID: EventHotKeyID(signature: signature, id: 15),
+                target: target,
+                ref: &demoTypeResetHotKeyRef,
+                fallbackBindings: &fallbackBindings
             )
         }
 
         // Panorama: the base shortcut copies the stitched panorama to the
         // clipboard; the same shortcut with Shift toggled saves it to a file.
         let panoramaModifiers = NSEvent.ModifierFlags(rawValue: settings.panoramaHotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.panoramaHotKeyCode),
-            carbonModifiers(from: panoramaModifiers),
-            EventHotKeyID(signature: signature, id: 10),
-            target,
-            0,
-            &panoramaCopyHotKeyRef
+        register(
+            command: .startPanorama(save: false),
+            keyCode: settings.panoramaHotKeyCode,
+            modifiers: panoramaModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 10),
+            target: target,
+            ref: &panoramaCopyHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         let panoramaSaveModifiers = NSEvent.ModifierFlags(rawValue: settings.panoramaHotKeyModifiers ^ NSEvent.ModifierFlags.shift.rawValue)
-        RegisterEventHotKey(
-            UInt32(settings.panoramaHotKeyCode),
-            carbonModifiers(from: panoramaSaveModifiers),
-            EventHotKeyID(signature: signature, id: 11),
-            target,
-            0,
-            &panoramaSaveHotKeyRef
+        register(
+            command: .startPanorama(save: true),
+            keyCode: settings.panoramaHotKeyCode,
+            modifiers: panoramaSaveModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 11),
+            target: target,
+            ref: &panoramaSaveHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
 
         let breakModifiers = NSEvent.ModifierFlags(rawValue: settings.breakHotKeyModifiers)
-        RegisterEventHotKey(
-            UInt32(settings.breakHotKeyCode),
-            carbonModifiers(from: breakModifiers),
-            EventHotKeyID(signature: signature, id: 12),
-            target,
-            0,
-            &breakHotKeyRef
+        register(
+            command: .toggleBreakTimer,
+            keyCode: settings.breakHotKeyCode,
+            modifiers: breakModifiers,
+            hotKeyID: EventHotKeyID(signature: signature, id: 12),
+            target: target,
+            ref: &breakHotKeyRef,
+            fallbackBindings: &fallbackBindings
         )
+
+        startFallbackEventTapIfNeeded(for: fallbackBindings)
     }
 
     private func unregisterHotKey() {
+        fallbackEventTap?.stop()
+        fallbackEventTap = nil
+
         if let hotKeyRef {
             UnregisterEventHotKey(hotKeyRef)
         }
@@ -360,9 +388,70 @@ final class HotkeyService {
         if flags.contains(.shift) { carbon |= UInt32(shiftKey) }
         return carbon
     }
+
+    private func register(
+        command: AppCommand,
+        keyCode: Int,
+        modifiers: NSEvent.ModifierFlags,
+        hotKeyID: EventHotKeyID,
+        target: EventTargetRef?,
+        ref: inout EventHotKeyRef?,
+        fallbackBindings: inout [HotkeyFallbackBinding]
+    ) {
+        var newRef: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            UInt32(keyCode),
+            carbonModifiers(from: modifiers),
+            hotKeyID,
+            target,
+            0,
+            &newRef
+        )
+
+        if status == noErr {
+            ref = newRef
+            return
+        }
+
+        ref = nil
+        let fallbackBinding = HotkeyFallbackBinding(
+            command: command,
+            keyCode: keyCode,
+            modifiers: keyboardModifiers(from: modifiers)
+        )
+        fallbackBindings.append(fallbackBinding)
+        NSLog(
+            "DoraZoom Carbon hotkey registration failed; command=%@ keyCode=%d modifiers=%@ status=%d. Falling back to event tap.",
+            String(describing: command),
+            keyCode,
+            String(describing: fallbackBinding.modifiers),
+            status
+        )
+    }
+
+    private func startFallbackEventTapIfNeeded(for bindings: [HotkeyFallbackBinding]) {
+        guard !bindings.isEmpty else { return }
+        let fallbackEventTap = SystemHotkeyFallbackEventTap(
+            bindings: bindings,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: fallbackPermissionSession,
+            commandHandler: commandHandler
+        )
+        self.fallbackEventTap = fallbackEventTap
+        _ = fallbackEventTap.start()
+    }
+
+    private func keyboardModifiers(from flags: NSEvent.ModifierFlags) -> Set<KeyboardModifier> {
+        var modifiers: Set<KeyboardModifier> = []
+        if flags.contains(.control) { modifiers.insert(.control) }
+        if flags.contains(.command) { modifiers.insert(.command) }
+        if flags.contains(.shift) { modifiers.insert(.shift) }
+        if flags.contains(.option) { modifiers.insert(.option) }
+        return modifiers
+    }
 }
 
-private func fourCharacterCode(_ string: String) -> OSType {
+func fourCharacterCode(_ string: String) -> OSType {
     string.utf8.reduce(0) { code, character in
         (code << 8) + OSType(character)
     }

@@ -10,6 +10,8 @@ final class ModeCoordinator {
     private let annotationController: AnnotationController
     private let viewportController: ZoomViewportController
     private let pasteCompatibilityCoordinator: PasteCompatibilityCoordinator
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
+    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
 
     private(set) var mode: AppMode = .idle
     private var isExiting = false
@@ -23,6 +25,8 @@ final class ModeCoordinator {
         displayManager: displayManager,
         permissionService: permissionService,
         settingsStore: settingsStore,
+        permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+        screenRecordingPermissionSession: screenRecordingPermissionSession,
         onCopiedToPasteboard: { [weak self] changeCount in
             self?.pasteCompatibilityCoordinator.screenshotCopied(changeCount: changeCount)
         }
@@ -33,13 +37,17 @@ final class ModeCoordinator {
         captureService: captureService,
         displayManager: displayManager,
         permissionService: permissionService,
-        settingsStore: settingsStore
+        settingsStore: settingsStore,
+        permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+        screenRecordingPermissionSession: screenRecordingPermissionSession
     )
     /// Drives panorama (scrolling) capture (Control+8 / Control+Shift+8).
     private lazy var panoramaController = PanoramaController(
         displayManager: displayManager,
         permissionService: permissionService,
-        settingsStore: settingsStore
+        settingsStore: settingsStore,
+        permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+        screenRecordingPermissionSession: screenRecordingPermissionSession
     )
     /// Drives DemoType text synthesis from a file or [start]-prefixed clipboard.
     private lazy var demoTypeController = DemoTypeController(settingsStore: settingsStore)
@@ -64,6 +72,8 @@ final class ModeCoordinator {
         overlayController: OverlayWindowController,
         annotationController: AnnotationController,
         viewportController: ZoomViewportController,
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
+        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
         pasteCompatibilityCoordinator: PasteCompatibilityCoordinator = PasteCompatibilityCoordinator(
             permissionRequester: SystemInputCompatibilityPermissionRequester()
         )
@@ -75,6 +85,8 @@ final class ModeCoordinator {
         self.overlayController = overlayController
         self.annotationController = annotationController
         self.viewportController = viewportController
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
+        self.screenRecordingPermissionSession = screenRecordingPermissionSession
         self.pasteCompatibilityCoordinator = pasteCompatibilityCoordinator
     }
 
@@ -184,7 +196,11 @@ final class ModeCoordinator {
             return
         }
 
-        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
             return
         }
 
@@ -234,7 +250,11 @@ final class ModeCoordinator {
             return
         }
 
-        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
             return
         }
 
@@ -312,7 +332,11 @@ final class ModeCoordinator {
             return
         }
 
-        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
             return
         }
 

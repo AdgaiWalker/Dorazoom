@@ -50,6 +50,8 @@ final class PanoramaController {
     private let displayManager: DisplayManager
     private let permissionService: PermissionService
     private let settingsStore: SettingsStore
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
+    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
 
     private(set) var isCapturing = false
     private var stopRequested = false
@@ -86,11 +88,15 @@ final class PanoramaController {
     init(
         displayManager: DisplayManager,
         permissionService: PermissionService,
-        settingsStore: SettingsStore
+        settingsStore: SettingsStore,
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
+        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession()
     ) {
         self.displayManager = displayManager
         self.permissionService = permissionService
         self.settingsStore = settingsStore
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
+        self.screenRecordingPermissionSession = screenRecordingPermissionSession
     }
 
     /// Toggles panorama capture. The first call selects a region and begins
@@ -111,7 +117,11 @@ final class PanoramaController {
     }
 
     private func start(save: Bool) {
-        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
             isActive = false
             return
         }

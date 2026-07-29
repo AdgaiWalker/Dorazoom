@@ -5,6 +5,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var appController: AppController?
     private var pasteCompatibilityEventTap: SystemPasteCompatibilityEventTap?
+    private var controlVPasteHotkeyService: ControlVPasteHotkeyService?
+    private let permissionRelaunchCoordinator = PermissionRelaunchCoordinator()
 
     public override init() {
         super.init()
@@ -33,7 +35,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let overlayController = OverlayWindowController()
         let annotationController = AnnotationController()
         let viewportController = ZoomViewportController()
-        let inputCompatibilityRequester = SystemInputCompatibilityPermissionRequester()
+        let inputCompatibilityRequester = SystemInputCompatibilityPermissionRequester(
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator
+        )
         let pasteCompatibilityCoordinator = PasteCompatibilityCoordinator(permissionRequester: inputCompatibilityRequester)
 
         let modeCoordinator = ModeCoordinator(
@@ -44,11 +48,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             overlayController: overlayController,
             annotationController: annotationController,
             viewportController: viewportController,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
             pasteCompatibilityCoordinator: pasteCompatibilityCoordinator
         )
+        let keyboardEventPoster = SystemKeyboardEventPoster()
         let pasteCompatibilityEventTap = SystemPasteCompatibilityEventTap(
             coordinator: pasteCompatibilityCoordinator,
-            poster: SystemKeyboardEventPoster(),
+            poster: keyboardEventPoster,
             permissionRequester: inputCompatibilityRequester
         )
         pasteCompatibilityCoordinator.onAccessBecameComplete = { [weak pasteCompatibilityEventTap] in
@@ -57,7 +63,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = pasteCompatibilityEventTap.start()
         self.pasteCompatibilityEventTap = pasteCompatibilityEventTap
 
-        let hotkeyService = HotkeyService(settingsStore: settingsStore) { command in
+        let controlVPasteHotkeyService = ControlVPasteHotkeyService(
+            permissionRequester: inputCompatibilityRequester,
+            poster: keyboardEventPoster
+        )
+        pasteCompatibilityCoordinator.onScreenshotCopied = { [weak controlVPasteHotkeyService] changeCount in
+            controlVPasteHotkeyService?.screenshotCopied(changeCount: changeCount)
+        }
+        self.controlVPasteHotkeyService = controlVPasteHotkeyService
+
+        let hotkeyService = HotkeyService(
+            settingsStore: settingsStore,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator
+        ) { command in
             Task { @MainActor in
                 modeCoordinator.handle(command)
             }
@@ -75,7 +93,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsStore: settingsStore,
             permissionService: permissionService,
             hotkeyService: hotkeyService,
-            modeCoordinator: modeCoordinator
+            modeCoordinator: modeCoordinator,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator
         )
 
         DistributedNotificationCenter.default().addObserver(
@@ -93,9 +112,21 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
+        let shouldRelaunch = permissionRelaunchCoordinator.consumeRelaunchRequest()
+        controlVPasteHotkeyService?.stop()
         pasteCompatibilityEventTap?.stop()
         DistributedNotificationCenter.default().removeObserver(self)
         SingleInstance.release()
+        if shouldRelaunch {
+            relaunchCurrentApplication()
+        }
+    }
+
+    private func relaunchCurrentApplication() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration)
     }
 
     @objc private func showSettingsFromOtherInstance(_ notification: Notification) {

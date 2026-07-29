@@ -227,6 +227,8 @@ final class SnipController {
     private let displayManager: DisplayManager
     private let permissionService: PermissionService
     private let settingsStore: SettingsStore
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
+    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
 
     private var window: NSWindow?
     private var capturedFrame: CapturedFrame?
@@ -240,12 +242,16 @@ final class SnipController {
         displayManager: DisplayManager,
         permissionService: PermissionService,
         settingsStore: SettingsStore,
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
+        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
         onCopiedToPasteboard: ((Int) -> Void)? = nil
     ) {
         self.captureService = captureService
         self.displayManager = displayManager
         self.permissionService = permissionService
         self.settingsStore = settingsStore
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
+        self.screenRecordingPermissionSession = screenRecordingPermissionSession
         self.onCopiedToPasteboard = onCopiedToPasteboard
     }
 
@@ -264,7 +270,11 @@ final class SnipController {
             return
         }
 
-        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
             finish()
             return
         }

@@ -60,8 +60,23 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
         assertPartialAccessDoesNotIntercept(.init(canListen: true, canPost: false))
     }
 
-    func testPostOnlyPartialAccessDoesNotArmInterceptOrInstallEventTap() {
-        assertPartialAccessDoesNotIntercept(.init(canListen: false, canPost: true))
+    func testPostOnlyAccessDoesNotNeedAnotherPermissionRequestOrInstallEventTap() {
+        let requester = MatrixPermissionRequester(initialAccess: .init(canListen: false, canPost: true))
+        let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        let poster = MatrixKeyboardPoster()
+        let installer = MatrixEventTapInstaller()
+        let tap = SystemPasteCompatibilityEventTap(
+            coordinator: coordinator,
+            poster: poster,
+            permissionRequester: requester,
+            installer: installer
+        )
+
+        coordinator.screenshotCopied(changeCount: 40)
+
+        XCTAssertEqual(requester.requestCount, 0)
+        XCTAssertFalse(tap.start())
+        XCTAssertEqual(installer.installCount, 0)
     }
 
     func testPreviouslyAllowedAccessAfterRestartStartsAtLaunchAndArmsWithoutRequesting() {

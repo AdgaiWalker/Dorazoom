@@ -6,6 +6,7 @@ final class AppController: NSObject {
     private let permissionService: PermissionService
     private let hotkeyService: HotkeyService
     private let modeCoordinator: ModeCoordinator
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator
     /// One-shot observer used to re-present the permissions dialog when the user
     /// returns to ZoomIt after being sent to System Settings.
     private var permissionReactivationObserver: NSObjectProtocol?
@@ -23,12 +24,14 @@ final class AppController: NSObject {
         settingsStore: SettingsStore,
         permissionService: PermissionService,
         hotkeyService: HotkeyService,
-        modeCoordinator: ModeCoordinator
+        modeCoordinator: ModeCoordinator,
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator = PermissionRelaunchCoordinator()
     ) {
         self.settingsStore = settingsStore
         self.permissionService = permissionService
         self.hotkeyService = hotkeyService
         self.modeCoordinator = modeCoordinator
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
         super.init()
     }
 
@@ -110,9 +113,11 @@ final class AppController: NSObject {
         switch alert.runModal() {
         case .alertSecondButtonReturn:
             if screenGranted {
+                permissionRelaunchCoordinator.notePermissionFlowMayRequireRelaunch()
                 permissionService.openSystemSettings()
                 representWhenActive()
             } else {
+                permissionRelaunchCoordinator.notePermissionFlowMayRequireRelaunch()
                 let granted = permissionService.requestScreenCaptureAccess()
                 if granted {
                     presentPermissionsDialog()
@@ -168,6 +173,7 @@ final class AppController: NSObject {
     }
 
     @objc func quit() {
+        permissionRelaunchCoordinator.noteExplicitQuit()
         hotkeyService.stop()
         NSApplication.shared.terminate(nil)
     }

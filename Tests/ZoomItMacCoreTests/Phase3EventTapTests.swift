@@ -3,6 +3,25 @@ import XCTest
 
 @MainActor
 final class Phase3EventTapTests: XCTestCase {
+    func testControlVPasteHotkeyWorksWithPostAccessWhenListenAccessIsUnavailable() {
+        let requester = FakeEventTapPermissionRequester(access: .init(canListen: false, canPost: true))
+        let registrar = FakeControlVPasteHotkeyRegistrar()
+        let poster = FakeKeyboardEventPoster()
+        let pasteboard = FakePasteboardChangeCountProvider(changeCount: 42)
+        let service = ControlVPasteHotkeyService(
+            permissionRequester: requester,
+            registrar: registrar,
+            poster: poster,
+            pasteboard: pasteboard
+        )
+
+        service.screenshotCopied(changeCount: 42)
+        registrar.triggerControlV()
+
+        XCTAssertEqual(registrar.registeredHotkeys, [.controlV])
+        XCTAssertEqual(poster.postedCommands, [.commandV])
+    }
+
     func testArmedControlVPostsCommandVAndSuppressesOriginalEvent() {
         let requester = FakeEventTapPermissionRequester(access: .init(canListen: true, canPost: true))
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
@@ -131,4 +150,32 @@ private final class FakeEventTapInstaller: PasteCompatibilityEventTapInstalling 
     }
 
     func stop() {}
+}
+
+@MainActor
+private final class FakeControlVPasteHotkeyRegistrar: ControlVPasteHotkeyRegistering {
+    private(set) var registeredHotkeys: [PasteCompatibilityHotkey] = []
+    private var handler: (() -> Void)?
+
+    func register(_ hotkey: PasteCompatibilityHotkey, handler: @escaping () -> Void) -> Bool {
+        registeredHotkeys.append(hotkey)
+        self.handler = handler
+        return true
+    }
+
+    func unregister() {
+        handler = nil
+    }
+
+    func triggerControlV() {
+        handler?()
+    }
+}
+
+private final class FakePasteboardChangeCountProvider: PasteboardChangeCountProviding {
+    var changeCount: Int
+
+    init(changeCount: Int) {
+        self.changeCount = changeCount
+    }
 }

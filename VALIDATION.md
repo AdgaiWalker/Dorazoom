@@ -1,6 +1,6 @@
 # DoraZoom Validation Record
 
-> Last updated: 2026-07-28 10:03:18 CST
+> Last updated: 2026-07-29 12:27:50 CST
 
 ## Phase 1 Baseline
 
@@ -1958,6 +1958,230 @@ Running `Scripts/build-app.sh debug` without overriding `ZOOMIT_APP_NAME` should
 ### Next Behavior
 
 Manual Phase 7 acceptance remains next unless another non-invasive delivery inconsistency is found.
+
+## Hai TDD: Native Control+V Screenshot Paste
+
+### Target Behavior
+
+After `Control+6` copies a DoraZoom screenshot, `Control+V` must paste through a temporary native global hotkey even when keyboard-listen/Input Monitoring access is unavailable, provided post/Accessibility access is granted. Native `Command+V` remains untouched. The temporary hotkey exists only while the same DoraZoom screenshot remains in the pasteboard.
+
+### RED
+
+- **Test added**: `Phase3EventTapTests.testControlVPasteHotkeyWorksWithPostAccessWhenListenAccessIsUnavailable`.
+- **Behavior asserted**: post-only permission plus a DoraZoom screenshot registers exact `Control+V` and emits one synthetic native `Command+V` when triggered.
+- **Command**: `swift test --filter Phase3EventTapTests`.
+- **Observed failure**: compilation failed because `ControlVPasteHotkeyService`, `ControlVPasteHotkeyRegistering`, `PasteCompatibilityHotkey`, and `PasteboardChangeCountProviding` did not exist.
+- **Failure is correct because**: production only had an active Event Tap path, which required both listen and post access and was not reliable in the user's real macOS permission state.
+
+### GREEN
+
+- **Minimal implementation**: added `ControlVPasteHotkeyService` with a dedicated Carbon registrar; screenshot completion registers exact `Control+V`, verifies the pasteboard `changeCount`, posts native `Command+V`, polls for clipboard replacement, and unregisters when the screenshot is no longer current. Wired it alongside the existing Event Tap fallback and made Carbon event handlers ignore foreign hotkey signatures.
+- **Command**: `swift test --filter Phase3EventTapTests`.
+- **Observed pass**: 6 event/paste tests passed with zero failures, including post-only native `Control+V`.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: made Carbon the low-permission primary path and retained Event Tap as a fallback; the temporary paste hotkey remains separate from fixed product hotkeys because its lifetime is owned by pasteboard state.
+- **Command after refactor**: `swift test`, `swift run ZoomItMacSelfTest`, `Scripts/verify-test-boundary.sh`, `swift build`, and targeted `git diff --check`.
+- **Observed result**: full suite passed 119 XCTest cases; self-test, build, test-boundary audit, and whitespace checks passed.
+
+### Next Behavior
+
+Rebuild the stable-signed local app and manually verify `Control+6` → `Control+V` and `Control+6` → `Command+V` in a normal target app.
+
+## Hai TDD: Post-Only Control+V Permission Model
+
+### Target Behavior
+
+The native Carbon `Control+V` path must be considered ready when post/Accessibility permission is available even if listen/Input Monitoring permission is unavailable. First-screenshot authorization requests post access only; Event Tap may still activate as an optional fallback when both permissions already exist.
+
+### RED
+
+- **Test added**: `Phase3PastePermissionPresentationTests.testSettingStatusBecomesReadyWithPostAccessEvenWhenListenAccessIsUnavailable`.
+- **Behavior asserted**: injected access `{canListen: false, canPost: true}` reports the `Control+V` setting as ready.
+- **Command**: `swift test --filter Phase3PastePermissionPresentationTests`.
+- **Observed failure**: status was `waitingForAuthorization(missing: [.listen])` instead of `ready`.
+- **Failure is correct because**: the prior permission model still treated Event Tap's listen requirement as mandatory even after the Carbon primary path was introduced.
+
+### GREEN
+
+- **Minimal implementation**: changed `PasteCompatibilityCoordinator` readiness and first-screenshot request gating to post access; changed the system requester to request only `CGRequestPostEventAccess()`; updated permission copy to state that DoraZoom sends native `Command+V` and does not read key contents; retained listen/post completeness only for optional Event Tap installation.
+- **Command**: `swift test --filter 'Phase3EventTapTests|Phase3PastePermissionMatrixTests|Phase3PastePermissionPresentationTests|Phase2ContractTests'`.
+- **Observed pass**: 26 related tests passed with zero failures, including post-only readiness, no redundant permission request, existing Event Tap matrix, and native `Command+V` pass-through.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: synchronized PRD, architecture, README, goal, and acceptance wording around Carbon-primary/post-only behavior; Input Monitoring remains an optional fallback permission instead of a primary-path prerequisite.
+- **Command after refactor**: full verification is repeated after documentation and production changes, before rebuilding the local app.
+- **Observed result**: full suite passed 119 XCTest cases; self-test, test-boundary audit, and diff checks passed. The stable-signed release app was rebuilt at `2026-07-29 12:27:44 CST` and launched as PID `54558` with bundle id `com.duola.dorazoom`, Team ID `26GG8J688T`, and hardened runtime.
+
+### Next Behavior
+
+Ask 哆啦 to retest `Control+6` → `Control+V` and `Control+6` → `Command+V` in the running stable-signed app.
+
+## Hai TDD: Hotkey Permission Prompt Deduplication
+
+### Target Behavior
+
+When macOS keyboard-listen permission is not yet effective, DoraZoom must show the fallback-hotkey authorization explanation at most once per app run. Opening or closing Settings, changing a shortcut, or otherwise re-registering hotkeys must not recreate the prompt state and display the same authorization dialog repeatedly. If permission becomes effective, the event tap may install immediately.
+
+### RED
+
+- **Test added**: `Phase7HotkeyFallbackSimulationTests.testMissingListenPermissionPromptsOnlyOnceAcrossHotkeyReregistration`.
+- **Behavior asserted**: one shared permission session returns `promptForAuthorization` once, then `waitForRelaunch` for repeated missing-access checks, and `installEventTap` after access becomes available.
+- **Command**: `swift test --filter Phase7HotkeyFallbackSimulationTests`.
+- **Observed failure**: compilation failed because `HotkeyFallbackPermissionSession` and its permission actions did not exist.
+- **Failure is correct because**: the production event tap kept `didRequestListenAccess` inside each tap instance, while Settings re-registration destroys and recreates that instance, resetting the guard and causing the repeated dialog.
+
+### GREEN
+
+- **Minimal implementation**: added `HotkeyFallbackPermissionSession` and `HotkeyFallbackPermissionAction`; moved the one-shot state above individual event taps by owning one session in `HotkeyService` and sharing it with every recreated fallback tap. Updated the dialog to use the DoraZoom product name and explain that a fully checked permission may require quitting and reopening the app.
+- **Command**: `swift test --filter Phase7HotkeyFallbackSimulationTests`.
+- **Observed pass**: 3 hotkey-fallback simulation tests passed, including the new repeated-registration regression test.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: replaced the event-tap-local boolean with a named app-session policy so prompt lifetime matches hotkey-service lifetime; no compatibility branch or real TCC automation was added.
+- **Command after refactor**: `swift test --filter 'Phase7HotkeyFallbackSimulationTests|Phase7PermissionRelaunchSimulationTests|Phase6SettingsPermissionsSimulationTests|Phase3EventTapTests'`, `swift build`, `Scripts/verify-test-boundary.sh`, `zsh -n Scripts/build-app.sh`, and `git diff --check -- Sources/ZoomItMacCore/Hotkeys/HotkeyFallbackEventTap.swift Sources/ZoomItMacCore/Hotkeys/HotkeyService.swift Tests/ZoomItMacCoreTests/Phase7HotkeyFallbackSimulationTests.swift`.
+- **Observed result**: 15 related simulated tests passed with zero failures; build, automated-test boundary, shell syntax, and diff whitespace checks passed.
+
+### Next Behavior
+
+Rebuild and relaunch the local DoraZoom app, then manually confirm that changing or re-enabling hotkeys no longer repeats the authorization explanation during the same app run.
+
+## Hai TDD: Screen Recording Prompt Deduplication
+
+### Target Behavior
+
+If macOS has not yet made Screen Recording permission effective, repeatedly pressing screen-dependent shortcuts such as `Control+1`, `Control+2`, or `Control+6` must not show the same DoraZoom permission explanation on every press. The explanation and system request occur once per app run; later presses wait for permission to become effective or for the app to relaunch. Once the injected permission state becomes granted, the shortcut gate succeeds without another prompt.
+
+### RED
+
+- **Test added**: `Phase7PermissionRelaunchSimulationTests.testScreenRecordingHotkeysDoNotRepeatPermissionPromptWhileWaitingForRelaunch`.
+- **Behavior asserted**: two missing-permission checks sharing one session produce one prompt and one system request; changing the simulated permission state to granted makes the next check return `true`.
+- **Command**: `swift test --filter Phase7PermissionRelaunchSimulationTests`.
+- **Observed failure**: compilation failed because `ScreenRecordingPermissionSession` did not exist and `ScreenRecordingPrompt.ensureGranted` accepted no shared permission-session argument.
+- **Failure is correct because**: every screen-dependent command previously called the prompt directly whenever preflight returned false, so a checked-but-not-yet-effective macOS permission caused an authorization loop.
+
+### GREEN
+
+- **Minimal implementation**: added `ScreenRecordingPermissionSession` and shared one instance across static zoom, live zoom, draw, snip, recording, and panorama through `ModeCoordinator`; the shared gate prompts/requests once, waits silently while relaunch is pending, and immediately accepts a granted state.
+- **Command**: `swift test --filter Phase7PermissionRelaunchSimulationTests`.
+- **Observed pass**: 4 permission/relaunch simulation tests passed with zero failures, including the new repeated-hotkey regression test.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: centralized the one-shot state in the permission gate and injected the same session into every screen-dependent controller, avoiding six independent flags and keeping automated tests entirely simulated.
+- **Command after refactor**: `swift test --filter 'Phase7HotkeyFallbackSimulationTests|Phase7PermissionRelaunchSimulationTests|Phase6SettingsPermissionsSimulationTests|Phase3EventTapTests|Phase4StaticZoomLifecycleTests|Phase3SnipExportPlanTests|Phase5RecordingTargetRequestPlanTests|Phase6PanoramaSimulationTests'`, `swift build`, `Scripts/verify-test-boundary.sh`, and `git diff --check -- Sources/ZoomItMacCore/Permissions/PermissionService.swift Sources/ZoomItMacCore/Core/ModeCoordinator.swift Sources/ZoomItMacCore/Capture/SnipController.swift Sources/ZoomItMacCore/Capture/RecordingController.swift Sources/ZoomItMacCore/Capture/PanoramaController.swift Tests/ZoomItMacCoreTests/Phase7PermissionRelaunchSimulationTests.swift`.
+- **Observed result**: 28 related simulated tests passed with zero failures; build, test-boundary, and diff checks passed.
+
+### Next Behavior
+
+The local daily app was rebuilt and relaunched at `2026-07-29 12:09:54 CST` with the available stable Apple Development identity instead of ad-hoc signing. The running app is PID `49220`; its designated requirement is anchored to bundle id `com.duola.dorazoom` plus the Apple Development certificate, with Team ID `26GG8J688T` and hardened runtime. Manual retest should now grant the stable signed app once and confirm that pending Screen Recording permission no longer generates repeated dialogs. Real shortcut activation still depends on macOS reporting the permission as effective after a full app relaunch.
+
+## Hai TDD: Permission Authorization Relaunch Guard
+
+### Target Behavior
+
+When macOS terminates DoraZoom during a visible permission flow, DoraZoom should schedule exactly one short-window relaunch so the user returns to the app instead of thinking it crashed. The guard must not relaunch after the window expires, and it must not relaunch after an explicit user Quit.
+
+### RED
+
+- **Test added**: `Tests/ZoomItMacCoreTests/Phase7PermissionRelaunchSimulationTests.swift`.
+- **Behavior asserted**: a permission flow arms a one-shot relaunch request; consuming it clears it; expired requests and explicit quits do not relaunch.
+- **Command**: `swift test --filter Phase7PermissionRelaunchSimulationTests`.
+- **Observed failure**: compile failed with `cannot find 'PermissionRelaunchCoordinator' in scope`.
+- **Failure is correct because**: production had no state machine separating permission-triggered system termination from intentional user quit.
+
+### GREEN
+
+- **Minimal implementation**: added `PermissionRelaunchCoordinator`; armed it before Screen Recording and input listen/post authorization flows; consumed it in `AppDelegate.applicationWillTerminate(_:)`; relaunched the current bundle through `NSWorkspace`; cancelled it from `AppController.quit()`.
+- **Command**: `swift test --filter Phase7PermissionRelaunchSimulationTests`.
+- **Observed pass**: 2 tests passed, 0 failures.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: marked the simulation tests `@MainActor` to match the AppKit-facing coordinator boundary; kept the relaunch decision as a small coordinator instead of spreading boolean flags through permission UI and app delegate code.
+- **Command after refactor**: `swift test --filter 'Phase7PermissionRelaunchSimulationTests|Phase2ContractTests|Phase3PastePermissionPresentationTests|Phase3EventTapTests'`, `swift build`, `Scripts/verify-test-boundary.sh`, and `Scripts/build-app.sh release`.
+- **Observed result**: 21 related simulated XCTest cases passed; `swift build` passed; the test-boundary audit printed `PASS: automated tests stay inside the simulation boundary`; release app build passed for arm64.
+
+### User-Visible Retest
+
+- **Observed issue source**: `/usr/bin/log show --predicate 'process == "DoraZoom"' --last 15m --style compact` showed `Handling Quit AppleEvent` and normal AppKit termination, with no DiagnosticReports crash file found.
+- **Retest action**: after the fix, rebuilt `.build/DoraZoom.app` from current source using local ad-hoc signing and launched it at `2026-07-28 22:09:26 CST`.
+- **Observed process state**: PID `53164` remained running from `22:09:37` through `22:10:33`.
+- **Boundary note**: this launch was user-requested visible manual testing. Automated verification remains simulation-only and does not request TCC, touch real global input, real pasteboard, screen, microphone, camera, target apps or login items.
+
+### Next Behavior
+
+Ask 哆啦 to click the permission authorization path again and confirm whether DoraZoom automatically returns after macOS applies the authorization.
+
+## Hai TDD: ZoomIt Control-Number Hotkey Fallback
+
+### Target Behavior
+
+If macOS or another process prevents Carbon from registering some ZoomIt-style `Control+数字` shortcuts, DoraZoom should not silently leave those shortcuts dead. Failed Carbon registrations should enter a lightweight keyboard event-tap fallback that dispatches the same `AppCommand` and suppresses only exact matching fallback shortcuts.
+
+### RED
+
+- **Test added**: `Tests/ZoomItMacCoreTests/Phase7HotkeyFallbackSimulationTests.swift`.
+- **Behavior asserted**: simulated fallback bindings dispatch `Control+1`, `Control+2` and `Control+6`; non-matching modifiers, unrelated keys and synthetic events pass through.
+- **Command**: `swift test --filter Phase7HotkeyFallbackSimulationTests`.
+- **Observed failure**: compile failed with missing `HotkeyFallbackBinding` and `HotkeyFallbackEventTapController`.
+- **Failure is correct because**: `HotkeyService` previously ignored `RegisterEventHotKey` return status and had no fallback path for shortcuts Carbon could not register.
+
+### GREEN
+
+- **Minimal implementation**: added `HotkeyFallbackEventTapController`, `SystemHotkeyFallbackEventTap` and `CGHotkeyFallbackEventTapInstaller`; changed `HotkeyService` to check every Carbon registration result, log failures, keep successful Carbon registrations, and route failed bindings through the fallback tap.
+- **Command**: `swift test --filter Phase7HotkeyFallbackSimulationTests`.
+- **Observed pass**: 2 tests passed, 0 failures.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: kept fallback matching as a tiny exact-match binding table so it does not alter unrelated keyboard behavior; shared the permission relaunch coordinator with the fallback authorization path.
+- **Command after refactor**: `swift test --filter 'Phase7HotkeyFallbackSimulationTests|Phase7PermissionRelaunchSimulationTests|Phase6SettingsPermissionsSimulationTests|Phase3EventTapTests'`, `swift build`, and `Scripts/verify-test-boundary.sh`.
+- **Observed result**: 13 related simulated tests passed; `swift build` passed; automated test-boundary audit passed.
+
+### Next Behavior
+
+Visible manual testing should retry the `Control+数字` shortcuts. If macOS shows keyboard-listening authorization, grant it and allow DoraZoom to relaunch.
+
+## Hai TDD: Screen Recording Hotkey Permission Feedback
+
+### Target Behavior
+
+When a hotkey such as `Control+1`, `Control+2`, `Control+4`, `Control+5`, `Control+6` or `Control+8` requires Screen Recording permission and the permission is missing, DoraZoom should show a clear permission explanation, arm the authorization relaunch guard before calling the system permission API, and return without pretending the shortcut succeeded.
+
+### RED
+
+- **Test added**: `testScreenRecordingHotkeyPermissionPromptArmsRelaunchBeforeRequestingAccess` in `Tests/ZoomItMacCoreTests/Phase7PermissionRelaunchSimulationTests.swift`.
+- **Behavior asserted**: missing Screen Recording permission prompts once, requests access once, and arms a relaunch request before returning `false`.
+- **Command**: `swift test --filter Phase7PermissionRelaunchSimulationTests`.
+- **Observed failure**: compile failed because `ScreenRecordingPrompt.ensureGranted` had no relaunch-coordinator, prompting, or deterministic-time injection parameters.
+- **Failure is correct because**: the hotkey path only called `CGRequestScreenCaptureAccess()` and returned, so screen-dependent shortcuts could feel like no-ops while `Control+3` still worked.
+
+### GREEN
+
+- **Minimal implementation**: added `ScreenRecordingPermissionPrompting`, `SystemScreenRecordingPermissionPrompter` and an enhanced `ScreenRecordingPrompt.ensureGranted(...)`; wired the shared `PermissionRelaunchCoordinator` through `ModeCoordinator`, `SnipController`, `RecordingController` and `PanoramaController`.
+- **Command**: `swift test --filter Phase7PermissionRelaunchSimulationTests`.
+- **Observed pass**: 3 tests passed, 0 failures.
+
+### REFACTOR
+
+- **Refactor done**: yes.
+- **Change**: kept screen-permission prompting centralized in `ScreenRecordingPrompt` instead of duplicating alert and relaunch logic across zoom, draw, snip, recording and panorama.
+- **Command after refactor**: `swift test --filter 'Phase7HotkeyFallbackSimulationTests|Phase7PermissionRelaunchSimulationTests|Phase6SettingsPermissionsSimulationTests|Phase3EventTapTests|Phase4StaticZoomLifecycleTests|Phase4OverlayPointerPresentationTests|Phase3SnipExportPlanTests|Phase5RecordingTargetRequestPlanTests|Phase6PanoramaSimulationTests'`, `swift build`, `Scripts/verify-test-boundary.sh`, and `ZOOMIT_BUNDLE_ID=com.duola.dorazoom ZOOMIT_DISPLAY_NAME=DoraZoom ZOOMIT_APP_NAME=DoraZoom.app Scripts/build-app.sh release`.
+- **Observed result**: 29 related simulated tests passed; `swift build` passed; automated test-boundary audit passed; current `.build/DoraZoom.app` rebuilt at `2026-07-28 22:22:07 CST` and launched as PID `57404` for visible user testing.
+
+### Next Behavior
+
+Ask 哆啦 to retry `Control+1`, `Control+2` and `Control+6`. If only `Control+3` works after granting Screen Recording and relaunching, inspect the new DoraZoom logs for Carbon registration failures or fallback event-tap installation failures.
 
 ## Hai TDD: DoraZoom Recording File Naming and Simulation-Only Delivery Gate
 

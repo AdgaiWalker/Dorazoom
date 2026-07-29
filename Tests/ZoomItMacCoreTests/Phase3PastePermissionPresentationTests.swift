@@ -2,15 +2,22 @@ import XCTest
 @testable import ZoomItMacCore
 
 final class Phase3PastePermissionPresentationTests: XCTestCase {
-    func testSettingStatusReportsMissingListenAndPostAccess() {
+    func testSettingStatusReportsMissingPostAccess() {
         let requester = PresentationPermissionRequester(access: .init(canListen: false, canPost: false))
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
 
-        XCTAssertEqual(coordinator.settingStatus, .waitingForAuthorization(missing: [.listen, .post]))
+        XCTAssertEqual(coordinator.settingStatus, .waitingForAuthorization(missing: [.post]))
     }
 
     func testSettingStatusBecomesReadyWhenBothAccessesAreGranted() {
         let requester = PresentationPermissionRequester(access: .init(canListen: true, canPost: true))
+        let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+
+        XCTAssertEqual(coordinator.settingStatus, .ready)
+    }
+
+    func testSettingStatusBecomesReadyWithPostAccessEvenWhenListenAccessIsUnavailable() {
+        let requester = PresentationPermissionRequester(access: .init(canListen: false, canPost: true))
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
 
         XCTAssertEqual(coordinator.settingStatus, .ready)
@@ -22,7 +29,7 @@ final class Phase3PastePermissionPresentationTests: XCTestCase {
         XCTAssertEqual(explanation.title, "启用 ⌃V 粘贴截图")
         XCTAssertTrue(explanation.message.contains("⌃V"))
         XCTAssertTrue(explanation.message.contains("⌘V"))
-        XCTAssertTrue(explanation.message.contains("监听"))
+        XCTAssertTrue(explanation.message.contains("不读取"))
         XCTAssertTrue(explanation.message.contains("发送"))
     }
 }

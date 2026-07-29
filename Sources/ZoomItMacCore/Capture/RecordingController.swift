@@ -705,6 +705,8 @@ final class RecordingController {
     private let displayManager: DisplayManager
     private let permissionService: PermissionService
     private let settingsStore: SettingsStore
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
+    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
     private let movieProfile = RecordingOutputStrategy.defaultMovieProfile
 
     private(set) var isRecording = false
@@ -733,12 +735,16 @@ final class RecordingController {
         captureService: ScreenCaptureService,
         displayManager: DisplayManager,
         permissionService: PermissionService,
-        settingsStore: SettingsStore
+        settingsStore: SettingsStore,
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
+        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession()
     ) {
         self.captureService = captureService
         self.displayManager = displayManager
         self.permissionService = permissionService
         self.settingsStore = settingsStore
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
+        self.screenRecordingPermissionSession = screenRecordingPermissionSession
         self.webcam = WebcamOverlayController(permissionService: permissionService)
     }
 
@@ -760,7 +766,11 @@ final class RecordingController {
     }
 
     private func start(region: Bool) {
-        guard ScreenRecordingPrompt.ensureGranted(permissionService) else {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
             return
         }
         guard let display = displayManager.activeDisplay() else {

@@ -19,7 +19,7 @@ DoraZoom 采用：
 - `AppSessionState` 组合交互、录制、标注和画布背景这四个正交维度，不再用单一互斥 `AppMode` 描述全部运行状态。
 - `InteractionPresentationSnapshot` 是各权威状态派生出的不可变呈现快照。
 - `InteractionFeedback` 只负责光标、HUD、录制状态、菜单栏和临时工具条，并按反馈通道独立管理生命周期。
-- `PasteCompatibilityService` 单独处理有条件的 `Control+V` 转换。
+- `ControlVPasteHotkeyService` 通过截图后临时注册的 Carbon 热键处理主路径，`PasteCompatibilityService` / Event Tap 只保留为已具备监听权限时的兜底路径。
 - `RecordingOutputStrategy` 统一 MOV、MP4 与 GIF 的输出管线；电影配置集中在 `MovieRecordingProfile`。
 - `DrawingShortcutPolicy` 统一 `W/K`、颜色键与工具选择语义。
 
@@ -28,7 +28,8 @@ DoraZoom 采用：
 ```mermaid
 flowchart TD
     A["快捷键 / 鼠标"] --> B["ModeCoordinator<br/>命令与跨能力协调"]
-    V["Control+V Event Tap"] --> P["PasteCompatibilityService"]
+    V["Control+V 临时 Carbon 热键"] --> P["ControlVPasteHotkeyService"]
+    VF["Event Tap 兜底"] --> P
 
     B --> C["Interaction Controller<br/>Zoom / Draw / Snip / OCR"]
     B --> D["RecordingController<br/>full / region / window"]
@@ -102,7 +103,7 @@ flowchart TD
 | 视频预览与编辑 | AVKit、AVFoundation | 沿用官方 |
 | OCR | Vision | 完全本地 |
 | 全局快捷键 | Carbon `RegisterEventHotKey` | 沿用官方 |
-| `Control+V` 兼容 | Core Graphics `CGEventTap` | 独立服务 |
+| `Control+V` 兼容 | Carbon 临时热键；Core Graphics `CGEventTap` 兜底 | 独立动态服务 |
 | 剪贴板 | `NSPasteboard` | 原生 |
 | 权限 | TCC、CoreGraphics、AVFoundation | 按需申请 |
 | 登录时启动 | ServiceManagement | 沿用官方 |
@@ -374,7 +375,7 @@ protocol FeedbackLease: AnyObject {
 
 ### 9.2 `PasteCompatibilityService`
 
-现有 `HotkeyService` 负责固定全局快捷键；`Control+V` 是有条件事件转换，生命周期不同，必须独立。
+现有 `HotkeyService` 负责固定全局快捷键；`Control+V` 只在 DoraZoom 截图仍位于剪贴板时临时注册，生命周期不同，必须独立。
 
 建议接口：
 
@@ -387,20 +388,21 @@ protocol PasteCompatibilityService {
 
 内部规则：
 
-- 只有最近一次剪贴板内容来自 DoraZoom 时启用 Event Tap。
-- 其他时间关闭 Event Tap。
+- 只有最近一次剪贴板内容来自 DoraZoom 时注册 Carbon `Control+V` 热键。
+- 其他时间撤销临时热键；剪贴板 `changeCount` 变化后最多 250 ms 内撤销。
 - 只转换精确的 `Control+V`。
 - 合成事件携带内部标记，避免递归处理。
 - 剪贴板 `changeCount` 改变后立即失效。
-- Event Tap 回调不执行 UI、媒体或文件操作。
-- `PermissionService` 必须分别用 `CGPreflightListenEventAccess()` 与 `CGPreflightPostEventAccess()` 检查监听和发送权限；任一缺失时返回 `.requiresPermission`，不创建 active Event Tap，也不假装已经工作。
-- 首次截图成功后，调用方根据 `.requiresPermission` 先展示用途说明，再通过 `CGRequestListenEventAccess()` / `CGRequestPostEventAccess()` 请求所需授权；不能等待一个尚无权限监听的 `Control+V`。
+- Carbon 回调和 Event Tap 回调都不执行 UI、媒体或文件操作。
+- 主路径只用 `CGPreflightPostEventAccess()` / `CGRequestPostEventAccess()` 检查并请求发送权限，不要求 Input Monitoring，也不读取用户按键内容。
+- 已同时具备 listen/post 权限时可以启用 Event Tap 兜底；缺少 listen 权限不影响 Carbon 主路径。
+- 首次截图成功后，调用方先展示用途说明，再请求发送权限；不能等待第一次 `Control+V` 后才请求。
 - 权限拒绝或尚未授权时，服务不拦截任何事件，原生 `Command+V` 路径保持不变。
 - 授权后，只要同一个 `pasteboardChangeCount` 仍有效，精确 `Control+V` 可以重复转换；转换本身不解除 armed 状态。
 
 为什么不并入 `HotkeyService`：
 
-Carbon 热键注册与 Event Tap 过滤具有不同的权限、失败方式、生命周期和性能约束，合并会让调用者理解两套模型。
+固定功能热键与截图后临时存在的粘贴热键具有不同的状态源和生命周期；独立服务可以在剪贴板变化时立即撤销，而不重载全部产品热键。
 
 ### 9.3 `RecordingOutputStrategy`
 
@@ -486,16 +488,16 @@ DoraZoom 固定策略：
 
 ### 9.5 权限适配
 
-保留官方 `PermissionService`，在其边界内补充键盘事件监听/发送状态、请求和系统设置入口。
+保留官方 `PermissionService`，在其边界内补充发送权限状态、请求和系统设置入口；监听状态只服务于 Event Tap 兜底与被系统占用的数字热键兜底。
 
 权限策略：
 
 - 屏幕录制：第一次使用捕获功能时申请。
-- 输入兼容：第一次成功截图到剪贴板后，在用途说明之后检查并申请 listen/post event access。
+- 输入兼容：第一次成功截图到剪贴板后，在用途说明之后检查并申请 post/辅助功能权限；Carbon 临时热键主路径不申请 listen/Input Monitoring。
 - 麦克风：第一次开启麦克风录制时申请。
 - 摄像头：第一次开启摄像头时申请。
 
-所需授权全部成功后，再次调用 `arm(pasteboardChangeCount:)` 创建 active Event Tap；失败或拒绝时保持未武装状态。不能把权限请求放在 Event Tap 回调里。
+post 权限成功后即可调用 `screenshotCopied(changeCount:)` 注册临时 Carbon `Control+V`；若 listen/post 都已存在，可以同时启动 Event Tap 兜底。失败或拒绝时保持未武装状态，不能把权限请求放在输入回调里。
 
 不在 UI、Event Tap 或功能控制器中直接拼接系统设置 URL。
 
@@ -630,10 +632,10 @@ struct OperationSessionID: Hashable, Sendable {
 
 ### P4：固定热键和条件粘贴不是同一种输入——中
 
-- **发现**：官方 `HotkeyService` 处理 Carbon 全局快捷键，而 `Control+V` 需要 Event Tap、剪贴板状态和额外权限。
+- **发现**：官方 `HotkeyService` 处理固定 Carbon 全局快捷键，而 `Control+V` 需要剪贴板状态、临时 Carbon 注册、发送权限及可选 Event Tap 兜底。
 - **原则**：按隐藏信息划分模块。
 - **复杂度**：合并两者会让一个服务同时承担两套生命周期和失败模型。
-- **建议**：建立独立 `PasteCompatibilityService`。
+- **建议**：建立独立 `ControlVPasteHotkeyService`，保留 `PasteCompatibilityService` 作为 Event Tap 兜底状态机。
 - **为什么不做全局重映射**：永久重映射会破坏终端和其他应用的原有行为。
 
 ## 15. 红蓝对抗

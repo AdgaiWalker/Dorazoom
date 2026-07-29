@@ -31,7 +31,7 @@ struct InputCompatibilityAccessExplanation: Equatable, Sendable {
 
     static let controlVPaste = InputCompatibilityAccessExplanation(
         title: "启用 ⌃V 粘贴截图",
-        message: "DoraZoom 可以把刚截取的图片用 ⌃V 粘贴。macOS 需要允许 DoraZoom 监听并发送键盘事件；未授权时仍可使用 ⌘V。"
+        message: "DoraZoom 可以把刚截取的图片用 ⌃V 粘贴。macOS 需要在“辅助功能”中允许 DoraZoom 发送原生 ⌘V；DoraZoom 不读取你的按键内容。未授权时仍可直接使用 ⌘V。"
     )
 }
 
@@ -101,6 +101,7 @@ final class PasteCompatibilityCoordinator {
     private var didRequestInputCompatibility = false
     private var didNotifyAccessComplete = false
     var onAccessBecameComplete: (() -> Void)?
+    var onScreenshotCopied: ((Int) -> Void)?
 
     init(permissionRequester: InputCompatibilityPermissionRequester) {
         self.permissionRequester = permissionRequester
@@ -109,19 +110,20 @@ final class PasteCompatibilityCoordinator {
 
     var settingStatus: PasteCompatibilitySettingStatus {
         let access = permissionRequester.currentAccess()
-        return access.isComplete ? .ready : .waitingForAuthorization(missing: access.missingRequirements)
+        return access.canPost ? .ready : .waitingForAuthorization(missing: [.post])
     }
 
     @MainActor
     func screenshotCopied(changeCount: Int) {
         refreshAccess()
-        if !permissionRequester.currentAccess().isComplete, !didRequestInputCompatibility {
+        if !permissionRequester.currentAccess().canPost, !didRequestInputCompatibility {
             didRequestInputCompatibility = true
             permissionRequester.explainAndRequestInputCompatibilityAccess()
             refreshAccess()
         }
         notifyAccessCompleteIfNeeded()
         service.screenshotCopied(changeCount: changeCount)
+        onScreenshotCopied?(changeCount)
     }
 
     func pasteboardDidChange(changeCount: Int) {
@@ -145,6 +147,12 @@ final class PasteCompatibilityCoordinator {
 }
 
 final class SystemInputCompatibilityPermissionRequester: InputCompatibilityPermissionRequester {
+    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
+
+    init(permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil) {
+        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
+    }
+
     func currentAccess() -> KeyboardEventAccess {
         KeyboardEventAccess(
             canListen: CGPreflightListenEventAccess(),
@@ -162,8 +170,8 @@ final class SystemInputCompatibilityPermissionRequester: InputCompatibilityPermi
         alert.addButton(withTitle: "稍后")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        if !CGPreflightListenEventAccess() {
-            _ = CGRequestListenEventAccess()
+        if !CGPreflightPostEventAccess() {
+            permissionRelaunchCoordinator?.notePermissionFlowMayRequireRelaunch()
         }
         if !CGPreflightPostEventAccess() {
             _ = CGRequestPostEventAccess()
