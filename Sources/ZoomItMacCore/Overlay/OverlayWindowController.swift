@@ -10,14 +10,7 @@ final class OverlayWindowController {
     private var window: NSWindow?
     private weak var canvasView: ZoomCanvasView?
     private var viewportController: ZoomViewportController?
-    private var zoomTimer: Timer?
-    private var zoomAnimationCompletion: (() -> Void)?
-
-    // ZoomIt's nominal telescope cadence is ZOOM_LEVEL_STEP_TIME (20ms), but on
-    // Windows WM_TIMER messages are coalesced and effectively fire slower, so the
-    // real animation is more deliberate. Use ~33ms (≈30fps) to match that feel
-    // while keeping ZoomIt's 1.1x/0.8x per-step factors.
-    private static let zoomStepInterval: TimeInterval = 1.0 / 30.0
+    private var zoomDriver: DisplaySynchronizedZoomDriver?
 
     func show(
         frame capturedFrame: CapturedFrame,
@@ -26,7 +19,7 @@ final class OverlayWindowController {
         smoothImage: Bool,
         excludeFromScreenCapture: Bool = false,
         commandSink: @escaping (AppCommand) -> Void,
-        onCopiedToPasteboard: ((Int) -> Void)? = nil
+        onPasteboardOutput: ((SnipPasteboardOutput) -> Void)? = nil
     ) {
         close()
 
@@ -61,7 +54,7 @@ final class OverlayWindowController {
             annotationController: annotationController,
             smoothImage: smoothImage,
             commandSink: commandSink,
-            onCopiedToPasteboard: onCopiedToPasteboard
+            onPasteboardOutput: onPasteboardOutput
         )
         window.contentView = canvasView
         window.makeKeyAndOrderFront(nil)
@@ -78,40 +71,22 @@ final class OverlayWindowController {
     /// Drives the viewport's telescope zoom animation, redrawing each step, and
     /// invokes `completion` once the target zoom is reached.
     func runZoomAnimation(completion: (() -> Void)? = nil) {
-        zoomTimer?.invalidate()
-        zoomTimer = nil
+        zoomDriver?.stop()
+        zoomDriver = nil
 
-        guard let viewportController, viewportController.isAnimatingZoom else {
+        guard let viewportController, viewportController.isAnimatingZoom, let canvasView else {
             completion?()
             return
         }
 
-        zoomAnimationCompletion = completion
-        let timer = Timer(timeInterval: Self.zoomStepInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.handleZoomTick()
-            }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        zoomTimer = timer
-    }
-
-    private func handleZoomTick() {
-        guard let viewportController else {
-            zoomTimer?.invalidate()
-            zoomTimer = nil
-            return
-        }
-
-        let continuing = viewportController.advanceZoomAnimation()
-        canvasView?.needsDisplay = true
-        if !continuing {
-            zoomTimer?.invalidate()
-            zoomTimer = nil
-            let completion = zoomAnimationCompletion
-            zoomAnimationCompletion = nil
-            completion?()
-        }
+        let clock = ViewDisplaySynchronizedMotionClock(view: canvasView)
+        let driver = DisplaySynchronizedZoomDriver(
+            viewportController: viewportController,
+            clock: clock,
+            redraw: { [weak canvasView] in canvasView?.needsDisplay = true }
+        )
+        zoomDriver = driver
+        driver.start(completion: completion)
     }
 
     func updateInteractionMode(_ mode: AppMode) {
@@ -131,12 +106,20 @@ final class OverlayWindowController {
     }
     /// Begins a region snip on the current viewport (used when the snip hotkey is
     /// pressed while already zoomed). `onFinished` is called when it ends.
-    func beginRegionSnip(action: SnipAction, onCopiedToPasteboard: ((Int) -> Void)? = nil, onFinished: @escaping () -> Void) {
+    func beginRegionSnip(
+        action: SnipAction,
+        onPasteboardOutput: ((SnipPasteboardOutput) -> Void)? = nil,
+        onFinished: @escaping () -> Void
+    ) {
         guard let canvasView else {
             onFinished()
             return
         }
-        canvasView.beginRegionSnip(action: action, onCopiedToPasteboard: onCopiedToPasteboard, onFinished: onFinished)
+        canvasView.beginRegionSnip(
+            action: action,
+            onPasteboardOutput: onPasteboardOutput,
+            onFinished: onFinished
+        )
     }
     /// The overlay's window number, used to exclude it from live screen capture
     /// so the magnified overlay is never captured back into itself.
@@ -159,9 +142,8 @@ final class OverlayWindowController {
     }
 
     func close() {
-        zoomTimer?.invalidate()
-        zoomTimer = nil
-        zoomAnimationCompletion = nil
+        zoomDriver?.stop()
+        zoomDriver = nil
 
         guard let window else { return }
 

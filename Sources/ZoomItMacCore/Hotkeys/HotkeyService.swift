@@ -22,6 +22,7 @@ final class HotkeyService {
     private var zoomOutNavRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
     private var fallbackEventTap: SystemHotkeyFallbackEventTap?
+    private(set) var requiresInputListeningFallback = false
     private let fallbackPermissionSession = HotkeyFallbackPermissionSession()
     private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
 
@@ -129,7 +130,7 @@ final class HotkeyService {
                 case 2: command = .activateDrawWithoutZoom
                 case 3: command = .activateLiveZoom
                 case 4: command = .zoomIn
-                case 5: command = .zoomOutOrExit
+                case 5: command = .zoomOut
                 case 6: command = .snipRegion(save: false)
                 case 7: command = .snipRegion(save: true)
                 case 8: command = .toggleRecording(region: false)
@@ -325,6 +326,7 @@ final class HotkeyService {
     private func unregisterHotKey() {
         fallbackEventTap?.stop()
         fallbackEventTap = nil
+        requiresInputListeningFallback = false
 
         if let hotKeyRef {
             UnregisterEventHotKey(hotKeyRef)
@@ -430,6 +432,7 @@ final class HotkeyService {
     }
 
     private func startFallbackEventTapIfNeeded(for bindings: [HotkeyFallbackBinding]) {
+        requiresInputListeningFallback = !bindings.isEmpty
         guard !bindings.isEmpty else { return }
         let fallbackEventTap = SystemHotkeyFallbackEventTap(
             bindings: bindings,

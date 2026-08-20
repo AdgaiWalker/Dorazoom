@@ -22,6 +22,30 @@ final class Phase3EventTapTests: XCTestCase {
         XCTAssertEqual(poster.postedCommands, [.commandV])
     }
 
+    func testNativeTextEditingTemporarilyUnregistersControlVWithoutLosingArmedScreenshot() {
+        let requester = FakeEventTapPermissionRequester(access: .init(canListen: false, canPost: true))
+        let registrar = FakeControlVPasteHotkeyRegistrar()
+        let poster = FakeKeyboardEventPoster()
+        let pasteboard = FakePasteboardChangeCountProvider(changeCount: 42)
+        let service = ControlVPasteHotkeyService(
+            permissionRequester: requester,
+            registrar: registrar,
+            poster: poster,
+            pasteboard: pasteboard
+        )
+
+        service.screenshotCopied(changeCount: 42)
+        service.setTextEditingActive(true)
+        registrar.triggerControlV()
+        XCTAssertTrue(poster.postedCommands.isEmpty)
+        XCTAssertFalse(registrar.isRegistered)
+
+        service.setTextEditingActive(false)
+        registrar.triggerControlV()
+        XCTAssertTrue(registrar.isRegistered)
+        XCTAssertEqual(poster.postedCommands, [.commandV])
+    }
+
     func testArmedControlVPostsCommandVAndSuppressesOriginalEvent() {
         let requester = FakeEventTapPermissionRequester(access: .init(canListen: true, canPost: true))
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
@@ -33,6 +57,28 @@ final class Phase3EventTapTests: XCTestCase {
         let decision = eventTap.handle(.keyDown(key: "v", modifiers: [.control]))
 
         XCTAssertEqual(decision, .suppressOriginal)
+        XCTAssertEqual(poster.postedCommands, [.commandV])
+    }
+
+    func testEventTapPassesControlVThroughWhileNativeTextEditingIsActive() {
+        let requester = FakeEventTapPermissionRequester(access: .init(canListen: true, canPost: true))
+        let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        let poster = FakeKeyboardEventPoster()
+        let eventTap = PasteCompatibilityEventTapController(coordinator: coordinator, poster: poster)
+        coordinator.screenshotCopied(changeCount: 100)
+
+        coordinator.setTextEditingActive(true)
+        XCTAssertEqual(
+            eventTap.handle(.keyDown(key: "v", modifiers: [.control])),
+            .passThrough
+        )
+        XCTAssertTrue(poster.postedCommands.isEmpty)
+
+        coordinator.setTextEditingActive(false)
+        XCTAssertEqual(
+            eventTap.handle(.keyDown(key: "v", modifiers: [.control])),
+            .suppressOriginal
+        )
         XCTAssertEqual(poster.postedCommands, [.commandV])
     }
 
@@ -138,7 +184,6 @@ private final class FakeEventTapPermissionRequester: InputCompatibilityPermissio
         access
     }
 
-    func explainAndRequestInputCompatibilityAccess() {}
 }
 
 private final class FakeEventTapInstaller: PasteCompatibilityEventTapInstalling {
@@ -156,6 +201,7 @@ private final class FakeEventTapInstaller: PasteCompatibilityEventTapInstalling 
 private final class FakeControlVPasteHotkeyRegistrar: ControlVPasteHotkeyRegistering {
     private(set) var registeredHotkeys: [PasteCompatibilityHotkey] = []
     private var handler: (() -> Void)?
+    var isRegistered: Bool { handler != nil }
 
     func register(_ hotkey: PasteCompatibilityHotkey, handler: @escaping () -> Void) -> Bool {
         registeredHotkeys.append(hotkey)

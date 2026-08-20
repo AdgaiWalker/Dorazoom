@@ -15,6 +15,7 @@ final class Phase3SnipExportPlanTests: XCTestCase {
         var directoryFiles: [String] = []
         var savePanels: [String] = []
         var ocrImages: [String] = []
+        var outputs: [SnipPasteboardOutput] = []
         let executor = SnipExportExecutor<String>(
             copyToPasteboard: { image in
                 pasteboardImages.append(image)
@@ -26,17 +27,18 @@ final class Phase3SnipExportPlanTests: XCTestCase {
             presentSavePanel: { image in
                 savePanels.append(image)
             },
-            copyOCR: { image in
+            copyOCR: { image, _ in
                 ocrImages.append(image)
             }
         )
 
-        let changeCounts = executor.execute(
+        executor.execute(
             image: "selected-region",
-            operations: SnipExportPlan.operations(for: .copyImage, settings: .defaults)
+            operations: SnipExportPlan.operations(for: .copyImage, settings: .defaults),
+            onPasteboardOutput: { outputs.append($0) }
         )
 
-        XCTAssertEqual(changeCounts, [7])
+        XCTAssertEqual(outputs, [.image(changeCount: 7)])
         XCTAssertEqual(pasteboardImages, ["selected-region"])
         XCTAssertTrue(directoryFiles.isEmpty)
         XCTAssertTrue(savePanels.isEmpty)
@@ -69,5 +71,26 @@ final class Phase3SnipExportPlanTests: XCTestCase {
         XCTAssertFalse(plan.contains(.pasteboardImage))
         XCTAssertFalse(plan.contains(.directoryFile))
         XCTAssertFalse(plan.contains(.savePanel))
+    }
+
+    func testOcrExecutionPropagatesClipboardIdentityAndUserPerceivedCharacterCount() {
+        var outputs: [SnipPasteboardOutput] = []
+        let executor = SnipExportExecutor<String>(
+            copyToPasteboard: { _ in XCTFail("OCR must not copy an image"); return 0 },
+            writeToDirectory: { _ in XCTFail("OCR must not write a file") },
+            presentSavePanel: { _ in XCTFail("OCR must not present a save panel") },
+            copyOCR: { _, completion in
+                completion(.ocrText(changeCount: 19, characterCount: "你好 👋".count))
+            }
+        )
+
+        executor.execute(
+            image: "ocr-region",
+            operations: [.ocrClipboard],
+            onPasteboardOutput: { outputs.append($0) }
+        )
+
+        XCTAssertEqual(outputs, [.ocrText(changeCount: 19, characterCount: 4)])
+        XCTAssertEqual(outputs.first?.feedbackCompletion, .ocrCopied(characterCount: 4))
     }
 }

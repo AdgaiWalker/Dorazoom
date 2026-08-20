@@ -8,25 +8,38 @@ private final class SettingsWindow: NSWindow {
     }
 }
 
-/// A tabbed preferences window modeled on the Windows ZoomIt options dialog,
-/// exposing the Zoom, Draw, and Type settings that ZoomIt supports. Each tab
-/// carries the same kind of descriptive help text the Windows dialog shows.
+/// Native macOS settings window with six product-oriented navigation groups.
 @MainActor
-final class SettingsWindowController: NSObject, NSWindowDelegate {
+final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     private let settingsStore: SettingsStore
     private let onHotKeyChange: () -> Void
+    private let onSettingsChange: () -> Void
     private let onSuspendHotkeys: () -> Void
     private let onResumeHotkeys: () -> Void
     private let onRequestMicrophone: () -> Void
     private let onRequestCamera: () -> Void
     private let onOpenTrimEditor: () -> Void
+    private let onOpenPermissionCenter: () -> Void
     private var settings: AppSettings
+    private let navigationPlan = SettingsNavigationModel.defaultPlan
+    private lazy var hotkeyCaptureSession = HotkeyCaptureSession(
+        suspendHotkeys: onSuspendHotkeys,
+        resumeHotkeys: onResumeHotkeys
+    )
 
     private static let contentWidth: CGFloat = 620
     private static let panelHorizontalInset: CGFloat = 28
     private static let wrappedLabelWidth: CGFloat = contentWidth - panelHorizontalInset * 2
 
     private var window: NSWindow?
+    private weak var navigationTableView: NSTableView?
+    private weak var sectionContentContainer: NSView?
+    private var sectionViews: [SettingsNavigationSectionID: NSView] = [:]
+
+    var windowLevel: NSWindow.Level? { window?.level }
+    var usesSplitNavigation: Bool { window?.contentViewController is NSSplitViewController }
+    var renderedSectionIDs: [SettingsNavigationSectionID] { navigationPlan.sections.map(\.id) }
+    var windowFrameAutosaveName: String? { window?.frameAutosaveName }
 
     // Type tab controls.
     private weak var fontSampleLabel: NSTextField?
@@ -80,25 +93,30 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private weak var recordHotKeyButton: NSButton?
     private weak var demoTypeHotKeyButton: NSButton?
     private weak var panoramaHotKeyButton: NSButton?
+    private weak var activeHotKeyButton: NSButton?
     private var hotKeyMonitor: Any?
     private var recordingTarget: HotKeyTarget?
 
     init(
         settingsStore: SettingsStore,
         onHotKeyChange: @escaping () -> Void,
+        onSettingsChange: @escaping () -> Void,
         onSuspendHotkeys: @escaping () -> Void,
         onResumeHotkeys: @escaping () -> Void,
         onRequestMicrophone: @escaping () -> Void,
         onRequestCamera: @escaping () -> Void,
-        onOpenTrimEditor: @escaping () -> Void
+        onOpenTrimEditor: @escaping () -> Void,
+        onOpenPermissionCenter: @escaping () -> Void
     ) {
         self.settingsStore = settingsStore
         self.onHotKeyChange = onHotKeyChange
+        self.onSettingsChange = onSettingsChange
         self.onSuspendHotkeys = onSuspendHotkeys
         self.onResumeHotkeys = onResumeHotkeys
         self.onRequestMicrophone = onRequestMicrophone
         self.onRequestCamera = onRequestCamera
         self.onOpenTrimEditor = onOpenTrimEditor
+        self.onOpenPermissionCenter = onOpenPermissionCenter
         self.settings = settingsStore.load()
         super.init()
     }
@@ -112,6 +130,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
 
         guard let window else { return }
+        Self.ensureUsableFrame(
+            window,
+            defaultContentSize: NSSize(width: 860, height: 640),
+            minimumContentSize: NSSize(width: 760, height: 520)
+        )
         hotKeyButton?.title = zoomHotKeyDisplayString()
         drawHotKeyButton?.title = drawHotKeyDisplayString()
         liveHotKeyButton?.title = liveHotKeyDisplayString()
@@ -122,151 +145,239 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         demoTypeHotKeyButton?.title = demoTypeHotKeyDisplayString()
         panoramaHotKeyButton?.title = panoramaHotKeyDisplayString()
         launchAtLoginCheckbox?.state = settings.launchAtLogin ? .on : .off
-        // Suspend the global hotkeys while the dialog is open so the user can
-        // record a new shortcut without it firing; they resume on close.
-        onSuspendHotkeys()
         NSApp.activate(ignoringOtherApps: true)
-        window.center()
         window.makeKeyAndOrderFront(nil)
     }
 
+    func close() {
+        window?.close()
+    }
+
     func windowWillClose(_ notification: Notification) {
-        // Cancel any in-progress recording and re-enable the global hotkeys.
+        // Closing the window only resumes hotkeys when a capture session was active.
         finishRecording()
-        onResumeHotkeys()
     }
 
     // MARK: - Window construction
 
-    /// The Options dialog tabs, in order. Zoom and Live Zoom are separate tabs
-    /// (matching Windows ZoomIt, whose Zoom tab holds static-zoom settings only).
-    static let settingsTabTitles = [
-        "General", "Zoom", "Live Zoom", "Draw", "Type",
-        "DemoType", "Break", "Snip", "Record", "Panorama"
-    ]
-
-    private func viewForTab(_ title: String) -> NSView {
-        switch title {
-        case "General": return makeGeneralTab()
-        case "Zoom": return makeZoomTab()
-        case "Live Zoom": return makeLiveZoomTab()
-        case "Draw": return makeDrawTab()
-        case "Type": return makeTypeTab()
-        case "DemoType": return makeDemoTypeTab()
-        case "Break": return makeBreakTab()
-        case "Snip": return makeSnipTab()
-        case "Record": return makeRecordTab()
-        case "Panorama": return makePanoramaTab()
-        default: return NSView()
-        }
-    }
-
     private func makeWindow() -> NSWindow {
-        // Build each tab's content and measure the tallest one so every tab can
-        // share a single height. Equal-height tabs keep the tab view a constant
-        // size, which in turn keeps the footer anchored near the bottom no
-        // matter which tab is selected.
-        let tabs: [(String, NSView)] = Self.settingsTabTitles.map { title in
-            (title, viewForTab(title))
-        }
+        sectionViews = Dictionary(uniqueKeysWithValues: navigationPlan.sections.map { section in
+            (section.id, makeSectionView(for: section.id))
+        })
 
-        var maxContentHeight: CGFloat = 0
-        for (_, content) in tabs {
-            content.translatesAutoresizingMaskIntoConstraints = false
-            let widthConstraint = content.widthAnchor.constraint(equalToConstant: Self.contentWidth)
-            widthConstraint.isActive = true
-            content.layoutSubtreeIfNeeded()
-            maxContentHeight = max(maxContentHeight, content.fittingSize.height)
-            widthConstraint.isActive = false
-        }
+        let table = NSTableView()
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("settings-navigation"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.rowHeight = 36
+        table.style = .sourceList
+        table.dataSource = self
+        table.delegate = self
+        navigationTableView = table
 
-        // Add only a small cushion beyond the tallest tab; the tab contents
-        // already carry their own bottom inset.
-        let tabContentHeight = maxContentHeight + 4
+        let sidebarScroll = NSScrollView()
+        sidebarScroll.drawsBackground = false
+        sidebarScroll.hasVerticalScroller = true
+        sidebarScroll.documentView = table
 
-        let tabView = NSTabView()
-        tabView.translatesAutoresizingMaskIntoConstraints = false
-        for (label, content) in tabs {
-            // The holder is frame-managed so NSTabView resizes it to fill the
-            // content area; the content is pinned to the holder's top so every
-            // tab shares the same top margin regardless of window position.
-            let holder = NSView()
-            holder.translatesAutoresizingMaskIntoConstraints = true
-            holder.autoresizingMask = [.width, .height]
-            holder.frame = NSRect(x: 0, y: 0, width: Self.contentWidth, height: tabContentHeight)
-            content.translatesAutoresizingMaskIntoConstraints = false
-            holder.addSubview(content)
-            NSLayoutConstraint.activate([
-                content.topAnchor.constraint(equalTo: holder.topAnchor),
-                content.leadingAnchor.constraint(equalTo: holder.leadingAnchor),
-                content.trailingAnchor.constraint(equalTo: holder.trailingAnchor)
-            ])
-            tabView.addTabViewItem(makeTabItem(label: label, view: holder))
-        }
+        let sidebarController = NSViewController()
+        sidebarController.view = sidebarScroll
 
-        // Fix the tab view's size so its content area is exactly
-        // contentWidth × tabContentHeight on every tab. The chrome (tab strip and
-        // borders) is measured from a probe frame.
-        tabView.frame = NSRect(x: 0, y: 0, width: Self.contentWidth + 24, height: tabContentHeight + 60)
-        tabView.layoutSubtreeIfNeeded()
-        let measuredChromeWidth = tabView.frame.width - tabView.contentRect.width
-        let measuredChromeHeight = tabView.frame.height - tabView.contentRect.height
-        let chromeWidth = measuredChromeWidth > 0 ? measuredChromeWidth : 14
-        let chromeHeight = measuredChromeHeight > 4 ? measuredChromeHeight : 34
-        NSLayoutConstraint.activate([
-            tabView.widthAnchor.constraint(equalToConstant: Self.contentWidth + chromeWidth),
-            tabView.heightAnchor.constraint(equalToConstant: tabContentHeight + chromeHeight)
-        ])
+        let contentContainer = NSView()
+        sectionContentContainer = contentContainer
+        let contentController = NSViewController()
+        contentController.view = contentContainer
 
-        let outer = NSStackView(views: [tabView, makeFooter()])
-        outer.orientation = .vertical
-        outer.alignment = .centerX
-        outer.spacing = 12
-        outer.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 12, right: 16)
-        outer.translatesAutoresizingMaskIntoConstraints = false
+        let splitController = NSSplitViewController()
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarController)
+        sidebarItem.minimumThickness = 170
+        sidebarItem.maximumThickness = 220
+        sidebarItem.canCollapse = false
+        splitController.addSplitViewItem(sidebarItem)
+        splitController.addSplitViewItem(NSSplitViewItem(viewController: contentController))
 
-        let container = NSView()
-        container.addSubview(outer)
-        NSLayoutConstraint.activate([
-            outer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            outer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            outer.topAnchor.constraint(equalTo: container.topAnchor),
-            outer.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-
+        let defaultContentSize = NSSize(width: 860, height: 640)
+        let minimumContentSize = NSSize(width: 760, height: 520)
         let window = SettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 480),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(origin: .zero, size: defaultContentSize),
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "DoraZoom Settings"
-        window.contentView = container
+        window.title = "DoraZoom 设置"
+        window.contentViewController = splitController
         window.isReleasedWhenClosed = false
+        window.minSize = minimumContentSize
         window.delegate = self
-        Self.configureAlwaysOnTop(window)
+        Self.configureAsNormalWindow(window)
+        // Autosave can restore a collapsed frame (seen as ~170x42 on newer macOS
+        // when NSSplitViewController reports a near-zero fitting size). Reject it.
+        window.setFrameAutosaveName("DoraZoom.SettingsWindow")
+        Self.ensureUsableFrame(
+            window,
+            defaultContentSize: defaultContentSize,
+            minimumContentSize: minimumContentSize
+        )
 
-        // Size the window to fit the (now equal-height) tabs plus the footer.
-        container.layoutSubtreeIfNeeded()
-        let fitting = container.fittingSize
-        window.setContentSize(NSSize(width: max(fitting.width, 480), height: max(fitting.height, 360)))
+        table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
+        showSection(at: 0)
         return window
     }
 
-    /// Configures the settings window to behave like the Windows Options dialog:
-    /// it floats above other windows so it can never get lost behind them. If it
-    /// did, ZoomIt's hotkeys (suspended while the dialog is open) would stay
-    /// suspended and the app would appear broken with no obvious way to recover.
-    static func configureAlwaysOnTop(_ window: NSWindow) {
-        window.level = .floating
+    static func configureAsNormalWindow(_ window: NSWindow) {
+        window.level = .normal
         window.hidesOnDeactivate = false
     }
 
-    private func makeTabItem(label: String, view: NSView) -> NSTabViewItem {
-        let item = NSTabViewItem(identifier: label)
-        item.label = label
-        item.view = view
-        return item
+    /// Restores a sane frame when autosave/split-view layout collapses the window
+    /// below its designed minimum (title-bar-only height or sidebar-only width).
+    static func ensureUsableFrame(
+        _ window: NSWindow,
+        defaultContentSize: NSSize,
+        minimumContentSize: NSSize
+    ) {
+        let frame = window.frame
+        let tooNarrow = frame.width + 0.5 < minimumContentSize.width
+        let tooShort = frame.height + 0.5 < minimumContentSize.height
+        guard tooNarrow || tooShort else { return }
+
+        var restored = frame
+        restored.size = defaultContentSize
+        if let screen = window.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            restored.origin.x = visible.midX - restored.width / 2
+            restored.origin.y = visible.midY - restored.height / 2
+            restored.origin.x = min(max(restored.origin.x, visible.minX), visible.maxX - restored.width)
+            restored.origin.y = min(max(restored.origin.y, visible.minY), visible.maxY - restored.height)
+        }
+        window.setFrame(restored, display: true)
+        window.center()
+        // Overwrite the bad autosaved frame so the next launch does not re-collapse.
+        window.saveFrame(usingName: window.frameAutosaveName)
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        navigationPlan.sections.count
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        guard navigationPlan.sections.indices.contains(row) else { return nil }
+        let section = navigationPlan.sections[row]
+        let identifier = NSUserInterfaceItemIdentifier("settings-navigation-cell")
+        let cell = tableView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView ?? NSTableCellView()
+        cell.identifier = identifier
+
+        if cell.textField == nil {
+            let label = NSTextField(labelWithString: "")
+            label.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(label)
+            cell.textField = label
+            NSLayoutConstraint.activate([
+                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 12),
+                label.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8),
+                label.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+            ])
+        }
+        cell.textField?.stringValue = section.title
+        cell.imageView?.image = NSImage(systemSymbolName: section.symbolName, accessibilityDescription: section.title)
+        return cell
+    }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        guard let table = notification.object as? NSTableView else { return }
+        showSection(at: table.selectedRow)
+    }
+
+    private func showSection(at index: Int) {
+        guard navigationPlan.sections.indices.contains(index), let container = sectionContentContainer else { return }
+        let section = navigationPlan.sections[index]
+        guard let view = sectionViews[section.id] else { return }
+        container.subviews.forEach { $0.removeFromSuperview() }
+        view.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            view.topAnchor.constraint(equalTo: container.topAnchor),
+            view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+    }
+
+    private func makeSectionView(for id: SettingsNavigationSectionID) -> NSView {
+        let section = navigationPlan.section(for: id)!
+        let title = NSTextField(labelWithString: section.title)
+        title.font = .systemFont(ofSize: 22, weight: .semibold)
+
+        let contentViews: [NSView]
+        switch id {
+        case .general:
+            contentViews = [makeGeneralTab(), makeZoomTab(), makeLiveZoomTab()]
+        case .shortcuts:
+            contentViews = [makeShortcutsView()]
+        case .captureAndDraw:
+            contentViews = [makeDrawTab(), makeTypeTab(), makeSnipTab()]
+        case .recording:
+            contentViews = [makeRecordTab()]
+        case .permissions:
+            let explanation = makeLabel("查看屏幕录制、辅助功能、输入监控、麦克风和摄像头权限。", wraps: true)
+            let button = NSButton(title: "打开权限中心…", target: self, action: #selector(openPermissionCenter))
+            button.bezelStyle = .rounded
+            contentViews = [explanation, button]
+        case .advanced:
+            contentViews = [makeAdvancedCaptureView(), makeDemoTypeTab(), makeBreakTab(), makePanoramaTab(), makeAdvancedRecordingView()]
+        }
+
+        let stack = NSStackView(views: [title] + contentViews + [makeFooter()])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 22
+        stack.edgeInsets = NSEdgeInsets(top: 24, left: 28, bottom: 24, right: 28)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let document = NSView()
+        document.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: document.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: document.bottomAnchor),
+            stack.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.contentWidth)
+        ])
+
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        scroll.documentView = document
+        return scroll
+    }
+
+    @objc private func openPermissionCenter() {
+        onOpenPermissionCenter()
+    }
+
+    private func makeShortcutsView() -> NSView {
+        let explanation = makeLabel("点击一个快捷键后再输入新的组合。只有录入期间会临时暂停全局热键；按 Escape 取消。", wraps: true)
+        let rows = [
+            makeRow([makeLabel("静态缩放："), makeShortcutButton(zoomHotKeyDisplayString(), action: #selector(toggleZoomHotKeyRecording(_:)))]),
+            makeRow([makeLabel("圈画："), makeShortcutButton(drawHotKeyDisplayString(), action: #selector(toggleDrawHotKeyRecording(_:)))]),
+            makeRow([makeLabel("实时缩放："), makeShortcutButton(liveHotKeyDisplayString(), action: #selector(toggleLiveHotKeyRecording(_:)))]),
+            makeRow([makeLabel("截图："), makeShortcutButton(snipHotKeyDisplayString(), action: #selector(toggleSnipHotKeyRecording(_:)))]),
+            makeRow([makeLabel("OCR："), makeShortcutButton(snipOcrHotKeyDisplayString(), action: #selector(toggleSnipOcrHotKeyRecording(_:)))]),
+            makeRow([makeLabel("录制："), makeShortcutButton(recordHotKeyDisplayString(), action: #selector(toggleRecordHotKeyRecording(_:)))]),
+            makeRow([makeLabel("DemoType："), makeShortcutButton(demoTypeHotKeyDisplayString(), action: #selector(toggleDemoTypeHotKeyRecording(_:)))]),
+            makeRow([makeLabel("全景截图："), makeShortcutButton(panoramaHotKeyDisplayString(), action: #selector(togglePanoramaHotKeyRecording(_:)))]),
+            makeRow([makeLabel("倒计时："), makeShortcutButton(breakHotKeyDisplayString(), action: #selector(toggleBreakHotKeyRecording(_:)))])
+        ]
+        return makeColumn([explanation] + rows, spacing: 10)
+    }
+
+    private func makeShortcutButton(_ title: String, action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.bezelStyle = .rounded
+        button.setButtonType(.momentaryPushIn)
+        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 150).isActive = true
+        return button
     }
 
     private func makeFooter() -> NSView {
@@ -322,23 +433,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         return stack
     }
 
-    /// Creates a checkbox styled like the Windows ZoomIt options dialog, where
-    /// the caption sits to the left of the box (BS_LEFTTEXT). Grouping several
-    /// of these in a `makeCheckboxColumn` lines their boxes up in a single
-    /// right-hand column, matching the Windows layout.
     private func makeCheckbox(_ title: String, action: Selector, state: Bool) -> NSButton {
         let button = NSButton(checkboxWithTitle: title, target: self, action: action)
-        button.imagePosition = .imageRight
+        button.imagePosition = .imageLeft
         button.state = state ? .on : .off
         return button
     }
 
-    /// Stacks Windows-style checkboxes so their boxes align in a right-hand
-    /// column, the way the ZoomIt options dialog aligns them.
     private func makeCheckboxColumn(_ checkboxes: [NSView], spacing: CGFloat = 6) -> NSView {
         let stack = NSStackView(views: checkboxes)
         stack.orientation = .vertical
-        stack.alignment = .trailing
+        stack.alignment = .leading
         stack.spacing = spacing
         return stack
     }
@@ -448,8 +553,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     // MARK: - Live Zoom tab
 
-    /// Live zoom lives on its own tab so the Zoom tab holds only static-zoom
-    /// settings, matching the Windows ZoomIt options dialog.
     private func makeLiveZoomTab() -> NSView {
         let liveHelp = makeLabel(
             "Live zoom magnifies the live screen so motion and updates stay visible while zoomed. Use the same zoom and pan controls.",
@@ -528,6 +631,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             return
         }
         recordingTarget = target
+        activeHotKeyButton = sender
+        hotkeyCaptureSession.begin()
         sender.title = "Type shortcut… (Esc cancels)"
         hotKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             guard let self else { return event }
@@ -558,8 +663,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithLive(code: newCode, modifiers: newModifiers) ||
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.hotKeyCode = newCode
             settings.hotKeyModifiers = newModifiers
@@ -568,8 +672,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithLive(code: newCode, modifiers: newModifiers) ||
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.drawHotKeyCode = newCode
             settings.drawHotKeyModifiers = newModifiers
@@ -578,8 +681,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithDraw(code: newCode, modifiers: newModifiers) ||
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.liveHotKeyCode = newCode
             settings.liveHotKeyModifiers = newModifiers
@@ -591,8 +693,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithRecord(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) ||
                 conflictsWithPanorama(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.breakHotKeyCode = newCode
             settings.breakHotKeyModifiers = newModifiers
@@ -602,8 +703,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithLive(code: newCode, modifiers: newModifiers) ||
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.snipHotKeyCode = newCode
             settings.snipHotKeyModifiers = newModifiers
@@ -614,8 +714,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithSnip(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.snipOcrHotKeyCode = newCode
             settings.snipOcrHotKeyModifiers = newModifiers
@@ -625,8 +724,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithLive(code: newCode, modifiers: newModifiers) ||
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.recordHotKeyCode = newCode
             settings.recordHotKeyModifiers = newModifiers
@@ -639,8 +737,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithSnipOcr(code: newCode, modifiers: newModifiers) ||
                 conflictsWithRecord(code: newCode, modifiers: newModifiers) ||
                 conflictsWithPanorama(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.demoTypeHotKeyCode = newCode
             settings.demoTypeHotKeyModifiers = newModifiers
@@ -650,8 +747,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 conflictsWithLive(code: newCode, modifiers: newModifiers) ||
                 conflictsWithBreak(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDemoType(code: newCode, modifiers: newModifiers) {
-                NSSound.beep()
-                return nil
+                return rejectHotKeyConflict()
             }
             settings.panoramaHotKeyCode = newCode
             settings.panoramaHotKeyModifiers = newModifiers
@@ -661,6 +757,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         persist()
         finishRecording()
         onHotKeyChange()
+        return nil
+    }
+
+    private func rejectHotKeyConflict() -> NSEvent? {
+        NSSound.beep()
+        finishRecording()
         return nil
     }
 
@@ -703,11 +805,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     private func finishRecording() {
+        let finishedTarget = recordingTarget
         if let hotKeyMonitor {
             NSEvent.removeMonitor(hotKeyMonitor)
         }
         hotKeyMonitor = nil
         recordingTarget = nil
+        hotkeyCaptureSession.finish()
+        if let finishedTarget {
+            activeHotKeyButton?.title = hotKeyDisplayString(for: finishedTarget)
+        }
+        activeHotKeyButton = nil
         hotKeyButton?.title = zoomHotKeyDisplayString()
         drawHotKeyButton?.title = drawHotKeyDisplayString()
         liveHotKeyButton?.title = liveHotKeyDisplayString()
@@ -717,6 +825,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         recordHotKeyButton?.title = recordHotKeyDisplayString()
         demoTypeHotKeyButton?.title = demoTypeHotKeyDisplayString()
         panoramaHotKeyButton?.title = panoramaHotKeyDisplayString()
+    }
+
+    private func hotKeyDisplayString(for target: HotKeyTarget) -> String {
+        switch target {
+        case .zoom: zoomHotKeyDisplayString()
+        case .draw: drawHotKeyDisplayString()
+        case .live: liveHotKeyDisplayString()
+        case .breakTimer: breakHotKeyDisplayString()
+        case .snip: snipHotKeyDisplayString()
+        case .snipOcr: snipOcrHotKeyDisplayString()
+        case .record: recordHotKeyDisplayString()
+        case .demoType: demoTypeHotKeyDisplayString()
+        case .panorama: panoramaHotKeyDisplayString()
+        }
     }
 
     private func zoomHotKeyDisplayString() -> String {
@@ -773,13 +895,19 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         let colorsSection = makeSectionLabel("Colors")
         let colorsHelp = makeLabel(
-            "Change the pen color by pressing R, G, B, O, Y, P, W or K for red, green, blue, orange, yellow, pink, white or black.",
+            DrawingShortcutGuide.colors,
             wraps: true
         )
 
         let highlightSection = makeSectionLabel("Highlight")
         let highlightHelp = makeLabel(
             "Hold Shift with a color key, for example Shift+R, to draw with a translucent highlighter of that color. Press the color key again without Shift to return to a solid pen.",
+            wraps: true
+        )
+
+        let privacySection = makeSectionLabel("隐私工具")
+        let privacyHelp = makeLabel(
+            "按 M 切换到模糊笔，按 X 切换到实色遮挡，按 N 添加自动递增的编号标记。它们只在当前圈画会话中保留，并在复制或录制时合成到最终像素；提交前可用 ⌘Z 或 ⌃Z 撤销。",
             wraps: true
         )
 
@@ -791,7 +919,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         let screenSection = makeSectionLabel("Screen")
         let screenHelp = makeLabel(
-            "Press Ctrl+W or Ctrl+K to blank the screen white or black as a sketch pad.",
+            DrawingShortcutGuide.canvas,
             wraps: true
         )
 
@@ -810,6 +938,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             makeIndentedColumn([colorsHelp]),
             highlightSection,
             makeIndentedColumn([highlightHelp]),
+            privacySection,
+            makeIndentedColumn([privacyHelp]),
             shapesSection,
             makeIndentedColumn([shapesHelp]),
             screenSection,
@@ -822,11 +952,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func makeTypeTab() -> NSView {
         let help = makeLabel(
-            """
-            Once in drawing mode, press T to enter typing mode or Shift+T to enter typing mode with right-aligned input. Exit typing mode by pressing Escape or the left mouse button. Use the mouse wheel or the up and down arrow keys to change the font size.
-
-            The text color is the current drawing color.
-            """,
+            DrawingShortcutGuide.text + " 文字颜色使用当前画笔颜色。",
             wraps: true
         )
 
@@ -1162,6 +1288,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         let micCheck = makeCheckbox("Capture audio input:", action: #selector(recordMicrophoneChanged(_:)), state: settings.recordMicrophone)
 
+        let clickCheck = makeCheckbox(
+            "显示鼠标点击",
+            action: #selector(recordMouseClicksChanged(_:)),
+            state: settings.recordMouseClicks
+        )
+        let shortcutCheck = makeCheckbox(
+            "显示快捷键（不记录普通文字）",
+            action: #selector(recordShortcutKeysChanged(_:)),
+            state: settings.recordShortcutKeys
+        )
+
         let windNoiseCheck = makeCheckbox("Noise cancellation:", action: #selector(recordNoiseCancellationChanged(_:)), state: settings.recordNoiseCancellation)
         noiseCancellationCheckbox = windNoiseCheck
 
@@ -1186,11 +1323,40 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let micOptions = makeIndentedColumn([windNoiseCheck, micDeviceRow])
         updateMicrophoneOptionControls()
 
-        let trimButton = NSButton(title: "Trim…", target: self, action: #selector(openTrimEditor(_:)))
-        trimButton.bezelStyle = .rounded
-        let trimRow = makeRow([makeLabel("Edit existing video:"), trimButton])
+        return makeColumn([
+            help,
+            recordHotKeyRow,
+            makeCheckboxColumn([systemAudioCheck, micCheck, clickCheck, shortcutCheck]),
+            micOptions
+        ], spacing: 10)
+    }
 
-        return makeColumn([help, recordHotKeyRow, makeCheckboxColumn([systemAudioCheck, micCheck]), micOptions] + makeWebcamRows() + [trimRow], spacing: 10)
+    private func makeAdvancedRecordingView() -> NSView {
+        let heading = makeSectionLabel("高级录制")
+        let format = makeLabel("日常录制默认使用 MOV / H.264 / AAC；MP4、GIF 和复杂编辑保留在高级路径。", wraps: true)
+        let trimButton = NSButton(title: "打开高级编辑器…", target: self, action: #selector(openTrimEditor(_:)))
+        trimButton.bezelStyle = .rounded
+        let trimRow = makeRow([makeLabel("编辑已有视频："), trimButton])
+        return makeColumn([heading, format] + makeWebcamRows() + [trimRow], spacing: 10)
+    }
+
+    private func makeAdvancedCaptureView() -> NSView {
+        let heading = makeSectionLabel("高级截图")
+        let explanation = makeLabel(
+            "“鼠标所在窗口截图”会直接复制鼠标下最前方的普通窗口，不会创建本地文件。",
+            wraps: true
+        )
+        let shadow = makeCheckbox(
+            "保留窗口阴影",
+            action: #selector(includeWindowShadowChanged(_:)),
+            state: settings.includeWindowShadow
+        )
+        return makeColumn([heading, explanation, makeCheckboxColumn([shadow])], spacing: 10)
+    }
+
+    @objc private func includeWindowShadowChanged(_ sender: NSButton) {
+        settings.includeWindowShadow = sender.state == .on
+        persist()
     }
 
     // MARK: - Panorama tab
@@ -1229,6 +1395,22 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         // Trigger the microphone permission prompt the first time it's enabled.
         if settings.recordMicrophone {
             onRequestMicrophone()
+        }
+    }
+
+    @objc private func recordMouseClicksChanged(_ sender: NSButton) {
+        settings.recordMouseClicks = sender.state == .on
+        persist()
+        if settings.recordMouseClicks {
+            onOpenPermissionCenter()
+        }
+    }
+
+    @objc private func recordShortcutKeysChanged(_ sender: NSButton) {
+        settings.recordShortcutKeys = sender.state == .on
+        persist()
+        if settings.recordShortcutKeys {
+            onOpenPermissionCenter()
         }
     }
 
@@ -1488,6 +1670,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func persist() {
         settingsStore.save(settings)
+        onSettingsChange()
     }
 
     // MARK: - Key formatting

@@ -8,7 +8,10 @@ enum OcrService {
     /// Recognizes text in `image` and copies it to the general pasteboard as
     /// plain text. Beeps when no text is found, matching ZoomIt's behavior of
     /// only updating the clipboard when recognition produced text.
-    static func recognizeAndCopy(_ image: CGImage) {
+    static func recognizeAndCopy(
+        _ image: CGImage,
+        completion: @escaping (SnipPasteboardOutput) -> Void
+    ) {
         Task {
             let text = await recognizeText(in: image)
             if text.isEmpty {
@@ -17,7 +20,14 @@ enum OcrService {
             }
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
+            guard pasteboard.setString(text, forType: .string) else {
+                NSSound.beep()
+                return
+            }
+            completion(.ocrText(
+                changeCount: pasteboard.changeCount,
+                characterCount: text.count
+            ))
         }
     }
 

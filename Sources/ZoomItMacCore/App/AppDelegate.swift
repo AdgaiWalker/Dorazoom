@@ -6,7 +6,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appController: AppController?
     private var pasteCompatibilityEventTap: SystemPasteCompatibilityEventTap?
     private var controlVPasteHotkeyService: ControlVPasteHotkeyService?
-    private let permissionRelaunchCoordinator = PermissionRelaunchCoordinator()
+    private var recordingRecoveryCoordinator: RecordingRecoveryCoordinator?
+    private let permissionCenterRestartIntent = PermissionCenterRestartIntent()
+    private var permissionPlanProvider: (() -> PermissionCenterPlan)?
+    private var settingsProvider: (() -> AppSettings)?
+    private var statusMenuRuntimeStatus: StatusMenuRuntimeStatus = .idle
 
     public override init() {
         super.init()
@@ -35,20 +39,34 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let overlayController = OverlayWindowController()
         let annotationController = AnnotationController()
         let viewportController = ZoomViewportController()
-        let inputCompatibilityRequester = SystemInputCompatibilityPermissionRequester(
-            permissionRelaunchCoordinator: permissionRelaunchCoordinator
+        let interactionFeedback = InteractionFeedback()
+        let feedbackAdapter = FeedbackPresentationAdapter(
+            feedback: interactionFeedback,
+            scheduler: RunLoopFeedbackDismissalScheduler(),
+            presenter: TransientFeedbackWindowController(),
+            environmentProvider: {
+                FeedbackPresentationEnvironment(
+                    reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                    reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+                    increaseContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+                )
+            }
         )
+        let inputCompatibilityRequester = SystemInputCompatibilityPermissionRequester()
         let pasteCompatibilityCoordinator = PasteCompatibilityCoordinator(permissionRequester: inputCompatibilityRequester)
+        let recordingRecoveryStore = FileRecordingRecoveryStore()
 
         let modeCoordinator = ModeCoordinator(
             settingsStore: settingsStore,
             permissionService: permissionService,
             displayManager: displayManager,
             captureService: captureService,
+            windowCaptureService: ScreenCaptureKitWindowCaptureService(),
             overlayController: overlayController,
             annotationController: annotationController,
             viewportController: viewportController,
-            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            feedbackAdapter: feedbackAdapter,
+            recordingRecoveryStore: recordingRecoveryStore,
             pasteCompatibilityCoordinator: pasteCompatibilityCoordinator
         )
         let keyboardEventPoster = SystemKeyboardEventPoster()
@@ -70,11 +88,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         pasteCompatibilityCoordinator.onScreenshotCopied = { [weak controlVPasteHotkeyService] changeCount in
             controlVPasteHotkeyService?.screenshotCopied(changeCount: changeCount)
         }
+        modeCoordinator.onTextEditingStateChanged = { [weak controlVPasteHotkeyService] isActive in
+            controlVPasteHotkeyService?.setTextEditingActive(isActive)
+        }
         self.controlVPasteHotkeyService = controlVPasteHotkeyService
 
         let hotkeyService = HotkeyService(
-            settingsStore: settingsStore,
-            permissionRelaunchCoordinator: permissionRelaunchCoordinator
+            settingsStore: settingsStore
         ) { command in
             Task { @MainActor in
                 modeCoordinator.handle(command)
@@ -89,12 +109,47 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             hotkeyService?.endLiveZoomNavigation()
         }
 
+        let permissionPlatformAccess = SystemPermissionCenterPlatformAccess(
+            permissionService: permissionService,
+            inputPermissionRequester: inputCompatibilityRequester
+        )
+        var permissionCenterCoordinator: PermissionCenterCoordinator!
+        let permissionAdapter = PermissionCenterSystemAdapter(
+            platformAccess: permissionPlatformAccess,
+            restarter: permissionCenterRestartIntent,
+            settingsProvider: { settingsStore.load() },
+            inputListeningFallbackNeeded: {
+                let settings = settingsStore.load()
+                return hotkeyService.requiresInputListeningFallback
+                    || settings.recordMouseClicks
+                    || settings.recordShortcutKeys
+            },
+            onStateChanged: { [weak self] in
+                permissionCenterCoordinator?.applicationBecameActive()
+                self?.rebuildStatusMenu()
+            }
+        )
+        let permissionWindowController = PermissionCenterWindowController { kind in
+            permissionCenterCoordinator?.performAction(for: kind)
+        }
+        permissionCenterCoordinator = PermissionCenterCoordinator(
+            planProvider: { permissionAdapter.plan() },
+            presenter: permissionWindowController,
+            actionHandler: { kind, action in permissionAdapter.perform(kind, action: action) }
+        )
+        permissionPlanProvider = { permissionAdapter.plan() }
+        settingsProvider = { settingsStore.load() }
+        pasteCompatibilityCoordinator.onInputPostingPermissionNeeded = { [weak permissionCenterCoordinator] in
+            permissionCenterCoordinator?.show()
+        }
+
         appController = AppController(
             settingsStore: settingsStore,
             permissionService: permissionService,
             hotkeyService: hotkeyService,
             modeCoordinator: modeCoordinator,
-            permissionRelaunchCoordinator: permissionRelaunchCoordinator
+            permissionCenterCoordinator: permissionCenterCoordinator,
+            onMenuNeedsUpdate: { [weak self] in self?.rebuildStatusMenu() }
         )
 
         DistributedNotificationCenter.default().addObserver(
@@ -104,15 +159,30 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
-        statusItem = makeStatusItem(controller: appController!)
+        statusItem = makeStatusItem(
+            controller: appController!,
+            plan: StatusMenuPlan.make(
+                status: statusMenuRuntimeStatus,
+                permissions: permissionAdapter.plan(),
+                settings: settingsStore.load()
+            )
+        )
         modeCoordinator.onRecordingStateChanged = { [weak self] recording in
             self?.updateRecordingIndicator(recording)
+            self?.statusMenuRuntimeStatus = recording ? .recording : .idle
+            self?.rebuildStatusMenu()
         }
         hotkeyService.start()
+
+        let recordingRecoveryCoordinator = RecordingRecoveryCoordinator(store: recordingRecoveryStore)
+        self.recordingRecoveryCoordinator = recordingRecoveryCoordinator
+        DispatchQueue.main.async {
+            recordingRecoveryCoordinator.presentPendingIfNeeded()
+        }
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
-        let shouldRelaunch = permissionRelaunchCoordinator.consumeRelaunchRequest()
+        let shouldRelaunch = permissionCenterRestartIntent.consume()
         controlVPasteHotkeyService?.stop()
         pasteCompatibilityEventTap?.stop()
         DistributedNotificationCenter.default().removeObserver(self)
@@ -120,6 +190,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         if shouldRelaunch {
             relaunchCurrentApplication()
         }
+    }
+
+    public func applicationDidBecomeActive(_ notification: Notification) {
+        appController?.applicationBecameActive()
+        rebuildStatusMenu()
     }
 
     private func relaunchCurrentApplication() {
@@ -147,7 +222,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func makeStatusItem(controller: AppController) -> NSStatusItem {
+    private func makeStatusItem(
+        controller: AppController,
+        plan: StatusMenuPlan
+    ) -> NSStatusItem {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.autosaveName = NSStatusItem.AutosaveName("com.duola.DoraZoom.statusItem")
         // Use the Windows ZoomIt icon (document with a magnifying glass) rendered
@@ -161,58 +239,120 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        let menu = NSMenu()
-        for entry in Self.statusMenuEntries() {
-            if entry.isSeparator {
-                menu.addItem(.separator())
-            } else {
-                menu.addItem(NSMenuItem(title: entry.title, action: entry.action, keyEquivalent: entry.keyEquivalent))
-            }
-        }
-
-        for item in menu.items {
-            item.target = controller
-        }
-
-        item.menu = menu
+        item.menu = makeMenu(plan.topLevelItems, controller: controller)
         return item
     }
 
-    /// A single status-bar menu entry (or a separator when `action` is nil).
-    struct StatusMenuEntry {
-        let title: String
-        let action: Selector?
-        let keyEquivalent: String
+    private func rebuildStatusMenu() {
+        guard
+            let statusItem,
+            let appController,
+            let permissionPlanProvider,
+            let settingsProvider
+        else {
+            return
+        }
 
-        var isSeparator: Bool { action == nil }
+        let plan = StatusMenuPlan.make(
+            status: statusMenuRuntimeStatus,
+            permissions: permissionPlanProvider(),
+            settings: settingsProvider()
+        )
+        statusItem.menu = makeMenu(plan.topLevelItems, controller: appController)
+    }
 
-        static let separator = StatusMenuEntry(title: "", action: nil, keyEquivalent: "")
+    private func makeMenu(
+        _ plans: [StatusMenuItemPlan],
+        controller: AppController
+    ) -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
 
-        init(title: String, action: Selector?, keyEquivalent: String) {
-            self.title = title
-            self.action = action
-            self.keyEquivalent = keyEquivalent
+        for plan in plans {
+            guard !plan.isSeparator else {
+                menu.addItem(.separator())
+                continue
+            }
+
+            let shortcut = plan.shortcut
+            let item = NSMenuItem(
+                title: plan.title,
+                action: Self.actionSelector(for: plan.id),
+                keyEquivalent: shortcut?.key ?? ""
+            )
+            item.target = controller
+            item.isEnabled = plan.isEnabled
+            if let shortcut {
+                item.keyEquivalentModifierMask = modifierFlags(shortcut.modifiers)
+            }
+            if !plan.children.isEmpty {
+                item.submenu = makeMenu(plan.children, controller: controller)
+            }
+            menu.addItem(item)
+        }
+
+        return menu
+    }
+
+    static func actionSelector(for id: StatusMenuItemID) -> Selector? {
+        switch id {
+        case .draw:
+            #selector(AppController.activateDrawWithoutZoom)
+        case .staticZoom:
+            #selector(AppController.activateStaticZoom)
+        case .liveZoom:
+            #selector(AppController.activateLiveZoom)
+        case .snipRegion:
+            #selector(AppController.snipRegion)
+        case .snipOCR:
+            #selector(AppController.snipOCR)
+        case .snipPreviousRegion:
+            #selector(AppController.snipPreviousRegion)
+        case .snipWindow:
+            #selector(AppController.snipWindowAtPointer)
+        case .recordScreen:
+            #selector(AppController.toggleRecording)
+        case .toggleRecordingPause:
+            #selector(AppController.toggleRecordingPause)
+        case .panorama:
+            #selector(AppController.startPanorama)
+        case .demoType:
+            #selector(AppController.startDemoType)
+        case .breakTimer:
+            #selector(AppController.toggleBreakTimer)
+        case .advancedEditor:
+            #selector(AppController.openAdvancedEditor)
+        case .permissions:
+            #selector(AppController.checkPermissions)
+        case .settings:
+            #selector(AppController.showSettings)
+        case .quit:
+            #selector(AppController.quit)
+        case .status,
+             .screenshot,
+             .coreSeparator,
+             .moreFeatures,
+             .managementSeparator,
+             .quitSeparator:
+            nil
         }
     }
 
-    /// The status-bar menu. It broadly follows the Windows ZoomIt tray order
-    /// (Options first, then the modes, then Check Permissions and Quit), with
-    /// Panorama Capture as a macOS-only addition after Record and the Break
-    /// Timer placed at the end of the mode group (below Panorama Capture).
-    static func statusMenuEntries() -> [StatusMenuEntry] {
-        [
-            StatusMenuEntry(title: "Settings…", action: #selector(AppController.showSettings), keyEquivalent: ","),
-            .separator,
-            StatusMenuEntry(title: "Draw", action: #selector(AppController.activateDrawWithoutZoom), keyEquivalent: ""),
-            StatusMenuEntry(title: "Static Zoom", action: #selector(AppController.activateStaticZoom), keyEquivalent: ""),
-            StatusMenuEntry(title: "Live Zoom", action: #selector(AppController.activateLiveZoom), keyEquivalent: ""),
-            StatusMenuEntry(title: "Record Screen", action: #selector(AppController.toggleRecording), keyEquivalent: ""),
-            StatusMenuEntry(title: "Panorama Capture", action: #selector(AppController.startPanorama), keyEquivalent: ""),
-            StatusMenuEntry(title: "Break Timer", action: #selector(AppController.toggleBreakTimer), keyEquivalent: ""),
-            .separator,
-            StatusMenuEntry(title: "Check Permissions", action: #selector(AppController.checkPermissions), keyEquivalent: ""),
-            StatusMenuEntry(title: "Quit", action: #selector(AppController.quit), keyEquivalent: "q")
-        ]
+    private func modifierFlags(
+        _ modifiers: Set<StatusMenuShortcutModifier>
+    ) -> NSEvent.ModifierFlags {
+        modifiers.reduce(into: NSEvent.ModifierFlags()) { flags, modifier in
+            switch modifier {
+            case .control:
+                flags.insert(.control)
+            case .option:
+                flags.insert(.option)
+            case .shift:
+                flags.insert(.shift)
+            case .command:
+                flags.insert(.command)
+            }
+        }
     }
 
     /// Loads the bundled black template version of the Windows ZoomIt icon and

@@ -12,25 +12,127 @@ struct WebcamRecordingFrame: @unchecked Sendable {
 /// picture-in-picture to reposition it (matching Windows ZoomIt), moving the
 /// hosting window and reporting the new screen frame so the recorded
 /// composite follows.
+@MainActor
+private final class WebcamSnapAnimator {
+    private weak var window: NSWindow?
+    private let clock: DisplaySynchronizedMotionClock
+    private let onMoved: (CGRect) -> Void
+    private var motion: WebcamSnapMotionState?
+    private var isRunning = false
+
+    init(window: NSWindow, clock: DisplaySynchronizedMotionClock, onMoved: @escaping (CGRect) -> Void) {
+        self.window = window
+        self.clock = clock
+        self.onMoved = onMoved
+    }
+
+    func start(target: CGPoint, response: TimeInterval) {
+        stop()
+        guard let window else { return }
+        motion = WebcamSnapMotionState(origin: window.frame.origin, target: target, response: response)
+        isRunning = true
+        clock.start { [weak self] timestamp in
+            self?.tick(timestamp)
+        }
+    }
+
+    func stop() {
+        guard isRunning else { return }
+        isRunning = false
+        clock.stop()
+        motion = nil
+    }
+
+    private func tick(_ timestamp: TimeInterval) {
+        guard isRunning, var motion, let window else { return }
+        motion.advance(to: timestamp)
+        self.motion = motion
+        window.setFrameOrigin(motion.origin)
+        onMoved(window.frame)
+        if motion.isComplete {
+            stop()
+        }
+    }
+}
+
+@MainActor
 private final class DraggableWebcamView: NSView {
     /// Called with the window's new screen frame whenever the overlay is moved.
     var onMoved: ((CGRect) -> Void)?
     /// The point grabbed within the window at mouse-down (bottom-left origin).
     private var grabOffset: CGSize = .zero
+    var dragArea: CGRect = .zero
+    private var lastMouseLocation: CGPoint?
+    private var lastTimestamp: TimeInterval?
+    private var velocity = CGVector.zero
+    private var snapAnimator: WebcamSnapAnimator?
 
     override func mouseDown(with event: NSEvent) {
+        snapAnimator?.stop()
         let location = event.locationInWindow
         grabOffset = CGSize(width: location.x, height: location.y)
+        lastMouseLocation = NSEvent.mouseLocation
+        lastTimestamp = event.timestamp
+        velocity = .zero
     }
 
     override func mouseDragged(with event: NSEvent) {
         guard let window else { return }
-        let origin = WebcamOverlayController.draggedWindowOrigin(
-            mouseOnScreen: NSEvent.mouseLocation,
-            grabOffset: grabOffset
+        let mouse = NSEvent.mouseLocation
+        updateVelocity(mouse: mouse, timestamp: event.timestamp)
+        let origin = WebcamDirectManipulationPolicy.draggedOrigin(
+            mouseOnScreen: mouse,
+            grabOffset: grabOffset,
+            windowSize: window.frame.size,
+            area: dragArea
         )
         window.setFrameOrigin(origin)
         onMoved?(window.frame)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard let window else { return }
+        updateVelocity(mouse: NSEvent.mouseLocation, timestamp: event.timestamp)
+        let plan = WebcamDirectManipulationPolicy.releasePlan(
+            frame: window.frame,
+            velocity: velocity,
+            area: dragArea,
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )
+        switch plan.motion {
+        case .immediate:
+            window.setFrameOrigin(plan.targetOrigin)
+            onMoved?(window.frame)
+        case let .criticallyDamped(response):
+            let animator = WebcamSnapAnimator(
+                window: window,
+                clock: ViewDisplaySynchronizedMotionClock(view: self),
+                onMoved: { [weak self] frame in self?.onMoved?(frame) }
+            )
+            snapAnimator = animator
+            animator.start(target: plan.targetOrigin, response: response)
+        }
+        lastMouseLocation = nil
+        lastTimestamp = nil
+        velocity = .zero
+    }
+
+    private func updateVelocity(mouse: CGPoint, timestamp: TimeInterval) {
+        defer {
+            lastMouseLocation = mouse
+            lastTimestamp = timestamp
+        }
+        guard let previousMouse = lastMouseLocation, let previousTimestamp = lastTimestamp else { return }
+        let delta = timestamp - previousTimestamp
+        guard delta > 0.001 else { return }
+        let sample = CGVector(
+            dx: (mouse.x - previousMouse.x) / delta,
+            dy: (mouse.y - previousMouse.y) / delta
+        )
+        velocity = CGVector(
+            dx: velocity.dx * 0.7 + sample.dx * 0.3,
+            dy: velocity.dy * 0.7 + sample.dy * 0.3
+        )
     }
 }
 
@@ -220,6 +322,7 @@ final class WebcamOverlayController {
         window.isReleasedWhenClosed = false
 
         let contentView = DraggableWebcamView(frame: CGRect(origin: .zero, size: frame.size))
+        contentView.dragArea = area
         contentView.onMoved = { [weak self] newFrame in
             self?.recordingFrame = newFrame
         }

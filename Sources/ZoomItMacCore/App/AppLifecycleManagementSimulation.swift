@@ -41,7 +41,7 @@ enum AppLifecycleMenuIcon: Equatable, Sendable {
 struct AppLifecycleMenuBarPlan: Equatable, Sendable {
     var feedback: MenuBarFeedback
     var icon: AppLifecycleMenuIcon
-    var menuTitles: [String]
+    var menu: StatusMenuPlan
     var platformBoundary: AutomationPlatformBoundary
     var createsRealStatusItem: Bool
 }
@@ -109,22 +109,20 @@ enum AppLifecycleManagementSimulation {
         return .init(decision: .released, postedNotifications: [], platformBoundary: .simulatedOnly)
     }
 
-    static func menuBarPlan(for state: AppSessionState) -> AppLifecycleMenuBarPlan {
+    static func menuBarPlan(
+        for state: AppSessionState,
+        permissions: PermissionCenterPlan,
+        settings: AppSettings
+    ) -> AppLifecycleMenuBarPlan {
         let feedback = InteractionPresentationSnapshot.derive(from: state).menuBar
         return AppLifecycleMenuBarPlan(
             feedback: feedback,
             icon: icon(for: feedback),
-            menuTitles: [
-                "Settings…",
-                "Draw",
-                "Static Zoom",
-                "Live Zoom",
-                "Record Screen",
-                "Panorama Capture",
-                "Break Timer",
-                "Check Permissions",
-                "Quit"
-            ],
+            menu: StatusMenuPlan.make(
+                status: runtimeStatus(for: feedback),
+                permissions: permissions,
+                settings: settings
+            ),
             platformBoundary: .simulatedOnly,
             createsRealStatusItem: false
         )
@@ -201,6 +199,17 @@ enum AppLifecycleManagementSimulation {
             return .templateActive
         case .recording:
             return .recordingRed
+        }
+    }
+
+    private static func runtimeStatus(for feedback: MenuBarFeedback) -> StatusMenuRuntimeStatus {
+        switch feedback {
+        case .idle:
+            .idle
+        case .active:
+            .active
+        case .recording:
+            .recording
         }
     }
 }

@@ -1,6 +1,6 @@
 # DoraZoom 技术架构
 
-> 状态：Phase 1–6 模拟实现与非侵入门禁已完成；Phase 7 已改为本地模拟验收  
+> 状态：Apple 交互重构与原生文字输入已实现并通过本地模拟门禁；真实 IME、缩放手感、粘贴与媒体体验待用户真机验收
 > 产品需求：[PRD.md](./PRD.md)  
 > 上游仓库：Microsoft `ZoomitForMac`  
 > 评审基线：`b03e43da91cd84eeb8f691fa65095e0304c3e660`（2026-07-23）
@@ -18,8 +18,13 @@ DoraZoom 采用：
 - `ModeCoordinator` 协调命令和跨能力转换，但不复制各控制器的权威状态。
 - `AppSessionState` 组合交互、录制、标注和画布背景这四个正交维度，不再用单一互斥 `AppMode` 描述全部运行状态。
 - `InteractionPresentationSnapshot` 是各权威状态派生出的不可变呈现快照。
-- `InteractionFeedback` 只负责光标、HUD、录制状态、菜单栏和临时工具条，并按反馈通道独立管理生命周期。
+- `InteractionFeedback` 只负责光标、HUD、录制状态、菜单栏和按需工具面板，并按反馈通道独立管理生命周期。
+- `InteractionFeedback` 的具体 AppKit 适配必须遵循“光标为主、短暂状态胶囊为辅”；默认不创建永久绘画工具条。
+- `PermissionCenterModel` 把权限状态、用途、当前动作和重启要求建模为普通呈现数据，禁止通过递归模态弹窗驱动权限流程。
+- `SettingsNavigationModel` 固定六组设置；`HotkeyCaptureSession` 只在实际录入快捷键期间暂停全局热键。
+- `DisplaySynchronizedMotion` 为缩放和可拖拽画中画提供显示同步、可中断的呈现时钟，不再把固定 30 fps Timer 作为体验模型。
 - `ControlVPasteHotkeyService` 通过截图后临时注册的 Carbon 热键处理主路径，`PasteCompatibilityService` / Event Tap 只保留为已具备监听权限时的兜底路径。
+- `CanvasTextEditingSession` 按需持有原生 `NSTextView`，让 AppKit 负责 marked text、候选窗口、输入源和编辑命令；提交后仍落为普通 `Annotation.text`。
 - `RecordingOutputStrategy` 统一 MOV、MP4 与 GIF 的输出管线；电影配置集中在 `MovieRecordingProfile`。
 - `DrawingShortcutPolicy` 统一 `W/K`、颜色键与工具选择语义。
 
@@ -35,6 +40,7 @@ flowchart TD
     B --> D["RecordingController<br/>full / region / window"]
     B --> E["Panorama / Timer / DemoType"]
     B --> F["AnnotationController<br/>tool / style / canvas"]
+    F --> T["CanvasTextEditingSession<br/>native NSTextView / IME"]
 
     C --> G["ScreenCaptureKit / AppKit / Vision"]
     D --> H["ScreenCaptureKit / AVFoundation / AVKit"]
@@ -83,7 +89,7 @@ flowchart TD
 
 采用以下六个架构视角：
 
-1. **业务适配**：完整保留 ZoomIt，同时满足 Mac 粘贴、MOV、光标和权限体验。
+1. **业务适配**：保留 ZoomIt 核心操作语义与高级兼容能力，同时让默认界面、粘贴、MOV、光标和权限体验符合 Mac。
 2. **边界与所有权**：每个交互维度、录制生命周期、反馈通道、权限和媒体配置必须有唯一所有者。
 3. **依赖方向**：产品策略不能散落在捕获、绘制和窗口实现中。
 4. **模块深度**：新模块必须隐藏真实复杂度，不能只是转发调用。
@@ -95,8 +101,10 @@ flowchart TD
 | 领域 | 技术 | 决策 |
 | --- | --- | --- |
 | 语言 | Swift 6、Strict Concurrency | 沿用官方 |
-| 覆盖层、光标、菜单栏 | AppKit、Core Animation、Core Graphics | 核心选择 |
-| 设置窗口 | AppKit、`NSSplitViewController` | 暂不引入 SwiftUI |
+| 覆盖层、光标、菜单栏 | AppKit、Core Animation、Core Graphics、`NSVisualEffectView` | 核心选择；材质只用于临时功能层 |
+| 文字标注 | AppKit `NSTextView` / `NSTextInputClient` | 原生组合输入与候选生命周期；最终提交普通 Annotation |
+| 显示同步动效 | Core Animation、显示同步回调 | 缩放与 PiP 动效从当前呈现值推进，适配 60/120 Hz |
+| 设置窗口 | AppKit、`NSSplitViewController` | 六组原生设置导航，暂不引入 SwiftUI |
 | 屏幕捕获 | ScreenCaptureKit | 沿用官方 |
 | 电影录制 | AVFoundation、CoreMedia | 沿用，增加 MOV/MP4 Profile |
 | GIF 导出 | ImageIO、Core Graphics | 独立图像序列输出，不伪装成视频容器 |
@@ -105,7 +113,7 @@ flowchart TD
 | 全局快捷键 | Carbon `RegisterEventHotKey` | 沿用官方 |
 | `Control+V` 兼容 | Carbon 临时热键；Core Graphics `CGEventTap` 兜底 | 独立动态服务 |
 | 剪贴板 | `NSPasteboard` | 原生 |
-| 权限 | TCC、CoreGraphics、AVFoundation | 按需申请 |
+| 权限 | TCC、CoreGraphics、AVFoundation | 按需申请，通过非模态权限中心呈现 |
 | 登录时启动 | ServiceManagement | 沿用官方 |
 | 设置存储 | `UserDefaults` | 不引入数据库 |
 | 本地诊断 | `os.Logger`、Signpost | 不做遥测 |
@@ -179,6 +187,7 @@ DoraZoom 保留 `ModeCoordinator` 作为命令协调中心，但权威状态按�
 | 录制生命周期、目标和时长 | `RecordingController` |
 | 当前标注工具、颜色、粗细和高亮 | `AnnotationController` |
 | 白板、黑板或透明画布背景 | `AnnotationController` |
+| 活跃文字编辑器、marked text、选择和插入点 | `CanvasTextEditingSession`；AppKit 文本系统拥有输入法生命周期 |
 | 光标、HUD、菜单栏、状态胶囊和工具条呈现 | `InteractionFeedback`，只持有呈现资源 |
 | 剪贴板武装状态与 `Control+V` 转换 | `PasteCompatibilityService` |
 
@@ -327,7 +336,7 @@ struct AppSessionState: Equatable, Sendable {
 - 完成 Toast。
 - 录制状态胶囊。
 - 菜单栏状态。
-- 临时绘画工具条。
+- 短暂模式胶囊和按需工具面板。
 - 浅色、深色、高对比度和减弱动态。
 - 临时窗口的捕获排除。
 
@@ -403,6 +412,14 @@ protocol PasteCompatibilityService {
 为什么不并入 `HotkeyService`：
 
 固定功能热键与截图后临时存在的粘贴热键具有不同的状态源和生命周期；独立服务可以在剪贴板变化时立即撤销，而不重载全部产品热键。
+
+#### 原生文字编辑与粘贴仲裁
+
+文字输入不是字符快捷键的延伸。`ZoomCanvasView` 进入文字工具后按需安装 `CanvasTextEditingSession`，由其中的原生 `NSTextView` 成为 first responder。AppKit 因而完整拥有 `setMarkedText`、候选窗口、输入源切换、Caps Lock、选择、删除与 `Command+A/C/X/V/Z`；生产代码不再从 `NSEvent.characters` 追加正文，也不建立旧路径兼容层。
+
+编辑中的文字草稿仍镜像到 `AnnotationController`，但屏幕只显示原生编辑器，避免重复绘制。截图或录制快照时临时隐藏编辑器，由普通 `Annotation.text` 进入合成，因此插入点、选择高亮和候选 UI 不进入输出。提交或取消后释放编辑器及 first-responder 生命周期。
+
+`Control+V` 有两条入口，必须一起让位于原生文字系统：Event Tap 在文字编辑活跃时放行精确按键，Carbon 临时热键则实际注销，不能只在回调里忽略而吞掉原始事件。编辑结束后，仅当同一截图 change count 仍有效且权限满足时重新注册；`Command+V` 始终不受 DoraZoom 仲裁。
 
 ### 9.3 `RecordingOutputStrategy`
 
@@ -500,6 +517,79 @@ DoraZoom 固定策略：
 post 权限成功后即可调用 `screenshotCopied(changeCount:)` 注册临时 Carbon `Control+V`；若 listen/post 都已存在，可以同时启动 Event Tap 兜底。失败或拒绝时保持未武装状态，不能把权限请求放在输入回调里。
 
 不在 UI、Event Tap 或功能控制器中直接拼接系统设置 URL。
+
+### 9.6 Apple 交互适配
+
+Apple 风格不是一组装饰参数，而是四个独立的技术边界：设置导航、权限流程、即时反馈和显示同步动效。它们不得继续散落在 `SettingsWindowController`、`AppController`、`ZoomCanvasView` 和各捕获控制器中。
+
+#### `PermissionCenterModel`
+
+```swift
+enum PermissionKind: Hashable, Sendable {
+    case screenCapture
+    case inputPosting
+    case inputListeningFallback
+    case microphone
+    case camera
+}
+
+struct PermissionCenterRow: Equatable, Sendable {
+    let kind: PermissionKind
+    let purpose: String
+    let state: PermissionDisplayState
+    let action: PermissionAction?
+    let isOptional: Bool
+}
+```
+
+规则：
+
+- 权限中心是普通设置页面或普通窗口，不使用递归 `NSAlert`。
+- 每一行根据当前状态只产生一个主要动作：请求、打开系统设置、重新启动或无动作。
+- `NSApplication.didBecomeActiveNotification` 只触发状态刷新，不能触发窗口展示或系统权限请求。
+- 麦克风和摄像头未启用时使用 `optionalNotRequested` 等价状态，不纳入阻塞错误计数。
+- 需要重新启动时由明确的 relaunch action 执行；退出前保存设置并留下可测试的重启意图，不能把直接 terminate 当作权限成功反馈。
+
+#### `SettingsNavigationModel` 与 `HotkeyCaptureSession`
+
+设置固定为 `general / shortcuts / captureAndDraw / recording / permissions / advanced` 六组。DemoType、倒计时、全景、摄像头细项、MP4/GIF 和复杂编辑配置只进入 `advanced`。
+
+打开设置窗口不能调用全局 `hotkeyService.stop()`。只有 `HotkeyCaptureSession` 进入 `recording` 状态时暂停热键；捕获成功、冲突、`Escape` 取消或窗口关闭都必须幂等恢复。设置窗口使用普通窗口层级并持久化 frame，不使用 `.floating` 解决生命周期问题。
+
+#### `FeedbackPresentationAdapter`
+
+领域快照只说明“呈现什么”，AppKit 适配器决定“如何呈现”：
+
+- pointer 在状态提交后的首个呈现帧生效，不等待屏幕捕获或缩放动画。
+- transient HUD 只在模式进入、工具变化、完成、警告和错误时出现，带可替换的自动消失时钟。
+- 工具状态以 pointer 为长期反馈；工具面板只由明确用户动作打开。
+- 普通标签使用系统字体，尺寸、倍率和录制时间才使用等宽数字。
+- 所有临时窗口显式设置 capture exclusion；不能依赖窗口层级偶然排除。
+- `reduceMotion`、`reduceTransparency` 和 `increaseContrast` 作为环境输入进入 presentation plan，并由模拟测试覆盖。
+
+#### `DisplaySynchronizedMotion`
+
+```swift
+protocol DisplaySynchronizedMotionClock: AnyObject {
+    @MainActor
+    func start(_ tick: @escaping (_ timestamp: TimeInterval) -> Void)
+
+    @MainActor
+    func stop()
+}
+```
+
+规则：
+
+- 生产实现绑定当前目标显示器的同步刷新；测试实现使用虚拟时钟回放 60 Hz 和 120 Hz 序列。
+- 缩放从当前 presentation value 和当前速度继续，新的滚轮、触控板或退出输入可以立即重定向。
+- 缩放默认临界阻尼、无弹跳，产品参考 response 为 0.25–0.35 秒；开启减少动态效果时直接提交或使用短交叉淡化。
+- PiP 拖动阶段保持 1:1 和抓取偏移；释放后才允许使用投射速度、边界阻尼和无弹跳吸附。
+- 选区、画笔和形状预览属于直接操纵，不经过 spring 或固定时长过渡。
+
+#### 录制安全边界
+
+录制可靠性不能继续只是 `RecordingController` 内部的若干布尔值。开始请求必须组合录制目标、音源权限、电平可用性、磁盘容量和输出策略；运行期状态必须表达 `recording / paused / finalizing / recoverableFailure`。媒体写入采用分段或等价的可恢复策略，恢复清单与日常导出文件分离，不能静默写入截图历史库或永久媒体数据库。
 
 ## 10. 并发与生命周期
 
@@ -743,19 +833,23 @@ Event Tap 条件错误可能让 `Control+V` 在终端、编辑器或其他应用
 - `NSCursor`、cursor lease、`sharingType` 和录制状态回调位置搜索。
 - 主要 Swift 文件行数统计。
 
-当前目标不验证的真实外部事实：
+自动化门禁不能验证的真实外部事实：
 
 - 真实系统中的 listen/post event access、active Event Tap 与系统设置入口行为。
 - MOV 在目标 Windows、剪映和 DaVinci Resolve 版本中的实际兼容性。
 
-这些项目不作为当前本地模拟验收阻塞；若未来面向他人分发或真实日常试用，再另开真实设备验收目标。
+这些项目不阻塞本地工程门禁，但属于当前用户真机验收门；必须由用户在可见、可中止的开发版中给出结果，不能由模拟证据替代。
 
 ## 18. 下一步
 
-实现前首先定义并验证三个最小契约：
+权限中心、六组设置、短生命周期快捷键录入、反馈适配、显示同步缩放和原生文字编辑均已按上述架构实现并通过本地模拟。当前下一步只有用户真机验收：
 
-1. 各权威控制器 → `AppSessionState` → `InteractionPresentationSnapshot` → 通道化 feedback lease。
-2. `RecordingTarget + RecordingOutputStrategy` → 录制、临时文件、保存、GIF 和编辑器。
-3. `DrawingShortcutPolicy` 与首次截图后的 `PasteCompatibilityService` 授权/武装流程。
+1. 使用 `com.duola.dorazoom.dev` 的开发版验证真实中日韩输入法、大小写与输入源切换。
+2. 验证 `Control+4` 滚轮/触控板手感和 100% 稳定边界。
+3. 在真实目标 App 验证 `Control+6` 后的 `Command+V` 与条件式 `Control+V`。
+4. 验证系统声音/麦克风进入 MOV 音轨、QuickTime 播放，以及 `W/K`、`T/Shift+T` 的可发现性。
 
-这些边界以纯逻辑测试证明后，再导入锁定提交的官方源码并开始改造。不要先重排目录，也不要先重写设置窗口。
+未经用户确认不启动、不安装、不重置 TCC；验收失败回到对应 TDD 切片，全部通过后仍需独立发布授权。
+5. 补齐截图隐私/重复区域/窗口目标，以及录制预检、暂停、分段写入和恢复边界。
+
+不要先改视觉常量，也不要在各窗口控制器中分别实现权限刷新、动画计时或热键暂停；先形成上述唯一边界，再替换现有 AppKit 接线。

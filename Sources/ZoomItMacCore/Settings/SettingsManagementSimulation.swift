@@ -84,53 +84,6 @@ struct SettingsHotkeyPlan: Equatable, Sendable {
     var platformBoundary: AutomationPlatformBoundary
 }
 
-enum SettingsPermissionGrantState: Equatable, Sendable {
-    case granted
-    case denied
-    case notDetermined
-}
-
-struct SettingsPermissionSimulationInput: Equatable {
-    var screenCapture: SettingsPermissionGrantState
-    var input: KeyboardEventAccess
-    var microphone: MicrophonePermission
-    var camera: MicrophonePermission
-}
-
-enum SettingsPermissionRowKind: Equatable, Hashable, Sendable {
-    case screenRecording
-    case inputMonitoringListen
-    case inputMonitoringPost
-    case microphone
-    case camera
-}
-
-enum SettingsPermissionRowStatus: Equatable, Sendable {
-    case granted
-    case missing
-    case needsSettings
-    case notDetermined
-}
-
-enum SettingsPermissionAction: Equatable, Sendable {
-    case none
-    case openSystemSettings
-    case requestPermission
-}
-
-struct SettingsPermissionRow: Equatable, Sendable {
-    var kind: SettingsPermissionRowKind
-    var status: SettingsPermissionRowStatus
-    var action: SettingsPermissionAction
-}
-
-struct SettingsPermissionPage: Equatable, Sendable {
-    var rows: [SettingsPermissionRow]
-    var platformBoundary: AutomationPlatformBoundary
-    var touchesRealTCC: Bool
-    var opensSystemSettings: Bool
-}
-
 enum SettingsManagementSimulation {
     static func snapshot(for settings: AppSettings) -> SettingsManagementSnapshot {
         SettingsManagementSnapshot(
@@ -151,12 +104,15 @@ enum SettingsManagementSimulation {
                 ]),
                 .init(category: .snip, values: [
                     "copyToClipboardOnSave": switchText(settings.copySnipToClipboardOnSave),
+                    "includeWindowShadow": switchText(settings.includeWindowShadow),
                     "saveToDirectory": switchText(settings.saveSnipToDirectory),
                     "saveDirectory": settings.snipSaveDirectory
                 ]),
                 .init(category: .record, values: [
                     "systemAudio": switchText(settings.recordSystemAudio),
                     "microphone": switchText(settings.recordMicrophone),
+                    "mouseClicks": switchText(settings.recordMouseClicks),
+                    "shortcutKeys": switchText(settings.recordShortcutKeys),
                     "noiseCancellation": switchText(settings.recordNoiseCancellation),
                     "microphoneDeviceID": settings.microphoneDeviceID
                 ]),
@@ -204,21 +160,6 @@ enum SettingsManagementSimulation {
         )
     }
 
-    static func permissionPage(permissions: SettingsPermissionSimulationInput) -> SettingsPermissionPage {
-        SettingsPermissionPage(
-            rows: [
-                screenRecordingRow(permissions.screenCapture),
-                inputRow(kind: .inputMonitoringListen, isGranted: permissions.input.canListen),
-                inputRow(kind: .inputMonitoringPost, isGranted: permissions.input.canPost),
-                mediaRow(kind: .microphone, permissions.microphone),
-                mediaRow(kind: .camera, permissions.camera)
-            ],
-            platformBoundary: .simulatedOnly,
-            touchesRealTCC: false,
-            opensSystemSettings: false
-        )
-    }
-
     private static func binding(
         _ command: SettingsHotkeyCommand,
         code: Int,
@@ -244,36 +185,6 @@ enum SettingsManagementSimulation {
         }
 
         return conflicts
-    }
-
-    private static func screenRecordingRow(_ state: SettingsPermissionGrantState) -> SettingsPermissionRow {
-        switch state {
-        case .granted:
-            return .init(kind: .screenRecording, status: .granted, action: .none)
-        case .denied:
-            return .init(kind: .screenRecording, status: .needsSettings, action: .openSystemSettings)
-        case .notDetermined:
-            return .init(kind: .screenRecording, status: .notDetermined, action: .requestPermission)
-        }
-    }
-
-    private static func inputRow(kind: SettingsPermissionRowKind, isGranted: Bool) -> SettingsPermissionRow {
-        SettingsPermissionRow(
-            kind: kind,
-            status: isGranted ? .granted : .missing,
-            action: isGranted ? .none : .openSystemSettings
-        )
-    }
-
-    private static func mediaRow(kind: SettingsPermissionRowKind, _ permission: MicrophonePermission) -> SettingsPermissionRow {
-        switch permission {
-        case .granted:
-            return .init(kind: kind, status: .granted, action: .none)
-        case .denied:
-            return .init(kind: kind, status: .needsSettings, action: .openSystemSettings)
-        case .notDetermined:
-            return .init(kind: kind, status: .notDetermined, action: .requestPermission)
-        }
     }
 
     private static func keyboardModifiers(from rawValue: UInt) -> Set<KeyboardModifier> {

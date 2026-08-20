@@ -57,11 +57,11 @@ final class Phase6PanoramaSimulationTests: XCTestCase {
     }
 
     func testPanoramaCoverageMapMarksFeatureAcceptedByLocalSimulation() throws {
-        let map = ZoomItFeatureCoverageMap.phase6Default
+        let map = ZoomItFeatureCoverageMap.current
         let entry = try XCTUnwrap(map.entry(for: .panoramaClipboardOrFile))
 
         XCTAssertEqual(entry.status, .localSimulationAccepted)
         XCTAssertTrue(entry.simulatedTestRefs.contains("Tests/ZoomItMacCoreTests/Phase6PanoramaSimulationTests.swift"))
-        XCTAssertTrue(entry.phase7Refs.contains(.localSimulationAcceptance))
+        XCTAssertTrue(entry.evidenceRefs.contains(.localSimulationAcceptance))
     }
 }

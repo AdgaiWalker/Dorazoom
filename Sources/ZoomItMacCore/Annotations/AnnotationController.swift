@@ -18,6 +18,8 @@ final class AnnotationController {
     private var inProgress: Annotation?
     private var textAnnotationIndex: Int?
     private var insertionPoint: CGPoint = CGPoint(x: 120, y: 120)
+    private var nextCalloutNumber = 1
+    var isTypingDraftPresentedByNativeEditor = false
 
     var annotationSnapshot: [Annotation] {
         annotations
@@ -29,6 +31,10 @@ final class AnnotationController {
 
     var renderPlanSnapshot: [AnnotationRenderOperation] {
         AnnotationRenderPlan.operations(for: allAnnotationsForRendering)
+    }
+
+    var privacyRenderPlanSnapshot: [AnnotationRenderOperation] {
+        renderPlanSnapshot.filter(\.isPrivacy)
     }
 
     /// Builds the typing-mode font for the given name and size, falling back to
@@ -50,6 +56,8 @@ final class AnnotationController {
         canvasBackground = .transparent
         typingFontSize = AnnotationController.defaultFontSize
         typingRightAligned = false
+        isTypingDraftPresentedByNativeEditor = false
+        nextCalloutNumber = 1
     }
 
     func setCanvasBackground(_ background: CanvasBackground) {
@@ -126,17 +134,17 @@ final class AnnotationController {
     }
 
     func begin(at point: CGPoint) {
-        inProgress = Annotation(tool: currentTool, points: [point], style: currentStyle)
+        inProgress = makeAnnotation(tool: currentTool, point: point)
     }
 
     func begin(at point: CGPoint, tool: AnnotationTool) {
-        inProgress = Annotation(tool: tool, points: [point], style: currentStyle)
+        inProgress = makeAnnotation(tool: tool, point: point)
     }
 
     func update(at point: CGPoint) {
         guard let tool = inProgress?.tool else { return }
 
-        if tool == .pen || tool == .highlighter {
+        if tool == .pen || tool == .highlighter || tool == .blur {
             inProgress?.points.append(point)
         } else if inProgress?.points.count == 1 {
             inProgress?.points.append(point)
@@ -149,51 +157,79 @@ final class AnnotationController {
         update(at: point)
         guard let annotation = inProgress else { return }
         annotations.append(annotation)
+        if annotation.tool == .numberedCallout {
+            nextCalloutNumber += 1
+        }
         inProgress = nil
     }
 
     func undo() {
         _ = annotations.popLast()
         textAnnotationIndex = nil
+        nextCalloutNumber = (annotations.compactMap(\.calloutNumber).max() ?? 0) + 1
     }
 
     func clear() {
         annotations.removeAll()
         inProgress = nil
         textAnnotationIndex = nil
+        nextCalloutNumber = 1
     }
 
-    func insertText(_ text: String) {
-        if let textAnnotationIndex, annotations.indices.contains(textAnnotationIndex), annotations[textAnnotationIndex].tool == .text {
-            annotations[textAnnotationIndex].text.append(contentsOf: text)
+    /// Replaces the native text editor's current draft. Marked-text updates
+    /// replace the same annotation instead of being appended as raw key events.
+    func replaceTypingText(_ text: String) {
+        if let textAnnotationIndex,
+           annotations.indices.contains(textAnnotationIndex),
+           annotations[textAnnotationIndex].tool == .text {
+            if text.isEmpty {
+                annotations.remove(at: textAnnotationIndex)
+                self.textAnnotationIndex = nil
+            } else {
+                annotations[textAnnotationIndex].text = text
+            }
             return
         }
 
-        let annotation = Annotation(tool: .text, points: [insertionPoint], style: currentStyle, text: text, fontSize: typingFontSize, fontName: typingFontName, rightAligned: typingRightAligned)
+        guard !text.isEmpty else { return }
+        let annotation = Annotation(
+            tool: .text,
+            points: [insertionPoint],
+            style: currentStyle,
+            text: text,
+            fontSize: typingFontSize,
+            fontName: typingFontName,
+            rightAligned: typingRightAligned
+        )
         annotations.append(annotation)
         textAnnotationIndex = annotations.indices.last
     }
 
-    func deleteBackward() {
-        guard let textAnnotationIndex, annotations.indices.contains(textAnnotationIndex), annotations[textAnnotationIndex].tool == .text else {
-            undo()
-            return
-        }
-
-        if annotations[textAnnotationIndex].text.isEmpty {
-            annotations.remove(at: textAnnotationIndex)
-            self.textAnnotationIndex = nil
-        } else {
-            annotations[textAnnotationIndex].text.removeLast()
-        }
-    }
-
     private var allAnnotationsForRendering: [Annotation] {
-        annotations + Array(inProgress.map { [$0] } ?? [])
+        let committedAnnotations: [Annotation]
+        if isTypingDraftPresentedByNativeEditor,
+           let textAnnotationIndex,
+           annotations.indices.contains(textAnnotationIndex) {
+            committedAnnotations = annotations.enumerated().compactMap { index, annotation in
+                index == textAnnotationIndex ? nil : annotation
+            }
+        } else {
+            committedAnnotations = annotations
+        }
+        return committedAnnotations + Array(inProgress.map { [$0] } ?? [])
     }
 
-    func render(in context: CGContext, bounds: CGRect) {
-        let operations = renderPlanSnapshot
+    private func makeAnnotation(tool: AnnotationTool, point: CGPoint) -> Annotation {
+        Annotation(
+            tool: tool,
+            points: [point],
+            style: currentStyle,
+            calloutNumber: tool == .numberedCallout ? nextCalloutNumber : nil
+        )
+    }
+
+    func render(in context: CGContext, bounds: CGRect, includesPrivacyPreview: Bool) {
+        let operations = renderPlanSnapshot.filter { includesPrivacyPreview || !$0.isPrivacy }
         let highlights = operations.filter(\.isHighlight)
         let solids = operations.filter { !$0.isHighlight }
 
@@ -232,11 +268,14 @@ final class AnnotationController {
         context.setLineJoin(.round)
 
         switch operation.kind {
-        case .freehand, .highlightFreehand:
+        case .freehand, .highlightFreehand, .blurFreehand:
             let path = CGMutablePath()
             path.move(to: first)
             for point in operation.points.dropFirst() {
                 path.addLine(to: point)
+            }
+            if operation.kind == .blurFreehand {
+                context.setStrokeColor(NSColor.systemGray.withAlphaComponent(0.55).cgColor)
             }
             context.addPath(path)
             context.strokePath()
@@ -273,6 +312,16 @@ final class AnnotationController {
             } else {
                 context.strokeEllipse(in: rect)
             }
+        case .redactionFill:
+            guard let last = operation.points.last else { return }
+            let rect = CGRect(
+                origin: first,
+                size: CGSize(width: last.x - first.x, height: last.y - first.y)
+            ).standardized
+            context.setAlpha(1)
+            context.fill(rect)
+        case .numberedCallout:
+            drawNumberedCallout(operation, in: context)
         case .text:
             drawText(operation)
         }
@@ -298,6 +347,37 @@ final class AnnotationController {
         } else {
             string.draw(at: point, withAttributes: attributes)
         }
+    }
+
+    private func drawNumberedCallout(_ operation: AnnotationRenderOperation, in context: CGContext) {
+        guard let center = operation.points.last, let number = operation.calloutNumber else { return }
+        let radius = max(12, operation.style.rootWidth * 2.4)
+        let circle = CGRect(
+            x: center.x - radius,
+            y: center.y - radius,
+            width: radius * 2,
+            height: radius * 2
+        )
+        context.saveGState()
+        context.setAlpha(1)
+        context.setFillColor(operation.style.color.nsColor.cgColor)
+        context.fillEllipse(in: circle)
+        context.restoreGState()
+
+        let font = NSFont.monospacedDigitSystemFont(ofSize: radius, weight: .bold)
+        let string = NSString(string: String(number))
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white
+        ]
+        let size = string.size(withAttributes: attributes)
+        let previousContext = NSGraphicsContext.current
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+        defer { NSGraphicsContext.current = previousContext }
+        string.draw(
+            at: CGPoint(x: circle.midX - size.width / 2, y: circle.midY - size.height / 2),
+            withAttributes: attributes
+        )
     }
 
     private func drawArrow(tail: CGPoint, tip: CGPoint, width: CGFloat, color: NSColor, in context: CGContext) {

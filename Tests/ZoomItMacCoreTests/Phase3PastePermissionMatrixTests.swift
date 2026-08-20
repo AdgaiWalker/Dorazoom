@@ -5,8 +5,12 @@ import XCTest
 final class Phase3PastePermissionMatrixTests: XCTestCase {
     func testUnknownAccessThenAllowedRequestsOnceArmsAndStartsEventTap() {
         let requester = MatrixPermissionRequester(initialAccess: .init(canListen: false, canPost: false))
-        requester.accessAfterRequest = .init(canListen: true, canPost: true)
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        var permissionCenterRequestCount = 0
+        coordinator.onInputPostingPermissionNeeded = {
+            permissionCenterRequestCount += 1
+            requester.access = .init(canListen: true, canPost: true)
+        }
         let installer = MatrixEventTapInstaller()
         let tap = SystemPasteCompatibilityEventTap(
             coordinator: coordinator,
@@ -22,21 +26,24 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
 
         coordinator.screenshotCopied(changeCount: 10)
 
-        XCTAssertEqual(requester.requestCount, 1)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
         XCTAssertEqual(completionCount, 1)
         XCTAssertEqual(installer.installCount, 1)
         XCTAssertEqual(coordinator.handle(.keyDown(key: "v", modifiers: [.control])), .convertToCommandV)
 
         coordinator.screenshotCopied(changeCount: 11)
-        XCTAssertEqual(requester.requestCount, 1)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
         XCTAssertEqual(completionCount, 1)
         XCTAssertEqual(installer.installCount, 1)
     }
 
     func testDeniedAccessAfterRequestDoesNotArmInterceptOrInstallEventTap() {
         let requester = MatrixPermissionRequester(initialAccess: .init(canListen: false, canPost: false))
-        requester.accessAfterRequest = .init(canListen: false, canPost: false)
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        var permissionCenterRequestCount = 0
+        coordinator.onInputPostingPermissionNeeded = {
+            permissionCenterRequestCount += 1
+        }
         let poster = MatrixKeyboardPoster()
         let installer = MatrixEventTapInstaller()
         let tap = SystemPasteCompatibilityEventTap(
@@ -49,7 +56,7 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
 
         coordinator.screenshotCopied(changeCount: 20)
 
-        XCTAssertEqual(requester.requestCount, 1)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
         XCTAssertFalse(tap.start())
         XCTAssertEqual(installer.installCount, 0)
         XCTAssertEqual(controller.handle(.keyDown(key: "v", modifiers: [.control])), .passThrough)
@@ -74,7 +81,6 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
 
         coordinator.screenshotCopied(changeCount: 40)
 
-        XCTAssertEqual(requester.requestCount, 0)
         XCTAssertFalse(tap.start())
         XCTAssertEqual(installer.installCount, 0)
     }
@@ -96,7 +102,6 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
         let decision = PasteCompatibilityEventTapController(coordinator: coordinator, poster: poster)
             .handle(.keyDown(key: "v", modifiers: [.control]))
 
-        XCTAssertEqual(requester.requestCount, 0)
         XCTAssertEqual(installer.installCount, 1)
         XCTAssertEqual(decision, .suppressOriginal)
         XCTAssertEqual(poster.postedCommands, [.commandV])
@@ -104,8 +109,11 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
 
     private func assertPartialAccessDoesNotIntercept(_ access: KeyboardEventAccess) {
         let requester = MatrixPermissionRequester(initialAccess: access)
-        requester.accessAfterRequest = access
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        var permissionCenterRequestCount = 0
+        coordinator.onInputPostingPermissionNeeded = {
+            permissionCenterRequestCount += 1
+        }
         let poster = MatrixKeyboardPoster()
         let installer = MatrixEventTapInstaller()
         let tap = SystemPasteCompatibilityEventTap(
@@ -118,7 +126,7 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
 
         coordinator.screenshotCopied(changeCount: 40)
 
-        XCTAssertEqual(requester.requestCount, 1)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
         XCTAssertFalse(tap.start())
         XCTAssertEqual(installer.installCount, 0)
         XCTAssertEqual(controller.handle(.keyDown(key: "v", modifiers: [.control])), .passThrough)
@@ -128,8 +136,6 @@ final class Phase3PastePermissionMatrixTests: XCTestCase {
 
 private final class MatrixPermissionRequester: InputCompatibilityPermissionRequester {
     var access: KeyboardEventAccess
-    var accessAfterRequest: KeyboardEventAccess?
-    private(set) var requestCount = 0
 
     init(initialAccess: KeyboardEventAccess) {
         self.access = initialAccess
@@ -139,12 +145,6 @@ private final class MatrixPermissionRequester: InputCompatibilityPermissionReque
         access
     }
 
-    func explainAndRequestInputCompatibilityAccess() {
-        requestCount += 1
-        if let accessAfterRequest {
-            access = accessAfterRequest
-        }
-    }
 }
 
 private final class MatrixKeyboardPoster: KeyboardEventPoster {

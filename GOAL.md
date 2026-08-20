@@ -1,442 +1,393 @@
-# Goal Document: DoraZoom 个人版完整落地
+# Goal Document: DoraZoom Apple 交互与安全补齐
 
 > 产品事实源：[PRD.md](./PRD.md)
 > 架构事实源：[ARCHITECTURE.md](./ARCHITECTURE.md)
-> 上游锁定提交：`b03e43da91cd84eeb8f691fa65095e0304c3e660`
+> 实现基线：Microsoft ZoomIt for Mac `b03e43da91cd84eeb8f691fa65095e0304c3e660`
+> 当前提交基线：`1bfda9d`；本轮稳定化改动位于未提交混合工作区，发布前必须按明确范围审查
 
 ## Go / No-Go
 
 - **Judgment**：Go
-- **Reason**：用户已明确要求“全部改成本地模拟”。产品与架构决策已经明确，完成条件改为协议化平台边界、测试替身、确定性事件流、本地 writer 计划和非侵入产物元数据门禁；不再把真实 TCC、ScreenCaptureKit、全局输入、外部播放器或主观体感作为当前目标的完成阻塞。
+- **Reason**：最新 PRD 的已知缺陷行为已经实现，原生文字、粘贴仲裁、缩放、录音计划和快捷键指南均有本地模拟证据；完整交付门禁已通过。当前可以进入用户可见真机验收，但不能沿用旧 Phase 7 的“真实体验全部完成”结论。
 
 ## Target Outcome
 
-以锁定提交的 Microsoft ZoomIt for Mac 官方源码为实现基础，交付可安装、可日常使用的 `DoraZoom.app`：
+在不重写官方捕获、绘制和媒体引擎的前提下，把当前 DoraZoom 基线升级为符合最新 PRD 的 Mac 个人版：
 
-- 完整保留 PRD 第 5.1 节列出的 ZoomIt 能力，不以轻量化为由删减功能。
-- 最大程度保持 Windows ZoomIt 12.11 的快捷键和操作语义，同时符合 macOS 的粘贴、权限、窗口和媒体习惯。
-- `Control+1`、`Control+2`、截图、OCR、录制选择、绘画工具和白板/黑板切换均具有同步、明确的光标或状态反馈。
-- 截图到剪贴板不产生本地文件，支持原生 `Command+V`；获得所需系统授权后，也支持有条件、可重复的 `Control+V`。
-- 录制支持全屏、区域、鼠标所在窗口、系统声音、麦克风、摄像头和录制中圈画；默认输出 MOV/H.264/AAC，同时保留 MP4 与 GIF。
-- 应用空闲时不持续捕获或编码，没有第三方运行时依赖，性能相对锁定上游基线不超过 PRD 允许的退化。
-- 日常版与开发调试版身份稳定且隔离，不再因旧安装包或调试构建污染正式权限条目。
+- 快捷键和即时操作保留 ZoomIt 肌肉记忆，设置、权限、菜单、窗口和反馈符合 macOS 习惯。
+- 权限通过非模态统一中心呈现；从系统设置返回只刷新状态，必要重启具有明确动作，不再反复弹窗或突然退出。
+- 设置固定为六组；打开设置不暂停全部热键，只有录入新快捷键时临时暂停。
+- 光标承担长期模式反馈，模式和工具变化只显示短暂状态胶囊；缩放改为显示同步且可中断。
+- 文字标注由 AppKit 原生文本系统处理中日韩组合输入、候选、大小写、输入源和编辑命令；文字编辑期间释放 `Control+V` 兼容热键。
+- 截图补齐模糊/遮挡、上一次区域、窗口截图、编号标记和多显示器正确性；默认剪贴板路径不产生本地文件。
+- 录制补齐开始前预检、暂停/继续、分段安全写入、未完成结果恢复、可选点击/快捷键显示和轻量录后结果页。
+- DemoType、倒计时、全景、摄像头细项、MP4/GIF 和复杂编辑继续可用，但进入高级入口，不与核心动作界面平权。
+- 现有 `Command+V`、有条件 `Control+V`、MOV/H.264/AAC、白板/黑板、单实例、签名身份和零第三方运行时依赖不得回归。
+
+完成后应生成可构建、可签名的开发版和日常版，并先以本地模拟验收记录证明工程就绪。真实 macOS 权限、输入法、缩放手感、目标 App 粘贴、声音和播放器必须由用户在可见流程中人工验收；未得到结果前不写成通过，也不提交或发布。
 
 ## Goal Definition
 
 - **Type**：product + technical + quality + delivery
 - **Boundary**：
-  - 导入并保留锁定提交的官方 Mac 源码、MIT 许可证和必要归属。
-  - 实现 PRD 的完整功能、交互、权限、媒体、性能与个人版安装要求。
-  - 按架构文档建立组合会话状态、通道化反馈、粘贴兼容、录制输出策略和绘画快捷键策略。
-  - 交付源码、自动化测试、个人版 App 构建物和一份合并后的验证记录。
+  - 重构权限、设置、菜单栏、模式反馈和缩放动效的 AppKit 外壳。
+  - 增加 PRD 第 5.1 节列出的截图安全/效率能力和录制安全/恢复能力。
+  - 更新领域状态、平台协议、测试替身、功能覆盖表、验证记录和验收记录。
+  - 保留并复用官方捕获、标注、ScreenCaptureKit、AVFoundation、Vision、全景和高级编辑实现。
+  - 保持 `arm64` 默认交付、SwiftPM、单进程、单核心模块、零第三方运行时依赖。
 - **Non-goals**：
-  - 账号、云同步、团队空间、商业化、订阅和遥测。
-  - 为了目录整齐而重写官方捕获、绘画、录制、编辑或全景算法。
-  - 恢复已经删除的旧 InkLayer 实现，或把它与官方源码混合。
-  - 引入 Electron、Tauri、FFmpeg、数据库、响应式框架或依赖注入框架。
-  - 没有性能证据时引入 Metal 自研渲染器。
+  - 账号、云同步、团队空间、订阅、遥测和第三方 AI API。
+  - 截图历史库、永久素材库、自动后台归档。
+  - OBS 式场景、直播、多轨专业时间线和 Screen Studio 式自动电影缩放。
+  - 恢复旧 `Sources/InkLayer/**`，或建立官方实现之外的第二套捕获/绘制/录制引擎。
+  - 为旧内部类型、旧设置标签或旧窗口控制器建立兼容别名；不存在外部公开契约时直接迁移调用方。
+  - 自动触碰真实 TCC、全局键盘、真实剪贴板、屏幕、麦克风、摄像头、登录项、目标 App 或真实用户输出目录。
 - **Deferred work**：
-  - 自动更新。
-  - 面向公众分发所需的 Developer ID、notarization 和发布站点。
-  - 非当前个人机器需要的 Universal 构建，除非实际交付环境要求。
-  - PRD 之外的新功能和视觉装饰。
-- **Verification rule**：全部验收改为本地模拟执行，并由 `Scripts/verify-test-boundary.sh` 守住测试边界；`Scripts/phase7-preflight.sh`、`Scripts/verify-delivery.sh`、`Scripts/verify-acceptance-record.sh ACCEPTANCE.md` 全部通过即为当前目标完成。
+  - Developer ID、notarization、公网下载站和自动更新。
+  - Universal 构建，除非后续确认存在 Intel 交付目标。
+  - 截图置顶、延时截图、颜色拾取、像素测量和高级 OCR。
+  - 自动摄像头背景虚化、噪声消除和电影级鼠标平滑。
+- **Verification rule**：
+  - 每个实现 todo 使用 `hai-tdd` 执行 RED → GREEN → REFACTOR，并将证据写入 `VALIDATION.md`。
+  - 所有自动化测试只使用进程内模拟层、测试替身、虚拟时钟和确定性事件回放，由 `Scripts/verify-test-boundary.sh` 守门。
+  - 工程完成要求 `Scripts/verify-delivery.sh`、全量测试、自测、功能覆盖、文档一致性和交付产物门禁全部通过。
+  - 当前产品完成以 `Scripts/phase7-preflight.sh` 和已填写的本地模拟 `ACCEPTANCE.md` 为准；Codex 不启动 App、请求权限或操作真实目标应用。
 - **Evidence source**：
-  - `swift build`、`swift test`、官方 self-test。
-  - 纯逻辑契约测试、模拟平台集成测试和确定性事件回放。
-  - 虚拟时钟、确定性事件回放、模拟渲染计数、App 与安装包体积。
-  - 模拟权限状态、内存剪贴板替身、模拟目标 App 事件结果和剪贴板变化记录。
-  - QuickTime、目标 Windows 播放环境、剪映和 DaVinci Resolve 的本地媒体兼容矩阵。
-  - `ACCEPTANCE.md` 本地模拟验收记录。
+  - Swift XCTest 的纯逻辑、模拟集成、虚拟时钟和故障恢复测试。
+  - `ZoomItFeatureCoverageMap` 的实现引用、模拟测试引用和缺口集合。
+  - `swift build`、`swift test`、`ZoomItMacSelfTest`、`Scripts/verify-delivery.sh`。
+  - App/zip 身份、签名、entitlements、架构、依赖和体积元数据。
+  - 更新后的 `VALIDATION.md` 和本地模拟 `ACCEPTANCE.md`。
 - **Pass criteria**：
-  - PRD 第 14 节没有未解释的本地模拟失败项。
-  - 所有自动化测试只使用模拟权限、模拟 Event Tap、内存剪贴板、模拟捕获/媒体 writer、虚拟时钟、确定性事件流和测试窗口；测试目录不得直接触碰真实 TCC、全局输入、真实剪贴板、ScreenCaptureKit 捕获、麦克风、摄像头或登录项，也不得用 `Process`/`NSTask`/系统命令绕过模拟边界，通过后官方已有能力没有逻辑回归。
-  - DoraZoom 的本地模拟性能基准记录虚拟耗时、状态提交、render operation 和估算分配单位，不再要求真实同机 p50/p95。
-  - 日常版使用 `com.duola.dorazoom`，开发调试版使用 `com.duola.dorazoom.dev`，两者权限条目互不污染。
-  - `ACCEPTANCE.md` 最终结论选择“通过，可作为哆啦个人本地模拟验收版”。
-- **Confidence note**：模拟层可以高置信度验证状态、错误分支、权限决策、快捷键策略、输出配置、媒体 writer 计划和产物身份；它仍不证明真实 macOS 权限弹窗、真实 Event Tap、硬件捕获、真实光标观感或第三方播放器行为。当前目标接受这个边界。
-- **Judgment owner**：自动化测试、交付门禁和验收记录校验器负责当前目标完成判断。
+  - 最新 PRD 第 14 节每个自动化可验证项均有测试证据，没有空白、跳过或把真实系统事实写成模拟通过。
+  - 功能覆盖表包含最新新增能力，最终 `gaps == []`；默认核心与高级兼容能力的层级有测试或菜单/设置计划证据。
+  - 权限中心不存在返回应用后自动重弹、递归权限 `NSAlert` 或多权限按钮堆叠；可选麦克风/摄像头未请求时不显示为错误。
+  - 设置固定六组，普通打开/关闭不停止全局热键；快捷键录入完成、冲突、取消和关闭均恢复热键。
+  - 原生文字会话覆盖 marked text、候选提交/取消、大小写、输入源切换、选择与编辑命令；旧 `event.characters` 正文追加路径已删除。
+  - 模式首帧反馈、短暂 HUD、60/120 Hz 缩放序列、减少动态/透明度/增强对比度替代计划全部通过模拟测试。
+  - 区域、上一次区域和窗口截图均能进入内存剪贴板替身；模糊/遮挡/编号进入合成；默认路径无模拟文件写入。
+  - 录制预检、暂停/继续、时间线连续性、分段写入、恢复、点击/快捷键隐私过滤和轻量结果页均有确定性测试。
+  - 原有 `Command+V`、条件式 `Control+V`、MOV/MP4/GIF、三种录制目标、白板/黑板和高级功能测试无回归。
+  - 自动化测试边界、零第三方依赖、dev/daily 身份隔离、`arm64` 默认和交付 zip 门禁保持通过。
+  - `ACCEPTANCE.md` 的本地模拟单元格无空白、最终结论唯一，且没有把真实系统事实冒充为通过。
+- **Confidence note**：模拟层能够高置信度证明状态机、权限决策、渲染计划、事件路由、媒体时间线、恢复策略和交付身份；它不能证明真实 TCC、输入法候选、光标观感、硬件声音、目标 App 粘贴或第三方播放器表现。
+- **Judgment owner**：自动化门禁、功能覆盖表和本地模拟记录宣布“可供验收”；用户的可见真机结果宣布体验是否通过；发布另需当前明确授权。
 
 ## Current State
 
-- 工作区当前保留 `.git`、DoraZoom 产品/架构/目标/验证文档，以及锁定提交 `b03e43da91cd84eeb8f691fa65095e0304c3e660` 的 Microsoft ZoomIt for Mac 官方源码。
-- 旧 InkLayer 源码、测试、脚本和旧计划处于有意删除状态，不是待恢复资产；当前实现以官方源码为唯一代码基础。
-- 当前 Git 分支为 `main`，历史基线为 `2cecac2`；没有配置 Git remote。
-- Phase 1 与 Phase 2 已完成：官方源码已导入，开发 Bundle ID `com.duola.dorazoom.dev` 可构建，官方 self-test 和新增契约测试通过。
-- Phase 3 已按模拟层收口：截图导出计划、导出执行器、原生 `Command+V` 放行、有条件 `Control+V` 事件转换、权限五态矩阵、权限说明/设置状态、区域选择生命周期和尺寸 HUD 均有模拟测试证据；真实系统验收不再是当前目标阻塞项。
-- 产品与架构文档已经裁决 `W/K`、MOV 默认值、MP4/GIF 保留、窗口录制、组合状态、`Control+V` 权限时机和双 Bundle ID。
-- Phase 4 已按模拟层完成：`Control+1` 静态缩放、`Control+2` 原比例绘画反馈、实时缩放/实时绘画输入路由、白板/黑板与白/黑画笔快捷键裁决、OCR/录制/全景差异化光标资源和高频交互基准均有测试证据；Phase 5 媒体兼容改为本地模拟矩阵验收。
-- 当前验证快照：`Scripts/verify-delivery.sh` 通过；其内部复现自动化测试边界审计、`swift build`、110 项 `swift test`、官方 `ZoomItMacSelfTest`、依赖审计、开发版/日常版构建签名、zip 解包验签、归一化架构集合比较、体积统计和 `git diff --check`；详细证据见 `VALIDATION.md`。
-- Phase 7 本地模拟验收记录已建立为 `ACCEPTANCE.md`；它只描述模拟测试、测试替身、产物元数据和非侵入门禁，不包含自动 TCC、全局输入、真实剪贴板、真实屏幕、麦克风、摄像头或登录项操作。
-- 明确 first-run 重置 helper 是显式重置辅助工具，不是自动化测试；无显式确认时拒绝执行，日常版 TCC 重置还需要第二重确认。
-- 不声称真实 TCC、真实全局 `Control+V`、真实目标应用粘贴、真实光标观感、真实录屏/音频/摄像头和媒体播放器兼容通过；这些已移出当前目标，未来如需分发再单独验收。
-- 当前最大风险已从“导入官方基线”转为：模拟契约是否足够覆盖 ZoomIt 体验、媒体输出策略和正式/调试身份隔离。
-- macOS 没有与 iOS Simulator 等价的桌面 App Simulator；本计划中的“模拟测试”明确指进程内测试替身、确定性事件回放和可选的隔离测试窗口，不把宿主 Mac API 调用或虚拟机结果冒充为硬件兼容证明。
+- 当前分支为 `main`，remote 为 `origin -> https://github.com/AdgaiWalker/zoomit.git`。
+- 当前提交基线为 `1bfda9d`；工作区已有产品、代码、测试、文档和网站等混合改动，尚未暂存或提交，禁止用宽泛暂存覆盖用户工作。
+- 旧 Phase 1–7 已建立官方源码、组合状态、反馈通道、截图/粘贴、MOV/MP4/GIF、全景、DemoType、倒计时、设置和交付基线；这些只作为历史证据保留。
+- 当前全量回归为 219 项本地模拟 XCTest，0 失败、0 跳过；官方 self-test、测试边界门禁、build 和 diff 检查通过，零第三方 SwiftPM 运行时依赖。
+- `Scripts/verify-test-boundary.sh` 当前通过，测试目录未直接触碰真实 TCC、全局键盘、真实屏幕/音频/摄像头、系统剪贴板、目标 App 或登录项。
+- Phase 1 已完成：`ZoomItFeatureCoverageMap.current` 已纳入最新 PRD，并区分已完成证据、计划实现/测试引用和用户人工验收要求。
+- Phase 2 权限中心与六组设置纵向切片已完成；旧递归权限弹窗、返回后自动重现、十标签/floating 设置结构和“打开设置即停用热键”均已删除。
+- 设置窗口现使用通用/快捷键/截图与圈画/录制/权限/高级六组 `NSSplitViewController` 导航、普通窗口层级和 frame 持久化；只有 `HotkeyCaptureSession` 活跃时暂停全局热键。
+- Phase 3 即时反馈与显示同步动效已完成：模式/工具/完成/警告/错误改为可捕获排除的短暂状态胶囊，旧永久绘画 HUD 已删除。
+- 模式指针现按放大镜、画笔圆环、高亮笔尖、形状十字和文本光标区分，并对减少动态效果、减少透明度和增强对比度生成替代呈现计划。
+- 固定 30 fps 缩放 Timer 已替换为显示同步时钟和可中断的临界阻尼运动；PiP 已接入 1:1 拖动、边界渐进阻力、速度投射和无弹跳角落吸附。
+- Phase 4 截图沟通与隐私闭环已完成：模糊笔、实色遮挡、自动编号、上一次区域、鼠标所在窗口和多显示器坐标均已接入生产路径与本地模拟。
+- Phase 5 已完成：录制预检、暂停/继续、分段安全写入、未完成结果恢复、点击/快捷键隐私显示和轻量录后结果页均已接入生产路径与确定性模拟。
+- 原生文字稳定化已完成：`CanvasTextEditingSession` 以 `NSTextView` 接管组合输入与原生编辑，画布提交普通文本 Annotation；文字编辑期间 Carbon/Event Tap 两条 `Control+V` 兼容路径均让位，结束后按剪贴板与权限状态恢复。
+- OCR 生产复制管线现会回传剪贴板变更号和用户可感知字符数，协调器据此显示“已复制 N 个字符”，并复用有条件 `Control+V` 链路。
+- Phase 6 的菜单/设置层级已收敛：菜单使用中文核心动作、截图子菜单和“更多功能”高级入口，快捷键来自当前设置，权限只有在存在可操作缺失时标记。
+- 最新 `ZoomItFeatureCoverageMap.current` 的 `gaps == []`；`Scripts/verify-delivery.sh` 已通过并生成 dev/daily/zip 三个 arm64 产物。
+- `VALIDATION.md` 已追加当前迭代 TDD 证据，`ACCEPTANCE.md` 已同步本地模拟工程验收；两者均明确不冒充真实 macOS 人工体验。
+- `Scripts/phase7-preflight.sh` 已通过，工程已达到本地模拟“可供验收”；用户真机验收与发布授权尚未完成。
 
 ## Plan Rewrite Notes
 
 | Existing item | Decision | Reason |
 | --- | --- | --- |
-| 所有纯逻辑契约测试 | keep | 本来就不依赖真实平台，继续全部走模拟 |
-| Phase 1 改造前性能基线 | rewrite | 先保存官方基线构建和模拟基准；真实同机对照移出当前目标 |
-| Phase 3 真实 TCC/Event Tap 实测 | rewrite | 改为权限矩阵和事件流模拟；不再做开发身份/日常身份真实授权验收 |
-| Phase 4 光标与输入体验外部验收 | rewrite | 改为快照、热点几何、资源选择和虚拟交互基准 |
-| Phase 5 媒体兼容矩阵 | rewrite | 模拟 writer 验证配置与状态；QuickTime、Windows、剪映和 DaVinci 改为本地媒体矩阵 |
-| Phase 6 完整功能回归 | rewrite | 所有自动回归经模拟平台服务执行，不访问真实屏幕、麦克风、摄像头或全局键盘 |
-| Phase 7 签名、安装、权限、性能与媒体 | rewrite | 签名和包体保留为本地元数据门禁；安装、权限、性能和媒体改为本地模拟验收 |
+| 旧 Phase 1–7 详细 todo | remove from active route | 已完成且篇幅过大，继续留在活跃计划会掩盖新缺口；历史由 Git、`VALIDATION.md` 和 `ACCEPTANCE.md` 保存 |
+| 官方源码、双 Bundle ID、模拟测试边界 | keep | 是新迭代的稳定底座和安全约束 |
+| “完整复刻、功能平权”目标 | remove | 已被最新 PRD 的核心体验兼容和高级入口分层取代 |
+| 旧 `phase6Default.gaps == []` | rewrite first | 与最新 PRD 冲突，会让后续执行产生虚假完成状态 |
+| 权限、设置、反馈、截图、录制五项顺序 | expand into phases | 原计划只有一段顺序，没有 action + surface + proof，无法直接执行 |
+| 真实系统自动验收 | keep excluded | 用户要求自动化全部走模拟层；真实验收只能由用户主动、可见地进行 |
+| 重型录制编辑器作为默认路径 | move to advanced | 日常路径改为预览、裁剪、音量和导出，保留高级编辑实现 |
+| 旧 Phase 7 “通过” | retain as baseline only | 它证明旧实现和交付身份，不证明新增产品要求 |
+| Phase 3 四项 Apple 呈现 todo | mark complete | 短暂反馈、指针双编码、显示同步缩放和 PiP 直接操纵已有生产接线与确定性模拟测试，不再作为未开始项 |
 
 ## Drift Diagnosis
 
-- **Goal drift**：没有；目标仍是完整、轻量且可日常使用的 DoraZoom。
-- **Phase drift**：原计划把部分真实平台验证分散在 Phase 1、3、4、5；现全部移出当前目标，Phase 7 只保留本地模拟验收。
-- **Validation drift**：若把测试替身通过写成“真实权限/录制/播放器已通过”，属于虚假验证；新计划明确写成 local-simulation acceptance。
-- **Compatibility drift**：不为模拟器建立一套生产兼容分支；生产代码只依赖协议，模拟实现仅进入测试 target。
-- **Cleanup drift**：无；没有因测试策略变化恢复旧实现或增加无关基础设施。
+- **Goal drift**：旧 GOAL 同时描述已完成历史和未开始新迭代，且仍以“完整能力覆盖”为成功语言，无法准确表达当前目标。
+- **Phase drift**：新需求只被追加成五行“Current Iteration”，没有阶段入口、依赖、证明或停止条件；旧七阶段反而占据主体。
+- **Validation drift**：覆盖表与旧验收仍显示无缺口，而 PRD 已明确新增能力；若不先修复，会出现测试全绿但目标未完成。
+- **Compatibility drift**：旧 Windows 设置结构和权限弹窗被当成上游兼容内容保留，但它们不是外部契约；新计划直接替换，不建立双 UI 或兼容别名。
+- **Cleanup drift**：禁止在本迭代顺手重排整个源码、恢复 InkLayer、拆多 Package 或重写官方引擎；只处理证明目标所需的结构。
 
 ## Priority Rationale
 
-- 先恢复可重复的官方基线，才能证明后续变化是 DoraZoom 改造造成的，也才能建立性能对照。
-- 在 UI 接线之前先用测试锁定组合状态、反馈通道和媒体/快捷键策略，避免实现过程中重新制造单一互斥状态机。
-- `Control+V` 涉及系统权限和全局输入，是最可能使产品方案失效的外部风险，因此当前只用完整权限矩阵与事件流模拟验收。
-- 光标、缩放、绘画和白板是日常最高频体验，在粘贴可行性证明后优先完成。
-- 录制与编辑依赖前面的并存状态和反馈通道，必须后置，但不能留到最终阶段才发现 MOV/GIF 或音画同步问题。
-- 完整功能对照与发布验收分开：当前先证明功能齐全、产物身份稳定和模拟契约完整。
-- 模拟测试覆盖所有当前验收路径；真实系统事实不再作为本目标完成条件。
+- 先让覆盖表承认缺口，才能防止后续任何阶段被旧“全部通过”结论提前关闭。
+- 权限和设置是用户已经真实遇到的高频阻力，并且是独立于捕获/媒体算法的外壳，风险低、反馈快，应最先形成用户可见改进。
+- 光标、HUD 和显示同步动效是截图与录制共用的呈现基础，必须先于新增截图和录制能力稳定。
+- 截图闭环比录制更短，能先验证隐私工具、选区复用、多显示器和剪贴板组合；其标注合成还能被后续录制复用。
+- 录制暂停、分段写入和恢复是本轮最复杂的状态/媒体风险，放在前置状态、反馈和合成稳定之后，但不能推迟到最终整合才验证。
+- 最后统一收口菜单层级、覆盖表、文档和交付产物，避免每个阶段重复调整默认界面。
 
 ## Assumptions and Open Decisions
 
 | Item | Status | Impact | Owner / Next step |
 | --- | --- | --- | --- |
-| 锁定上游提交仍可获取，且内容与架构证据一致 | assumed | 决定能否建立官方实现基线 | Phase 1 获取并核对 tree；不一致则停止 |
-| 旧 InkLayer 不再使用 | confirmed | 防止两套实现和重复复杂度 | 全阶段禁止恢复或复制旧实现 |
-| 产品功能、快捷键和交互范围以 PRD 为准 | confirmed | 防止实现自行改需求 | 发现缺口时停止并先更新 PRD |
-| AppKit-first、单核心模块、零第三方运行时依赖 | confirmed | 控制包体、延迟和上游合并成本 | 架构审查与依赖清单验证 |
-| 所有自动化测试走模拟层 | confirmed | 防止测试修改真实权限、剪贴板、屏幕、音频或全局输入，也防止测试用 shell/process 逃逸绕过模拟层 | 每个系统边界必须先有协议和测试替身；`Scripts/verify-test-boundary.sh` 作为交付门禁入口 |
-| macOS 没有桌面 App 官方 Simulator | confirmed | “全部走模拟器”不能被理解为 iOS Simulator | 使用进程内模拟；Phase 7 改为本地模拟验收 |
-| 可用的稳定代码签名身份 | confirmed | 影响本地产物身份元数据 | 由交付门禁读取并验证，不再阻塞真实安装验收 |
-| 目标 Mac 机型、CPU 架构、刷新率和 macOS 小版本 | unresolved | 决定性能基线条件 | Phase 1 自动记录 |
-| post/辅助功能权限在目标系统上的设置入口和重启要求 | deferred | 决定真实 `Control+V` 首次授权体验；listen 只影响 Event Tap 兜底 | 当前用 Phase 3 全矩阵模拟，真实行为由当前人工测试反馈推进 |
-| 目标 Windows 播放环境、剪映和 DaVinci Resolve 版本 | unresolved | 决定 MOV 兼容验收范围 | Phase 5 前由“哆啦”确认实际使用版本 |
-| 是否需要 Universal 构建 | assumed no | 影响包体和构建时间 | 仅当实际第二种 CPU 架构需要时启用 |
-| 公网下载、notarization 与自动更新 | deferred | 不影响本机个人版核心目标 | 作为独立交付目标另行决策 |
+| PRD 和架构已足以启动 | confirmed | 不需要再次讨论总体产品方向 | 发现新的用户行为决策时停止实现并先更新 PRD |
+| 自动化测试全部走进程内模拟层 | confirmed | 禁止测试触发真实平台副作用 | 每阶段运行 `Scripts/verify-test-boundary.sh` |
+| 现有官方捕获/绘制/媒体引擎继续复用 | confirmed | 控制风险和上游合并成本 | 只有测试证明现有实现无法满足目标时才局部修改 |
+| 不存在需要兼容的外部公开 Swift API | assumed | 内部类型可以直接重命名和迁移 | Phase 1 搜索 Package public surface；若发现外部契约则重新裁决 |
+| “上一次区域”只在当前进程和当前显示拓扑有效 | assumed | 避免跨启动或显示器变化复用错误坐标 | Phase 4 测试显示器变化后自动失效；如需持久化另开决策 |
+| 新能力暂不新增全局默认快捷键 | assumed | 避免与 ZoomIt 数字键和 Mac 系统快捷键冲突 | 先从菜单、模式内工具和可配置快捷键访问；默认键需更新 PRD 后再加 |
+| 模糊和实色遮挡属于标注合成，不建立原图历史 | confirmed | 保护隐私并保持“用完即走” | Phase 4 只在当前会话内保留撤销所需数据 |
+| 快捷键显示默认过滤普通文字 | confirmed | 防止密码和聊天正文泄露 | Phase 5 仅允许修饰键组合和明确白名单按键 |
+| 高级功能保留但不默认展示 | confirmed | 避免功能删除，同时降低界面密度 | Phase 6 验证菜单和设置层级 |
+| 当前最终验收全部走本地模拟 | confirmed | 不安装、启动或触碰真实平台副作用 | 运行 Phase 7 preflight 和验收记录校验；真实设备另开目标 |
 
 ## Phases
 
-### Phase 1：恢复官方基线并建立可重复构建
+### Phase 1：重置覆盖事实与迭代门禁
 
-- **Purpose**：把锁定的官方源码变成可编译的唯一实现起点，保存未改造构建，并在任何功能改造前记录可重复的模拟基准。
-- **Entry condition**：`PRD.md`、`ARCHITECTURE.md`、`GOAL.md` 均存在，旧 InkLayer 删除状态已确认保留。
+- **Purpose**：让代码、测试和验证记录诚实表达最新 PRD 的新增缺口，建立后续阶段唯一的完成计数器。
+- **Entry condition**：最新 `PRD.md` 和 `ARCHITECTURE.md` 已写入，当前基线测试可运行。
 - **Phase rules**：
-  - 只导入提交 `b03e43da91cd84eeb8f691fa65095e0304c3e660`，不跟随上游最新分支。
-  - 保留上游目录、MIT 许可证和归属；不恢复旧 InkLayer。
-  - 除安全的开发 Bundle ID 适配和构建所需修正外，不改变产品行为。
-  - 不安装或运行使用 `com.duola.dorazoom` 的调试构建。
-  - 自动基准只使用固定事件流、虚拟时钟和测试窗口，不请求 TCC、不监听全局输入、不打开真实捕获设备。
-  - 任何与架构证据不符的上游结构都必须先停下并更新文档。
+  - 使用 `hai-tdd`；第一个 RED 必须因为旧覆盖表遗漏最新能力而失败。
+  - 本阶段可以修改覆盖枚举、状态命名、测试和验证文档，不改变用户可见 AppKit 行为。
+  - `phase6Default` 等历史命名属于内部实现，可直接重命名，不建立兼容别名。
+  - 旧能力的实现/测试引用必须保留；新增能力必须显式标为 gap，不能伪造实现证据。
 - **Todos**：
-  - [x] 获取并核对锁定提交的官方源码树。
-    - **Surface**：仓库源码、许可证、Package 清单。
-    - **Proof**：记录上游 commit、tree hash、导入文件清单；MIT 许可证存在。
+  - [x] 重建最新 PRD 功能覆盖清单和层级。
+    - **Surface**：`ZoomItFeatureCoverageMap.swift`、覆盖测试。
+    - **Proof**：RED 测试证明旧 map 漏掉新增能力；GREEN 后 required capabilities 包含权限中心、六组设置、短暂反馈、显示同步缩放、截图四项和录制安全项。
     - **Depends on**：无。
-  - [x] 建立开发构建身份 `com.duola.dorazoom.dev`，不占用日常版权限条目。
-    - **Surface**：App Bundle 配置、Info.plist、签名配置。
-    - **Proof**：构建产物的 `CFBundleIdentifier` 检查结果。
-    - **Depends on**：官方源码导入。
-  - [x] 构建官方基线并运行官方 self-test。
-    - **Surface**：Swift Package、官方测试入口。
-    - **Proof**：`swift build` 与官方 self-test 的退出码和输出。
-    - **Depends on**：源码与开发身份就绪。
-  - [x] 保存未改造基线构建并记录模拟基准。
-    - **Surface**：`VALIDATION.md`。
-    - **Proof**：基线 commit、构建命令、固定事件样本、虚拟时钟结果、源码量、App 体积和基线产物位置均有记录；真实延迟/CPU/RSS 明确标记为 Phase 7 待验收。
-    - **Depends on**：基线可构建。
-  - [x] 读取可用代码签名身份，不创建、不删除、不重置信任设置。
-    - **Surface**：本机签名环境。
-    - **Proof**：只记录可用/不可用与身份类型，不写出私钥或敏感材料。
-    - **Depends on**：无。
-- **Exit proof**：锁定源码可重复构建并通过官方 self-test；未改造产物和模拟基准已经保存；开发 Bundle ID 与日常版隔离。Phase 1 证据见 `VALIDATION.md`。
-- **Stop condition**：锁定提交不可获取、许可证缺失、官方源码不能在目标 macOS 构建、导入内容与已审架构明显不符，或需要覆盖用户现有权限/签名状态。
+  - [x] 将阶段绑定状态名改为通用状态。
+    - **Surface**：覆盖状态枚举、调用方和测试。
+    - **Proof**：不再出现 `phase6ImplementationGap` / `phase6Default` 等把新迭代误写成旧阶段的生产符号；全量编译通过。
+    - **Depends on**：覆盖清单。
+  - [x] 建立“基线已实现 / 当前待实现 / 仅人工验收”三类证据规则。
+    - **Surface**：覆盖模型、`VALIDATION.md`、测试。
+    - **Proof**：测试拒绝 required capability 没有状态、没有实现引用却被标为完成、或把人工验收引用冒充模拟通过。
+    - **Depends on**：覆盖状态通用化。
+- **Exit proof**：全量测试通过；覆盖表准确列出当前新增 gaps；`VALIDATION.md` 记录本阶段 RED/GREEN/REFACTOR；测试边界门禁通过。
+- **Stop condition**：发现最新 PRD 能力无法映射为可独立验收项，或必须重新决定产品范围。
 
-### Phase 2：以测试锁定状态与策略契约
+### Phase 2：权限中心与六组设置
 
-- **Purpose**：在接入真实窗口和媒体管线前，证明架构能表达所有并存状态并正确隔离生命周期。
-- **Entry condition**：Phase 1 通过，官方测试基线可重复。
+- **Purpose**：先消除用户已经遇到的重复权限提示、授权后突然退出、Windows 十标签设置和设置期间热键失效。
+- **Entry condition**：Phase 1 覆盖表明确列出权限与设置 gaps。
 - **Phase rules**：
-  - 使用严格 RED → GREEN → REFACTOR；每项实现前必须先出现因目标行为缺失而失败的测试。
-  - 本阶段只建立领域类型、纯逻辑策略、平台协议和测试替身，不改变用户可见行为。
-  - `AppSessionState` 只能从权威所有者组装，不能成为第二份可写业务状态。
-  - 权限、Event Tap、剪贴板、捕获、媒体 writer、时钟、文件选择与窗口反馈均先定义可替换协议；自动测试不得直接调用真实平台副作用。
-  - 不为测试方便引入第三方状态或测试框架。
+  - 先实现纯逻辑 plan/model，再接 AppKit；测试不得打开真实系统设置或申请 TCC。
+  - 删除递归权限 `NSAlert` 和返回后自动重现路径，不保留双 UI。
+  - 打开设置不得停止全局热键；只有 `HotkeyCaptureSession` 活跃时暂停。
+  - 设置保存继续使用现有 `UserDefaults`，不迁移数据库或增加配置版本兼容层。
 - **Todos**：
-  - [x] 锁定组合会话与呈现快照契约。
-    - **Surface**：`AppSessionState`、`InteractionPresentationSnapshot`、相关测试。
-    - **Proof**：`recording+drawing`、`recording+whiteboard`、`recording+drawing+webcam` 和互斥选区测试通过。
+  - [x] 实现 `PermissionCenterModel` 状态与动作矩阵。
+    - **Surface**：权限领域类型、模拟权限服务、测试。
+    - **Proof**：覆盖未请求/允许/拒绝/需要设置/需要重启、可选麦克风/摄像头，以及返回应用只刷新状态。
     - **Depends on**：Phase 1。
-  - [x] 锁定通道化 feedback lease。
-    - **Surface**：`FeedbackChannel`、`InteractionFeedback`、lease 测试。
-    - **Proof**：跨通道互不清理、同通道新 lease 覆盖旧 lease、迟到和重复 `end()` 幂等测试通过。
-    - **Depends on**：组合会话契约。
-  - [x] 锁定录制目标与输出策略。
-    - **Surface**：`RecordingTarget`、`RecordingOutputStrategy`、`MovieRecordingProfile`。
-    - **Proof**：全屏/区域/窗口目标可表达；MOV/MP4 进入电影策略，GIF 进入独立策略；容器、扩展名和保存类型一致。
+  - [x] 用非模态权限中心替换当前权限弹窗。
+    - **Surface**：`AppController`、新权限中心 AppKit 控制器、设置入口。
+    - **Proof**：模拟窗口生命周期中不存在递归展示；每行只有一个当前动作；relaunch 产生明确意图而非无说明 terminate。
+    - **Depends on**：权限 model。
+  - [x] 重构设置为六组原生导航。
+    - **Surface**：`SettingsWindowController`、设置分类计划、测试窗口。
+    - **Proof**：固定为通用/快捷键/截图与圈画/录制/权限/高级；DemoType、倒计时、全景、摄像头细项和格式设置只在高级组。
     - **Depends on**：Phase 1。
-  - [x] 锁定绘画快捷键策略。
-    - **Surface**：`DrawingShortcutPolicy`。
-    - **Proof**：`W/K` 映射白板/黑板，白色/黑色画笔存在且默认键为 `nil`。
-    - **Depends on**：Phase 1。
-  - [x] 锁定粘贴兼容状态机与权限协议。
-    - **Surface**：`PasteCompatibilityService`、`PermissionService` 扩展、测试替身。
-    - **Proof**：未授权不武装、截图 changeCount 武装、重复粘贴不解除、剪贴板变化解除、非精确 `Control+V` 放行、合成事件不递归的测试通过。
-    - **Depends on**：Phase 1。
-- **Exit proof**：新增契约测试全部通过，官方测试仍通过，用户可见功能尚未被改动。Phase 2 证据见 `VALIDATION.md`。
-- **Stop condition**：测试要求第二份权威状态、单一全局 session ID、跨通道清理或与 PRD 冲突的快捷键/格式语义。
+  - [x] 实现短生命周期快捷键录入会话。
+    - **Surface**：`HotkeyCaptureSession`、HotkeyService 接线、设置 UI。
+    - **Proof**：普通打开/关闭设置不触发 stop/start；录入成功、冲突、`Escape`、关闭窗口均只恢复一次。
+    - **Depends on**：六组设置。
+  - [x] 移除 Windows 专用布局行为。
+    - **Surface**：复选框、floating window、窗口 frame 持久化、本地化标签。
+    - **Proof**：测试窗口使用原生控件方向和普通层级，重开时恢复 frame；代码搜索不再以 Windows Options 布局作为设置实现约束。
+    - **Depends on**：设置导航。
+- **Exit proof**：权限与设置新增 gaps 关闭；相关模拟测试、全量测试、边界门禁和 `git diff --check` 通过；验证记录包含完整 TDD 证据。
+- **Stop condition**：某权限状态需要新的产品文案/请求时机裁决，或 macOS API 无法在不自动弹窗的情况下表达已确认流程。
 
-### Phase 3：完成截图到双粘贴纵向切片
+### Phase 3：即时反馈与显示同步动效
 
-- **Purpose**：通过完整模拟矩阵证明截图不落盘、`Command+V` 原生路径和有条件 `Control+V` 的业务决策正确，并把真实平台适配器编译接通。
-- **Entry condition**：Phase 2 的粘贴、权限和 feedback 契约通过。
+- **Purpose**：让模式进入即有状态、绘画/选区直接跟手、缩放可中断，并建立截图和录制共用的呈现基础。
+- **Entry condition**：Phase 2 的设置和权限窗口生命周期稳定。
 - **Phase rules**：
-  - `Command+V` 永不由 DoraZoom 接管。
-  - Carbon 临时 `Control+V` 主路径只依赖 post/辅助功能权限；未同时获得 listen/post event access 时不创建 active Event Tap 兜底、不吞键。
-  - 权限说明发生在首次成功截图之后、系统请求之前；不在首次启动集中申请。
-  - 本阶段不请求真实 TCC、不创建真实 Event Tap、不改写真实系统剪贴板；全部自动测试走模拟服务。
-  - 截图到剪贴板路径不得创建临时或永久图片文件。
+  - 光标提交不等待捕获、HUD 或动画；pointer、HUD、recording status、menu bar、palette 通道继续隔离。
+  - 选区、画笔和形状预览不使用 spring；只有缩放和 PiP 归位使用可中断动效。
+  - 测试使用虚拟 60 Hz/120 Hz 时钟，不访问真实显示器刷新回调。
+  - 临时反馈显式排除在截图/录制结果之外。
 - **Todos**：
-  - [x] 接通 `Control+6` 区域截图、十字光标、尺寸反馈和剪贴板写入。
-    - **Surface**：Snip、Pasteboard 协议、pointer/HUD feedback。
-    - **Proof**：模拟选区图片进入内存剪贴板；取消后虚拟窗口集合为空；模拟文件系统没有新增图片。
-    - **Depends on**：Phase 2 feedback 契约。
-  - [x] 实现首次截图后的权限说明、post/辅助功能请求与设置状态呈现；listen 只属于 Event Tap 兜底。
-    - **Surface**：权限 UI、`PermissionService`、设置状态。
-    - **Proof**：未决定/允许/拒绝/部分授权/授权后重启五种模拟状态均得到正确请求动作；post-only 状态可启用 Carbon 主路径，拒绝时不拦截按键，listen/post 完整时可安装 Event Tap 兜底；设置状态和说明文案有模拟契约覆盖。
-    - **Depends on**：截图成功路径。
-  - [x] 接通有条件的 `Control+V` 转换。
-    - **Surface**：Carbon 临时热键、Event Tap 兜底、事件标记、pasteboard changeCount。
-    - **Proof**：确定性事件流证明 post-only 时可转换、同一截图可重复 `Control+V`、复制其他内容后撤销临时热键、其他 Control 组合不受影响、合成事件不递归。
-    - **Depends on**：post 权限与 listen/post 兜底矩阵通过。
-  - [x] 验证原生 `Command+V` 路径。
-    - **Surface**：Pasteboard 与目标应用协议。
-    - **Proof**：模拟目标应用证明兼容模式关闭、未授权和已授权三种状态均不接管 `Command+V`。
-    - **Depends on**：截图剪贴板路径。
-  - [x] 补齐模拟测试证据并登记本地模拟验收项。
-    - **Surface**：测试、`VALIDATION.md`。
-    - **Proof**：权限矩阵、事件回放、内存剪贴板和模拟文件系统日志齐全；真实 TCC/目标应用项目移出当前目标。
-    - **Depends on**：本阶段全部行为。
-- **Exit proof**：所有截图与双粘贴自动化场景均在模拟层通过，生产平台适配器可以编译，但尚不宣称真实 TCC 或目标应用已经通过。
-- **Stop condition**：生产实现无法隔离 Core Graphics/剪贴板副作用、必须永久全局重映射、必须吞掉未授权按键，或模拟层无法覆盖权限与事件组合。
+  - [x] 建立 `FeedbackPresentationAdapter` 和短暂 HUD 计划。
+    - **Surface**：InteractionFeedback、HUD/Palette 呈现、虚拟时钟测试。
+    - **Proof**：模式进入、工具变化、完成、警告、错误具有独立时长；旧 lease 不能清除新反馈；默认无永久工具条。
+    - **Depends on**：Phase 1 覆盖规则。
+  - [x] 接通光标首帧与无障碍环境计划。
+    - **Surface**：pointer resource、presentation snapshot、reduce motion/transparency/contrast 输入。
+    - **Proof**：所有模式首帧非普通箭头；形状与颜色双编码；三个系统环境分别生成替代呈现计划。
+    - **Depends on**：反馈适配器。
+  - [x] 以显示同步时钟替换固定 30 fps 缩放 Timer。
+    - **Surface**：OverlayWindowController、ZoomViewportController、生产/模拟 motion clock。
+    - **Proof**：60/120 Hz 事件序列得到一致目标；中途反向从当前呈现值和速度继续；减少动态时直接提交或短淡化。
+    - **Depends on**：虚拟时钟协议。
+  - [x] 完成 PiP 直接操纵与吸附计划。
+    - **Surface**：WebcamOverlayController、拖动/速度/边界策略测试。
+    - **Proof**：保持抓取偏移和 1:1 跟随；释放后按投射位置吸附；边界使用渐进阻力；动画可中断且无默认弹跳。
+    - **Depends on**：显示同步动效。
+- **Exit proof**：反馈/动效 gaps 关闭；60/120 Hz、中途反向、减少动态效果和 PiP 边界/吸附确定性模拟通过；全量 147 项 XCTest 通过；源码搜索不再存在固定 30 fps 缩放 Timer 或永久绘画 HUD。
+- **Stop condition**：显示同步实现要求引入第二套渲染引擎，或动画改变 ZoomIt 的核心定位和控制语义。
 
-### Phase 4：完成 Zoom、绘画、白板和统一反馈
+### Phase 4：截图沟通与隐私闭环
 
-- **Purpose**：解决当前最直接的体验问题，使高频模式像 ZoomIt 一样进入即有状态、操作跟手、退出无残留。
-- **Entry condition**：Phase 3 通过，通道化反馈已通过测试窗口和事件回放验证。
+- **Purpose**：把“选择—保护隐私—说明重点—复制—粘贴”做成完整、无落盘、可重复的 Mac 截图闭环。
+- **Entry condition**：Phase 3 的光标、HUD、选区和显示器反馈稳定。
 - **Phase rules**：
-  - 光标与功能状态在同一呈现快照提交，不允许功能启动后仍显示普通箭头。
-  - pointer、HUD、recording status、menu bar、tool palette 五个通道互不误清理。
-  - 不用动画延迟光标、画笔、形状预览或选区跟随。
-  - `W/K` 只表示白板/黑板；白色/黑色画笔留在颜色面板和工具条。
-  - 反馈窗口必须按捕获策略明确进入或排除，不依赖偶然窗口层级。
-  - 自动测试只向虚拟输入源发送事件，并检查呈现快照、测试窗口树和渲染结果；不注册全局快捷键或替换宿主光标。
+  - 默认输出只写剪贴板替身；保存文件仍是高级/修饰键路径。
+  - 上一次区域只在当前进程且显示拓扑未变化时有效。
+  - 模糊/遮挡/编号属于可撤销标注，不建立原图历史或永久素材库。
+  - `Command+V` 永远放行；现有条件式 `Control+V` 语义不得改变。
 - **Todos**：
-  - [x] 接通 `Control+1` 静态缩放与对应光标/HUD。
-    - **Surface**：ModeCoordinator、Zoom、pointer/HUD。
-    - **Proof**：事件回放后的首个呈现快照包含缩放状态；虚拟坐标锚定鼠标；退出后窗口与反馈资源集合为空。
-    - **Depends on**：Phase 2 状态契约。
-  - [x] 接通 `Control+2` 原比例绘画与完整工具反馈。
-    - **Surface**：Canvas、Annotation、pointer、tool palette。
-    - **Proof**：固定输入轨迹的测试渲染证明画笔、直线、矩形、椭圆、箭头、高亮、文字、颜色、粗细、撤销和清除逐项通过。
-    - **Depends on**：feedback 实现。
-  - [x] 接通实时缩放、实时绘画和底层应用交互。
-    - **Surface**：LiveZoom、LiveDraw、事件路由。
-    - **Proof**：模拟策略证明 live zoom 未绘画/未选区时鼠标路由穿透到底层应用，绘画/选区时由 overlay 捕获；`Control+1` 与 `Control+2` 在 live zoom 内只切换实时绘画，不退出实时缩放，不改变普通命令处理。
-    - **Depends on**：Zoom 与绘画基础。
-  - [x] 接通白板/黑板与白色/黑色画笔。
-    - **Surface**：DrawingShortcutPolicy、CanvasBackground、颜色面板。
-    - **Proof**：模拟策略证明 `W/K` 只映射白板/黑板，`Shift/Ctrl+W/K` 不成为白/黑墨水快捷键；白色/黑色画笔仍存在但无默认键；白板/黑板进入 AnnotationController 状态，切换时保留已有标注，并声明进入截图/录制合成。
-    - **Depends on**：绘画基础。
-  - [x] 完成 OCR、录制选择和全景选择的差异化光标资源。
-    - **Surface**：pointer feedback、Retina 资源、热点定义。
-    - **Proof**：模拟资源目录证明截图、OCR、录制选区和全景选区使用不同形状与颜色、同一操作热点和 1x/2x 资源声明；会话快照把 OCR/录制/全景映射到对应 pointer purpose，Snip/Recording/Panorama 入口持有对应资源元数据。
-    - **Depends on**：统一反馈。
-  - [x] 测量高频交互的确定性模拟基准。
-    - **Surface**：虚拟时钟、固定事件流、`VALIDATION.md`。
-    - **Proof**：固定 190 事件样本两次运行报告完全一致；状态提交 190 次，render operation 累计 530，估算分配单位 720，虚拟耗时 13,790 微秒；报告明确不访问 ScreenCapture、全局键盘、剪贴板、麦克风或摄像头，真实 p50/p95 留给 Phase 7。
-    - **Depends on**：本阶段功能。
-- **Exit proof**：`Control+1`、`Control+2`、实时缩放/实时绘画路由、形状绘画、`W/K`、白/黑画笔、差异化 pointer resource、撤销、退出和高频交互基准的模拟事件与渲染/策略测试全部通过；真实观感尚不宣称通过。
-- **Stop condition**：实现需要复制官方渲染引擎、产生第二套绘画状态、无法从宿主全局输入中隔离自动测试，或模拟基准出现未解释退化。
+  - [x] 实现模糊笔和实色遮挡合成。
+    - **Surface**：AnnotationTool、render plan、截图导出和录制合成共享路径。
+    - **Proof**：固定图片 fixture 证明遮挡区域进入最终像素；撤销恢复前态；输出不包含未遮挡像素的可恢复旁路。
+    - **Depends on**：Phase 3 feedback。
+  - [x] 实现自动递增编号标记。
+    - **Surface**：annotation model/controller/render plan。
+    - **Proof**：连续编号、拖动、撤销回退、清除与截图合成测试通过。
+    - **Depends on**：标注管线。
+  - [x] 实现“上一次区域”截图。
+    - **Surface**：SnipController、region memory、display topology policy。
+    - **Proof**：同拓扑复用并直接复制；取消/显示器变化/无历史时安全降级；不写本地文件。
+    - **Depends on**：选区生命周期。
+  - [x] 实现窗口截图到剪贴板。
+    - **Surface**：窗口目标选择、capture request plan、snip export plan。
+    - **Proof**：模拟窗口列表选择正确 window ID；阴影策略可配置；取消和窗口消失不留临时状态。
+    - **Depends on**：现有窗口录制目标能力。
+  - [x] 完成多显示器截图正确性。
+    - **Surface**：DisplayManager、坐标转换、pointer/HUD placement、capture exclusion。
+    - **Proof**：不同原点、缩放因子和主副屏 fixture 下选区、热点、HUD、像素尺寸和输出目标一致。
+    - **Depends on**：前三项截图能力。
+- **Exit proof**：截图 5 项新增 gaps 全部关闭；隐私像素、编号、拓扑失效、窗口消失和跨屏坐标 fixture 通过；171 项全量 XCTest、build、self-test、测试边界和 diff 门禁通过；默认截图路径模拟文件写入数为零。
+- **Stop condition**：隐私工具无法保证输出像素不可恢复，或窗口/多显示器坐标语义需要新的产品裁决。
 
-### Phase 5：完成录制、媒体输出和编辑纵向切片
+### Phase 5：录制安全、暂停与恢复
 
-- **Purpose**：通过模拟捕获与 writer 证明录制状态、输出配置和编辑决策正确，并完成真实平台适配器的编译接线。
-- **Entry condition**：Phase 4 的组合状态、feedback 通道和绘画覆盖层稳定。
+- **Purpose**：优先消除“录完没声音、无法暂停、崩溃全丢”的不可逆风险，再收敛日常录后路径。
+- **Entry condition**：Phase 4 的标注合成可以稳定进入录制帧计划。
 - **Phase rules**：
-  - 默认 MOV/H.264/AAC；MP4 与 GIF 都必须保留。
-  - MOV/MP4 共用 AVFoundation 电影管线，GIF 使用 ImageIO 图像序列管线；不引入 FFmpeg。
-  - 全屏、区域、鼠标所在窗口是独立录制目标，不用格式枚举代替目标枚举。
-  - 录制状态必须持续存在，但状态胶囊和临时工具条不得进入成片。
-  - 停止、取消和迟到回调按能力域 session ID 幂等处理。
-  - 自动测试不访问真实屏幕、系统音频、麦克风或摄像头；只消费固定视频帧、音频样本和虚拟时钟。
+  - 默认仍为 MOV/H.264/AAC，MP4/GIF 保留；不引入 FFmpeg。
+  - 录制状态必须显式表达 preparing/recording/paused/finalizing/recoverableFailure。
+  - 自动测试只使用模拟音频电平、磁盘、writer、时钟、文件系统和故障注入。
+  - 恢复清单只服务未完成录制，不演变为媒体历史库。
+  - 普通文字按键不得进入快捷键显示层。
 - **Todos**：
-  - [x] 接通全屏、区域和鼠标所在窗口录制。
-    - **Surface**：RecordingController、ScreenCaptureKit、RecordingTarget。
-    - **Proof**：三种模拟目标分别生成正确 capture request；全屏目标生成 display filter 与整屏 sourceRect，区域目标生成 display filter 与固定区域像素尺寸，窗口目标生成 window filter 且窗口 ID 匹配 fixture；生产 full/region 录制路径已消费同一 request plan，window filter 分支编译接通，真实窗口选择体验仍留后续 UI/Phase 7 验收。
-    - **Depends on**：Phase 2 录制目标契约。
-  - [x] 实现 MOV 默认与 MP4 保留。
-    - **Surface**：AVAssetWriter、临时文件、保存面板、编辑器导出。
-    - **Proof**：模拟 profile 证明默认格式为 MOV/H.264/AAC，AVAssetWriter fileType 为 `.mov`，保存面板类型为 `.quickTimeMovie`，音频为 48 kHz/128 kbps/双声道；MP4 仍保留在电影管线；生产录制引擎、fallback writer、临时文件扩展名、保存面板和编辑器导出均消费同一 `MovieRecordingProfile`。
-    - **Depends on**：RecordingOutputStrategy。
-  - [x] 保留 GIF 输出。
-    - **Surface**：ImageIO/Core Graphics、导出 UI。
-    - **Proof**：GIF profile 固定为 `.gif` 保存类型、无限循环和 8-bit 颜色深度；GIF writer fixture 收到正确帧序和时长，且电影 writer 调用次数为零。自动证据只覆盖模拟 writer 计划，真实 GIF 文件兼容仍留 Phase 7。
-    - **Depends on**：RecordingOutputStrategy。
-  - [x] 接通系统声音、麦克风和摄像头画中画。
-    - **Surface**：音频捕获、AVFoundation、Webcam overlay、权限。
-    - **Proof**：模拟权限、音视频时间戳和摄像头帧证明开关默认关闭；启用后 system audio、microphone、webcam 按授权进入同一 session 时间线；未决定的麦克风/摄像头权限只登记对应请求、不启用该输入；生产 webcam 初始画中画位置复用同一 planner。真实硬件、TCC 和声音/摄像头采集仍留 Phase 7。
-    - **Depends on**：电影录制基础。
-  - [x] 验证录制中绘画、白板和 feedback 隔离。
-    - **Surface**：AppSessionState、Annotation overlay、feedback channel。
-    - **Proof**：模拟合成帧计划覆盖 `recording+drawing+whiteboard+webcam`、`recording+drawing+blackboard`；计划明确排除 feedback HUD 和 recording status capsule；结束 pointer lease 不清除 recordingStatus feedback 或 `RecordingState`。真实像素合成与录屏观感仍留 Phase 7。
-    - **Depends on**：Phase 4、录制基础。
-  - [x] 恢复并验证录制后编辑器。
-    - **Surface**：预览、裁剪、拼接、淡入淡出、静音、音量和导出。
-    - **Proof**：模拟编辑决策图证明 preview、trim、append、fade transition、mute、volume 和 MOV export 都生成非破坏性新文件计划；无源文件删除/移动动作；无效 trim 被拒绝并保留原时间线。真实 AVFoundation 导出与播放器兼容仍留 Phase 7。
-    - **Depends on**：电影录制基础。
-  - [x] 建立媒体兼容验收矩阵。
-    - **Surface**：QuickTime、目标 Windows 环境、剪映、DaVinci Resolve。
-    - **Proof**：目标环境包含 QuickTime Player、Windows 原生播放环境、剪映和 DaVinci Resolve；版本策略为 Phase 7 记录实际安装版本；样本包含默认 MOV、带音频/摄像头/标注的 MOV、保留 MP4 和保留 GIF；检查项覆盖打开/导入、视频播放、预期音频、音画同步、时长匹配和失败原因记录；所有结果明确为 Phase 7 待验收。
-    - **Depends on**：输出配置稳定。
-- **Exit proof**：三种录制目标、MOV/MP4/GIF、声音、摄像头、圈画/白板并存和编辑器的模拟测试全部通过；真实文件兼容尚不宣称通过。
-- **Stop condition**：MOV 配置不能被所有电影步骤一致消费、GIF 被迫依赖第三方运行时、录制与绘画仍被错误建模为互斥，或媒体系统边界无法替换为测试 double。
+  - [x] 实现录制开始前预检。
+    - **Surface**：RecordingPreflightPlan、音源权限/电平、磁盘协议、UI plan。
+    - **Proof**：无音源、静音、权限缺失、空间不足、目标消失和正常开始矩阵通过；可选输入不阻塞未启用场景。
+    - **Depends on**：Phase 2 权限中心。
+  - [x] 实现暂停/继续和连续时间线。
+    - **Surface**：RecordingState、RecordingController、writer 时间戳策略。
+    - **Proof**：多次暂停/继续后输出时长等于有效片段总和；音视频和标注时间线连续；重复命令幂等。
+    - **Depends on**：预检与现有 writer profile。
+  - [x] 实现分段安全写入和未完成结果恢复。
+    - **Surface**：segment writer、recovery manifest、模拟文件系统、启动恢复计划。
+    - **Proof**：在开始、片段中、暂停、finalize 各故障点注入失败后，能恢复可用片段或给出明确不可恢复原因；正常完成后清理 manifest。
+    - **Depends on**：暂停/继续。
+  - [x] 实现鼠标点击和快捷键显示的隐私策略。
+    - **Surface**：recording overlay event model、过滤策略、合成计划。
+    - **Proof**：点击位置、高亮时长、修饰键组合可见；普通文字、密码式连续输入和未授权事件不进入输出。
+    - **Depends on**：Phase 3 feedback。
+  - [x] 建立轻量录后结果页。
+    - **Surface**：VideoClipEditorController 或独立 result controller、导出计划。
+    - **Proof**：默认只显示预览、裁剪、音量、导出、访达入口；复杂拼接/淡入淡出仅从高级入口打开，全部非破坏性。
+    - **Depends on**：安全 writer。
+- **Exit proof**：录制新增 gaps 已关闭；故障注入、媒体时间线、MOV/MP4/GIF、摄像头、声音、标注合成和高级编辑测试通过；当前 219 项全量模拟 XCTest、测试边界、build、self-test 和 diff 检查通过。
+- **Stop condition**：现有 AVFoundation 管线无法实现可靠暂停/恢复且需要改变默认格式，或恢复策略会产生不可控的永久文件积累。
 
-### Phase 6：补齐完整 ZoomIt 能力与管理面
+### Phase 6：默认界面分层与工程交付
 
-- **Purpose**：关闭“核心功能可用但不是完整复刻”的缺口，形成 PRD 第 5.1 节逐项可追踪的功能闭环。
-- **Entry condition**：Phase 5 核心纵向切片通过。
+- **Purpose**：把各纵向切片整合为一致的菜单栏产品，关闭覆盖表和全部模拟门禁，生成可进行本地模拟验收的 App。
+- **Entry condition**：Phase 2–5 的新增能力与回归测试分别通过。
 - **Phase rules**：
-  - 使用 PRD 第 5.1 节和 Windows ZoomIt 12.11 行为对照逐项关闭，不按文件数量判断完成。
-  - 官方已有算法只接入新的状态与反馈边界，不无故重写。
-  - 设置窗口使用 AppKit 原生控件；不引入 SwiftUI 第二套状态。
-  - 快捷键全部可配置，但默认值必须保持 PRD。
-  - 自动回归统一注入模拟 Vision、文件面板、登录项、显示器、剪贴板、时钟和全局快捷键服务。
+  - 菜单栏默认只显示圈画、缩放、截图和录制；高级功能统一下沉。
+  - 不为减小体积删除核心或高级兼容能力，不降低默认媒体质量。
+  - 更新文档必须区分模拟证据和真实人工事实。
+  - 不安装、不启动、不请求权限；只构建并交付明确路径。
 - **Todos**：
-  - [x] 完成区域截图到文件、OCR、当前视口复制/保存。
-    - **Surface**：Snip、Vision、保存面板、剪贴板。
-    - **Proof**：固定图片与 OCR fixture、模拟文件面板和内存剪贴板覆盖内容、取消、错误与路径分支。
-    - **Current evidence**：`Phase6ImageExportSimulationTests` 使用固定图片、模拟目录保存、模拟保存面板接受/取消/失败、内存图片剪贴板、OCR 非空文本与空结果蜂鸣分支；覆盖表已把 `currentViewportCopyAndSave`、`regionSnipToFile`、`regionOCRToClipboard` 标为 `localSimulationAccepted`。
-    - **Depends on**：Phase 3。
-  - [x] 完成倒计时与 DemoType。
-    - **Surface**：Timer、DemoType、状态 HUD、快捷键。
-    - **Proof**：虚拟时钟和事件回放覆盖启动、上一段、退出、计时结束和反馈捕获策略。
-    - **Current evidence**：`Phase6TimerDemoTypeSimulationTests` 覆盖倒计时启动、虚拟时间推进、计时结束、蜂鸣/声音意图、用户退出、idle-sleep 生命周期和“不进入录制”的反馈隔离；同时覆盖 DemoType 启动、上一段、重新播放、`[paste]` 剪贴板意图、`Command+V` 意图、`[enter]`、退出和不触碰真实键盘/剪贴板/目标 App。
-    - **Depends on**：Phase 4 feedback。
-  - [x] 完成全景截图到剪贴板和文件。
-    - **Surface**：Panorama、进度、取消、输出。
-    - **Proof**：固定帧序列覆盖两种输出、长任务取消、过期回调和虚拟窗口无残留。
-    - **Current evidence**：`Phase6PanoramaSimulationTests` 使用固定帧序列覆盖捕获进度、拼接进度、复制到模拟剪贴板、写入模拟文件、取消流程、取消后的过期 append/finish 回调忽略以及虚拟窗口释放；覆盖表已把 `panoramaClipboardOrFile` 标为 `localSimulationAccepted`。
-    - **Depends on**：Phase 4 feedback。
-  - [x] 完成设置、快捷键录入和权限管理。
-    - **Surface**：AppKit 设置窗口、UserDefaults、权限页。
-    - **Proof**：测试窗口快照、内存配置和模拟权限证明设置分类、冲突提示、重启持久化语义和状态映射正确。
-    - **Current evidence**：`Phase6SettingsPermissionsSimulationTests` 覆盖 Zoom/Draw/Text/Snip/Record/Webcam/Panorama/Launch 设置分类、内存配置重启持久化、默认快捷键派生、冲突阻止保存，以及屏幕录制、listen/post input monitoring、麦克风、摄像头权限页状态映射；全程 `.simulatedOnly`，不触碰真实 TCC、不打开系统设置、不注册真实全局快捷键。
-    - **Depends on**：前述所有策略已稳定。
-  - [x] 完成单实例、菜单栏状态和登录时启动。
-    - **Surface**：应用生命周期、菜单栏、ServiceManagement。
-    - **Proof**：模拟进程锁、菜单状态和登录项服务覆盖重复启动、状态更新与启停。
-    - **Current evidence**：`Phase6AppLifecycleSimulationTests` 覆盖虚拟单实例锁、重复启动触发设置窗口通知意图、释放锁、菜单栏 idle/active/recording 状态与菜单项、登录项 register/unregister 意图、pending approval 迁移和非 `.app` bundle 提示；全程 `.simulatedOnly`，不碰真实文件锁、DistributedNotificationCenter、NSStatusItem 或 ServiceManagement。
-    - **Depends on**：设置与应用身份。
-  - [x] 建立完整功能对照表并逐项回归。
-    - **Surface**：`VALIDATION.md`、模拟自动化测试。
-    - **Proof**：PRD 第 5.1 节每项均有实现位置和本地模拟测试证据；真实系统事实明确移出当前目标，不能写成已真实通过。
-    - **Current evidence**：已建立 `ZoomItFeatureCoverageMap.phase6Default`，覆盖 PRD 第 5.1 节 30 项能力与 DoraZoom Mac 适配项（`Control+V` 兼容、光标反馈）；测试明确保持 `.simulatedOnly`；`map.gaps == []`；能力状态统一为 `localSimulationAccepted`，需要媒体说明的能力包含 `.mediaCompatibilityMatrix`。
-    - **Depends on**：本阶段全部任务。
-- **Exit proof**：完整功能对照表无实现缺口，所有自动回归在模拟平台通过，本地模拟验收项均已登记到 Phase 7。
-- **Stop condition**：发现 PRD 与 Windows/官方 Mac 行为存在未裁决冲突，或完成某项功能需要引入 PRD 之外的新产品决策。
+  - [x] 收敛菜单栏、设置和状态层级。
+    - **Surface**：AppDelegate menu plan、SettingsNavigationModel、menu lifecycle tests。
+    - **Proof**：默认动作顺序与 PRD 一致；更多功能包含 DemoType/倒计时/全景；权限无问题时保持安静、缺失时显示状态。
+    - **Depends on**：Phase 2–5。
+  - [x] 关闭最新功能覆盖表全部 gaps。
+    - **Surface**：ZoomItFeatureCoverageMap、实现/测试引用。
+    - **Proof**：每项 required capability 有实现与模拟测试引用；人工项单独标记；最终 `gaps == []`。
+    - **Depends on**：全部实现。
+  - [x] 运行全量模拟、边界和交付门禁。
+    - **Surface**：Scripts、SwiftPM、self-test、bundle/zip。
+    - **Proof**：`Scripts/verify-test-boundary.sh`、`swift test`、self-test、`Scripts/verify-delivery.sh`、`git diff --check` 全部通过。
+    - **Depends on**：覆盖表关闭。
+  - [x] 更新验证与验收记录。
+    - **Surface**：`VALIDATION.md`、`ACCEPTANCE.md`、README。
+    - **Proof**：每阶段 TDD 证据齐全；旧基线说明保留；新模拟验收无空白，不声称真实平台通过。
+    - **Depends on**：全量门禁。
+  - [x] 生成开发版、日常版和交付 zip。
+    - **Surface**：`.build/DoraZoom Dev.app`、`.build/DoraZoom.app`、`.build/DoraZoom.zip`。
+    - **Proof**：bundle identity、签名、entitlements、架构、版本、图标、zip 清洁度和 allowlist 通过。
+    - **Depends on**：交付门禁。
+- **Exit proof**：自动化工程门禁全部通过，最新覆盖表无 gap，文档证据完整；开发版 6.2 MB、日常版 2.8 MB、交付 zip 1.1 MB 均为 arm64，可进入用户可见的真机验收。
+- **Stop condition**：任何测试需要突破模拟边界、交付身份不稳定、功能覆盖存在未解释缺口，或新增改动使包体/性能出现无法解释的明显回退。
 
-### Phase 7：本地模拟验收与交付
+### Phase 7：本地模拟最终验收
 
-- **Purpose**：关闭全部本地模拟自动化门禁，用测试替身、确定性事件流、本地 writer 计划和产物元数据完成验收，最终收敛为轻量、可构建、可本地模拟确认的个人版本。
-- **Entry condition**：Phase 6 完整功能对照通过，签名身份与目标交付架构已确认。
+- **Purpose**：使用同一条非侵入入口复跑模拟、替身、事件回放、产物元数据和验收记录校验，关闭当前目标而不触碰宿主 Mac 的真实交互面。
+- **Entry condition**：Phase 6 工程完成，三个交付产物已生成。
 - **Phase rules**：
-  - 日常版只能使用 `com.duola.dorazoom`；开发版只能使用 `com.duola.dorazoom.dev`。
-  - 不重置日常版 TCC、不删除旧安装、不创建或信任新证书。
-  - 轻量化通过无重复引擎、无第三方运行时、无空闲捕获/编码和实测数据证明，不设武断的 MB 目标。
-  - 不以压缩体积为由删除功能、降低默认画质或破坏媒体兼容。
-  - 所有验收仍然使用模拟层；不运行会改变真实系统状态的自动脚本。
-  - 不声称 TCC、全局输入、ScreenCaptureKit、真实性能或第三方媒体兼容已经在真实系统通过；当前目标只要求本地模拟验收通过。
+  - 只运行 `Scripts/phase7-preflight.sh` 和 `Scripts/verify-acceptance-record.sh ACCEPTANCE.md`。
+  - 不安装、不启动、不请求/重置 TCC、不监听或发送真实全局键盘、不读写系统剪贴板、不捕获真实屏幕/音频/摄像头、不注册登录项、不控制目标 App。
+  - 验收记录必须说明模拟证据边界；外部播放器、真实权限和主观体验不能写成真实通过。
 - **Todos**：
-  - [x] 完成全量自动化门禁。
-    - **Surface**：Swift build、tests、官方 self-test、静态检查。
-    - **Proof**：所有模拟测试、构建和静态检查命令零退出；无被跳过的必需测试；`git diff --check` 通过。
-    - **Current evidence**：`Scripts/verify-delivery.sh` 通过；脚本内 first-run reset helper 安全门禁通过，`swift build` 通过，`swift test` 110 项通过，`.build/debug/ZoomItMacSelfTest` 通过，release 日常版构建无编译警告通过，`git diff --check` 通过。
+  - [x] 运行 Phase 7 本地模拟入口。
+    - **Surface**：`Scripts/phase7-preflight.sh`。
+    - **Proof**：完整交付门禁与验收校验返回 PASS。
     - **Depends on**：Phase 6。
-  - [x] 完成本地模拟性能基准。
-    - **Surface**：虚拟时钟、确定性事件样本、状态提交、render operation、估算分配单位。
-    - **Proof**：固定 190 事件样本结果已记录，真实同机 p50/p95 不再作为当前目标完成阻塞。
-    - **Depends on**：Phase 1 基线、最终实现。
-  - [x] 核对依赖、源码量和产物体积。
-    - **Surface**：SwiftPM 依赖图、源码统计、App/压缩包。
-    - **Proof**：无第三方运行时依赖；源码量、可执行文件、`.app` 和交付包 MB 已记录并解释主要构成。
-    - **Current evidence**：最近一次 `Scripts/phase7-preflight.sh` 快照确认自动化测试边界审计通过，验收记录校验器自测通过，验收记录草稿生成器自测通过，安装面审计器自测通过，Phase 7 preflight 自测通过，`.build` 根级 `.app` 白名单审计通过，first-run reset helper 拒绝路径通过，`swift package show-dependencies --format text` 输出 `No external dependencies found`；`Scripts/build-app.sh` 会在构建/签名前拒绝非法 Bundle ID、路径型或非 `.app` App 名、会破坏 plist 的 display name；默认 release 构建和 dev/daily/zip 解包交付门禁均以 `arm64` 为轻量架构默认值，并按归一化架构集合比较，未显式设置 `ZOOMIT_ARCHS` 时交付门禁不向 `build-app.sh` 传空架构变量，Universal 只在显式非空 `ZOOMIT_ARCHS` 时启用；排除 `.git/.build` 和无关 `website` 共 123 个文件、1,263,706 字节，约 1.21 MB；`Sources` 下 Swift 17,918 行；dev app 约 4.9 MB，日常 release app 约 2.1 MB，交付 zip 约 933 KB；交付门禁只接受 `.build/DoraZoom Dev.app`、`.build/DoraZoom.app` 和 `.build/DoraZoom.zip`，任意其他根级 `.build/*.app` 都失败，并拒绝残留或新产生的 `.build/ZoomIt.zip`；dev/daily bundle 版本元数据均为 `1.0`，解包后的 zip app 元数据、签名身份与 entitlements 也被复核；`ACCEPTANCE.md` 本地模拟验收记录校验通过；详见 `VALIDATION.md`。
-    - **Depends on**：最终构建。
-  - [x] 构建并签名开发版与日常版。
-    - **Surface**：Bundle、Info.plist、entitlements、签名。
-    - **Proof**：`codesign` 验证通过；两个 Bundle ID 正确；日常版没有开发身份残留。
-    - **Current evidence**：`Scripts/verify-delivery.sh` 构建并核对开发版 `.build/DoraZoom Dev.app` 为 `com.duola.dorazoom.dev` / `DoraZoom (Dev)`，日常版 `.build/DoraZoom.app` 为 `com.duola.dorazoom` / `DoraZoom`；`CFBundleName` 分别为 `DoraZoom (Dev)` / `DoraZoom`，两者 `CFBundleExecutable=CFBundleIconFile=DoraZoom`，且 `CFBundleShortVersionString=CFBundleVersion=1.0`；源码资源、开发版/日常版资源目录和 zip 解包 app 均拒绝旧 `ZoomIt*.png` 图标资源名；开发版 codesign `Identifier=com.duola.dorazoom.dev`、`Signature=adhoc`、`TeamIdentifier=not set`，日常版使用本机 Apple Development 身份签名，日常版与 zip 解包 app 的 codesign `Identifier=com.duola.dorazoom`、Authority 非空、TeamIdentifier 非空，启用 hardened runtime 且 `codesign --verify --deep --strict` 通过；交付 zip 解包后重新核对日常版身份、版本、菜单栏模式、最低系统版本、架构、entitlements 和 hardened runtime 并再次验签通过，且本地日常版 app、zip 与解包 app 均不允许携带 `com.apple.quarantine`；未安装到 `/Applications`，未触发 TCC。
-    - **Depends on**：稳定签名身份。
-  - [x] 完成权限、安装与升级的本地模拟验收。
-    - **Surface**：Bundle ID、签名元数据、权限状态矩阵、设置入口动作计划。
-    - **Proof**：模拟权限页、bundle/signature 元数据和 reset helper 拒绝路径均通过；不安装到 `/Applications`。
-    - **Depends on**：签名构建。
-  - [x] 执行最小平台边界模拟验收。
-    - **Surface**：模拟 TCC、模拟 Event Tap、内存剪贴板、模拟捕获、模拟音频/摄像头、测试窗口。
-    - **Proof**：`Control+1`、`Control+2`、`W/K`、`Control+6`、`Command+V`、有条件 `Control+V`、三种录制目标、声音和摄像头均由模拟测试覆盖。
-    - **Depends on**：模拟门禁、签名构建。
-  - [x] 完成本地媒体兼容矩阵。
-    - **Surface**：QuickTime、目标 Windows 播放环境、剪映、DaVinci Resolve 的模拟兼容矩阵。
-    - **Proof**：MOV/MP4/GIF 样本、打开/导入、音画同步、时长和失败原因字段均由本地矩阵记录为模拟通过。
-    - **Depends on**：录制 writer 计划。
-  - [x] 执行 PRD 第 14 节本地模拟清单。
-    - **Surface**：功能、白板、粘贴、光标、录制、权限、性能、视觉。
-    - **Proof**：每一项有本地模拟证据或明确边界说明；不存在空白跳过。
-    - **Depends on**：全部前置任务。
-  - [x] 交付 Phase 7 本地模拟验收记录。
-    - **Surface**：`ACCEPTANCE.md`、README 验收入口。
-    - **Proof**：记录区分本地模拟证据与未声明的真实系统事实；覆盖构建、TCC 模拟、事件流、内存剪贴板、光标、截图粘贴、录制、媒体矩阵、性能和最终签收。
-    - **Depends on**：Phase 7 边界确认。
-- **Exit proof**：本地模拟自动化、依赖、签名元数据、产物身份、媒体矩阵、性能基准和 `ACCEPTANCE.md` 记录校验全部通过。
-- **Stop condition**：模拟门禁失败、验收记录出现空白、功能对照有缺口，或实现需要触碰真实 TCC/全局输入/剪贴板/屏幕/音频/摄像头才能证明。
+  - [x] 校验验收记录完整且结论唯一。
+    - **Surface**：`ACCEPTANCE.md`、`Scripts/verify-acceptance-record.sh`。
+    - **Proof**：不存在空白验收单元格，最终只选择“通过”。
+    - **Depends on**：本地模拟入口。
+  - [x] 完成本地模拟工程收口。
+    - **Surface**：`GOAL.md`、`VALIDATION.md`。
+    - **Proof**：记录最终命令、产物和明确限制；不遗留实现 gap 或模拟门禁失败。
+    - **Depends on**：前两项。
+- **Exit proof**：Phase 7 preflight、验收记录校验和 diff 检查全部通过；本地模拟最终结论为通过，真实体验结论仍待用户给出。
+- **Stop condition**：任何测试试图突破模拟边界、验收记录不完整、交付门禁失败或覆盖表重新出现 gap。
 
 ## Dry-Run Findings
 
-- 路线不存在循环依赖：官方基线先于契约，契约先于生产适配器，截图权限矩阵先于大规模 UI 改造，录制依赖组合状态，本地模拟验收依赖完整功能。
-- macOS 没有桌面 App 官方 Simulator；当前按用户要求接受本地模拟验收边界，并明确不把它等同于真实系统验收。
-- 原计划分散的真实系统操作已移出当前目标；Phase 7 只保留本地模拟门禁和验收记录。
-- `Control+V` 不能等第一次按键后再申请权限；Phase 3 模拟该时序与全部分支，Phase 7 只复核本地模拟证据。
-- 录制与绘画/白板并存不能由单一 `AppMode` 表达；Phase 2 在任何 UI 接线前用组合状态测试阻止回退。
-- MOV/MP4 与 GIF 不是同一输出管线；Phase 2 先分策略，Phase 5 用模拟 writer 锁定调用，Phase 7 复核本地媒体矩阵。
-- 真实播放器、剪辑软件、TCC 和签名无法被纯单元测试替代；当前目标不要求证明这些真实外部事实。
-- 稳定签名身份已作为本地产物元数据门禁复核；不再阻塞当前本地模拟验收目标。
-- 未发现需要在编码前返回 PRD 或架构继续决策的产品缺口，因此判断为 Go。
+- 路线无循环依赖：覆盖事实先于实现；权限/设置先于依赖它们的录制预检；反馈/动效先于截图和录制呈现；截图标注合成先于录制复用；交付先于本地模拟最终验收。
+- 第一风险不是编码难度，而是旧覆盖表继续报告“无缺口”；Phase 1 先恢复诚实缺口，Phase 2–5 逐项关闭后，当前覆盖表已由实现和模拟测试引用证明 `gaps == []`。
+- 权限中心和设置可以在不触碰真实 TCC 的情况下通过状态矩阵与测试窗口完成工程验证，不需要等待人工环境。
+- “上一次区域”的跨启动持久化、所有新增能力的默认全局快捷键都不是当前必要条件；计划采用会话级区域和无新增默认热键，避免阻塞。
+- 模糊/遮挡必须在导出像素层验证，不能只检查 annotation model；否则隐私目标没有被真正证明。
+- 录制恢复是最大技术风险，计划在 Phase 5 使用多故障点注入提前证明，不留到最终播放器验收。
+- 工程实现与最终模拟收口明确分开：Phase 6 关闭实现/交付，Phase 7 复跑统一入口并校验本地模拟验收记录。
+- Phase 4 已证明标注、隐私合成、内存剪贴板输出与多显示器坐标；Phase 5 可直接复用这些合成计划，不建立第二套录制标注引擎。
+- 未发现需要先返回 PRD 或架构补充的阻塞决策，执行判断为 Go。
 
 ## Final Validation
 
-- 当前已通过的自动化门禁：
-  - `swift build` 通过。
-  - `swift test` 的全部自动化用例通过，且系统边界均使用模拟实现。
-  - 官方 `ZoomItMacSelfTest` 通过。
-  - 开发版与日常版的 Bundle ID、签名和 entitlements 验证通过。
-  - SwiftPM 依赖图确认零第三方运行时依赖。
-  - `git diff --check` 通过。
-  - `VALIDATION.md` 包含 PRD 第 5.1 节完整功能对照、模拟测试证据、源码量、可执行文件、App 与交付包体积。
-- 最终完成改为 Phase 7 本地模拟验收：
-  - 构建、测试、self-test、签名元数据、zip 解包和源码/包体快照。
-  - 模拟 `Command+V` / 有条件 `Control+V`、权限矩阵与剪贴板失效。
-  - 模拟光标状态、热点和快捷键到反馈。
-  - 模拟录屏、系统声音、麦克风、摄像头、录制合成和录后编辑。
-  - MOV/MP4/GIF、QuickTime、Windows、剪映和 DaVinci Resolve 的本地媒体兼容矩阵。
-  - 固定事件样本的虚拟性能基准。
-  - `ACCEPTANCE.md` 记录校验和最终本地模拟签收。
-- 当前目标不执行真实 TCC 重置、全局输入回放、设备控制、安装或外部播放器操作。
+工程门禁：
+
+```sh
+Scripts/verify-test-boundary.sh
+swift build
+swift test
+.build/debug/ZoomItMacSelfTest
+Scripts/verify-delivery.sh
+Scripts/verify-acceptance-record.sh ACCEPTANCE.md
+git diff --check
+```
+
+最终检查：
+
+- 最新 `ZoomItFeatureCoverageMap` 的 required capabilities 全部有实现和模拟测试证据，`gaps == []`。
+- `VALIDATION.md` 包含每阶段 RED、GREEN、REFACTOR 与验证命令。
+- `ACCEPTANCE.md` 分别记录本地模拟结论和真实系统人工验收状态，未验事实保持“待用户验收”。
+- dev/daily/zip 产物身份、签名、架构、版本、entitlements 和清洁度通过。
+- `Scripts/phase7-preflight.sh` 与验收记录校验通过，最终模拟结论唯一选择“通过”。
 
 ## First Execution Step
 
-下一步是改造脚本和测试，使 `Scripts/phase7-preflight.sh` 直接验证本地模拟验收记录，并确保功能覆盖表、媒体兼容矩阵和文档不再把真实外部验收作为完成阻塞。
+下一步是用户可见的真机验收。启动前先明确开发版路径 `/Users/happy/Desktop/zoomit/.build/DoraZoom Dev.app`、Bundle ID `com.duola.dorazoom.dev` 和版本 `1.0`；未经用户确认不自动启动、不安装、不重置 TCC。用户结果写回 `ACCEPTANCE.md`，失败项立即回到 TDD；全部通过后仍需单独的发布授权。

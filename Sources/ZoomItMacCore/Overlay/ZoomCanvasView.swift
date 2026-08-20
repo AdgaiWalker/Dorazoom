@@ -6,7 +6,7 @@ final class ZoomCanvasView: NSView {
     private let viewportController: ZoomViewportController
     private let annotationController: AnnotationController
     private let commandSink: (AppCommand) -> Void
-    private let onCopiedToPasteboard: ((Int) -> Void)?
+    private let onPasteboardOutput: ((SnipPasteboardOutput) -> Void)?
     private var latestCursorLocation: CGPoint?
     private var pointerViewPoint: CGPoint = .zero
     private var isDrawingMode = false
@@ -16,6 +16,26 @@ final class ZoomCanvasView: NSView {
     private var activeStrokeTool: AnnotationTool?
     private var cursorHidden = false
     private var postTypingCursorAnchorOffset: CGPoint?
+    private lazy var textEditingSession = CanvasTextEditingSession(
+        onTextChange: { [weak self] text in
+            guard let self else { return }
+            annotationController.replaceTypingText(text)
+            needsDisplay = true
+        },
+        onExitRequested: { [weak self] in
+            self?.commandSink(.toggleTyping(rightAligned: false))
+        },
+        onFontSizeAdjustment: { [weak self] adjustment in
+            guard let self else { return }
+            switch adjustment {
+            case .increase:
+                commandSink(.increaseFontSize)
+            case .decrease:
+                commandSink(.decreaseFontSize)
+            }
+            updateTextEditingFont()
+        }
+    )
     /// While interactive live zoom is on, the overlay is click-through and a
     /// global monitor tracks the real cursor so the magnified view follows it.
     private var liveMouseMonitor: Any?
@@ -30,14 +50,16 @@ final class ZoomCanvasView: NSView {
     private var regionRect: CGRect = .zero
     private var regionCursorLease: CrosshairCursorLease?
     private var onRegionSnipFinished: (() -> Void)?
-    private var onRegionCopiedToPasteboard: ((Int) -> Void)?
-    private var scrollZoomAccumulator: CGFloat = 0
+    private var onRegionPasteboardOutput: ((SnipPasteboardOutput) -> Void)?
     private let smoothImage: Bool
+    private var isCapturingPrivacyBase = false
 
     var interactionMode: AppMode = .staticZoom {
         didSet {
             let leftTypingMode = oldValue == .typing && interactionMode != .typing
+            let enteredTypingMode = oldValue != .typing && interactionMode == .typing
             if leftTypingMode {
+                endTextEditingSession()
                 anchorCursorAfterTyping()
             }
             switch interactionMode {
@@ -65,6 +87,9 @@ final class ZoomCanvasView: NSView {
                 break
             }
             updateLiveZoomInteractivity()
+            if enteredTypingMode {
+                beginTextEditingSession()
+            }
             needsDisplay = true
         }
     }
@@ -76,14 +101,14 @@ final class ZoomCanvasView: NSView {
         annotationController: AnnotationController,
         smoothImage: Bool,
         commandSink: @escaping (AppCommand) -> Void,
-        onCopiedToPasteboard: ((Int) -> Void)? = nil
+        onPasteboardOutput: ((SnipPasteboardOutput) -> Void)? = nil
     ) {
         self.capturedFrame = capturedFrame
         self.viewportController = viewportController
         self.annotationController = annotationController
         self.smoothImage = smoothImage
         self.commandSink = commandSink
-        self.onCopiedToPasteboard = onCopiedToPasteboard
+        self.onPasteboardOutput = onPasteboardOutput
         super.init(frame: frameRect)
         // Anchor the initial zoom on the current cursor position so the view
         // does not jump when the mouse first moves after the hotkey activates.
@@ -156,8 +181,12 @@ final class ZoomCanvasView: NSView {
 
         context.saveGState()
         context.concatenate(viewportController.contentToDestinationTransform(source: source, destinationBounds: bounds))
-        annotationController.render(in: context, bounds: bounds)
-        if interactionMode == .typing {
+        annotationController.render(
+            in: context,
+            bounds: bounds,
+            includesPrivacyPreview: !isCapturingPrivacyBase
+        )
+        if interactionMode == .typing, !textEditingSession.isActive {
             drawTypingCaret(in: context, source: source)
         }
         context.restoreGState()
@@ -166,12 +195,32 @@ final class ZoomCanvasView: NSView {
             interactionMode: interactionMode,
             isDrawingMode: isDrawingMode,
             isSelectingRegion: isSelectingRegion,
-            activeStrokeTool: activeStrokeTool
+            activeStrokeTool: activeStrokeTool,
+            currentTool: annotationController.currentTool,
+            style: annotationController.currentStyle,
+            canvas: annotationController.canvasBackground,
+            environment: FeedbackPresentationEnvironment(
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+                reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+                increaseContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+            )
         ) {
-        case .zoomCrosshair:
+        case .magnifier:
             drawZoomPointerIndicator(in: context)
-        case .penDot:
-            drawCursorIndicator(in: context, source: source)
+        case let .penRing(color, diameter, highContrast):
+            drawPenRing(
+                in: context,
+                source: source,
+                color: color,
+                diameter: diameter,
+                highContrast: highContrast
+            )
+        case let .highlighterNib(color, width, highContrast):
+            drawHighlighterNib(in: context, source: source, color: color, width: width, highContrast: highContrast)
+        case let .toolCrosshair(tool, color, highContrast):
+            drawToolCrosshair(in: context, tool: tool, color: color, highContrast: highContrast)
+        case let .textCaret(highContrast):
+            drawPointerTextCaret(in: context, highContrast: highContrast)
         case .hidden:
             break
         }
@@ -180,8 +229,6 @@ final class ZoomCanvasView: NSView {
             drawRegionSelection(in: context)
         }
 
-        drawOverlayHUD()
-        drawDrawingHUD()
     }
 
     override func mouseMoved(with event: NSEvent) {
@@ -193,6 +240,7 @@ final class ZoomCanvasView: NSView {
             if !annotationController.isTypingLocked {
                 let insertion = contentPoint(forViewPoint: pointerViewPoint)
                 annotationController.setInsertionPoint(insertion)
+                textEditingSession.updateFrame(textEditingFrame())
             }
         } else if !isDrawingMode {
             updateLatestCursorLocationFromMouse()
@@ -220,11 +268,15 @@ final class ZoomCanvasView: NSView {
 
         if interactionMode == .typing {
             if annotationController.isTypingLocked {
-                finishLockedTypingAtCaret(reason: "mouse down locked")
+                startNewTypingSession(
+                    at: contentPoint(for: event),
+                    viewPoint: pointerViewPoint
+                )
                 needsDisplay = true
                 return
             }
             annotationController.setInsertionPoint(contentPoint(for: event))
+            textEditingSession.updateFrame(textEditingFrame())
             needsDisplay = true
             return
         }
@@ -326,6 +378,7 @@ final class ZoomCanvasView: NSView {
             } else if event.scrollingDeltaY < 0 {
                 commandSink(.decreaseFontSize)
             }
+            updateTextEditingFont()
             needsDisplay = true
             return
         }
@@ -340,31 +393,20 @@ final class ZoomCanvasView: NSView {
             return
         }
 
-        let delta = event.scrollingDeltaY
-        guard delta != 0 else { return }
+        handleZoomScroll(
+            delta: event.scrollingDeltaY,
+            isPrecise: event.hasPreciseScrollingDeltas
+        )
+    }
 
-        // Use the same discrete steps as the Up/Down arrow keys (ZoomIt's
-        // doubling/halving telescope steps) instead of a smooth zoom.
-        if event.hasPreciseScrollingDeltas {
-            // Trackpad / precise mouse: accumulate pixels into whole steps and
-            // reset the accumulator whenever the scroll direction reverses.
-            if (delta > 0) != (scrollZoomAccumulator > 0) {
-                scrollZoomAccumulator = 0
-            }
-            scrollZoomAccumulator += delta
-            let threshold: CGFloat = 40
-            while scrollZoomAccumulator >= threshold {
-                scrollZoomAccumulator -= threshold
-                commandSink(.zoomIn)
-            }
-            while scrollZoomAccumulator <= -threshold {
-                scrollZoomAccumulator += threshold
-                commandSink(.zoomOutOrExit)
-            }
-        } else {
-            // Classic wheel: one zoom step per notch.
-            commandSink(delta > 0 ? .zoomIn : .zoomOutOrExit)
-        }
+    private func handleZoomScroll(delta: CGFloat, isPrecise: Bool) {
+        guard delta != 0 else { return }
+        commandSink(
+            .adjustZoomFromScroll(
+                scrollingDeltaY: delta,
+                isPrecise: isPrecise
+            )
+        )
         needsDisplay = true
     }
 
@@ -376,14 +418,16 @@ final class ZoomCanvasView: NSView {
             }
             return
         }
+        if interactionMode == .typing {
+            textEditingSession.inputClient.interpretKeyEvents([event])
+            return
+        }
         switch event.keyCode {
         case 53:
             // Esc leaves typing mode first (matching ZoomIt). In live-zoom
             // drawing it leaves drawing mode but stays in live zoom; otherwise
             // it exits the overlay.
-            if interactionMode == .typing {
-                commandSink(.toggleTyping(rightAligned: false))
-            } else if interactionMode == .liveZoom && isDrawingMode {
+            if interactionMode == .liveZoom && isDrawingMode {
                 exitDrawingMode()
                 needsDisplay = true
             } else {
@@ -394,19 +438,9 @@ final class ZoomCanvasView: NSView {
             // Tab key state at stroke start instead.
             break
         case 126:
-            if interactionMode == .typing {
-                commandSink(.increaseFontSize)
-                needsDisplay = true
-            } else {
-                handleVerticalArrow(up: true, shift: event.modifierFlags.contains(.shift))
-            }
+            handleVerticalArrow(up: true, shift: event.modifierFlags.contains(.shift))
         case 125:
-            if interactionMode == .typing {
-                commandSink(.decreaseFontSize)
-                needsDisplay = true
-            } else {
-                handleVerticalArrow(up: false, shift: event.modifierFlags.contains(.shift))
-            }
+            handleVerticalArrow(up: false, shift: event.modifierFlags.contains(.shift))
         case 6 where event.modifierFlags.contains(.command) || event.modifierFlags.contains(.control):
             // ⌘Z (macOS convention) or Ctrl+Z (matching Windows ZoomIt) undoes the last gesture.
             commandSink(.undo)
@@ -416,23 +450,73 @@ final class ZoomCanvasView: NSView {
         case 8 where event.modifierFlags.contains(.command):
             // ⌘C copies the whole zoomed viewport (matching ZoomIt's Ctrl+C).
             copyViewport()
-        case 51 where interactionMode == .typing, 117 where interactionMode == .typing:
-            annotationController.deleteBackward()
-            needsDisplay = true
-        case 36 where interactionMode == .typing, 76 where interactionMode == .typing:
-            // Return / Enter starts a new line. The caret drops to the next line
-            // left-aligned with the start of the text (right edge for
-            // right-aligned typing), matching standard multi-line text entry.
-            annotationController.insertText("\n")
-            needsDisplay = true
         default:
-            if interactionMode == .typing, let characters = event.characters, !characters.isEmpty {
-                annotationController.insertText(characters)
-                needsDisplay = true
-            } else {
-                handleDrawingShortcut(event) ?? interpretKeyEvents([event])
-            }
+            handleDrawingShortcut(event) ?? interpretKeyEvents([event])
         }
+    }
+
+    private func beginTextEditingSession() {
+        let font = currentTextEditingFont()
+        annotationController.isTypingDraftPresentedByNativeEditor = true
+        textEditingSession.begin(
+            in: self,
+            frame: textEditingFrame(font: font),
+            font: font,
+            color: annotationController.currentStyle.color.nsColor,
+            alignment: annotationController.typingRightAligned ? .right : .left
+        )
+    }
+
+    private func textEditingFrame(font explicitFont: NSFont? = nil) -> CGRect {
+        let source = viewportController.sourceRect(for: bounds, cursorLocation: latestCursorLocation)
+        let zoomScale = source.width > 0 ? bounds.width / source.width : 1
+        let font = explicitFont ?? AnnotationController.typingFont(
+            named: annotationController.typingFontName,
+            size: annotationController.typingFontSize * zoomScale
+        )
+        let rightAligned = annotationController.typingRightAligned
+        let x = rightAligned ? 0 : max(0, pointerViewPoint.x)
+        let width = rightAligned
+            ? max(1, pointerViewPoint.x)
+            : max(1, bounds.maxX - pointerViewPoint.x)
+        let lineHeight = font.ascender - font.descender + font.leading
+        return CGRect(
+            x: x,
+            y: max(0, pointerViewPoint.y),
+            width: width,
+            height: max(lineHeight * 2, bounds.maxY - pointerViewPoint.y)
+        )
+    }
+
+    private func updateTextEditingFont() {
+        guard textEditingSession.isActive else { return }
+        let font = currentTextEditingFont()
+        textEditingSession.updateFont(font)
+        textEditingSession.updateFrame(textEditingFrame(font: font))
+    }
+
+    private func currentTextEditingFont() -> NSFont {
+        let source = viewportController.sourceRect(for: bounds, cursorLocation: latestCursorLocation)
+        let zoomScale = source.width > 0 ? bounds.width / source.width : 1
+        return AnnotationController.typingFont(
+            named: annotationController.typingFontName,
+            size: annotationController.typingFontSize * zoomScale
+        )
+    }
+
+    private func endTextEditingSession() {
+        guard textEditingSession.isActive else { return }
+        let committedText = textEditingSession.finish()
+        annotationController.isTypingDraftPresentedByNativeEditor = false
+        annotationController.replaceTypingText(committedText)
+        window?.makeFirstResponder(self)
+    }
+
+    private func startNewTypingSession(at contentPoint: CGPoint, viewPoint: CGPoint) {
+        endTextEditingSession()
+        pointerViewPoint = viewPoint
+        annotationController.setInsertionPoint(contentPoint)
+        beginTextEditingSession()
     }
 
     private func handleDrawingShortcut(_ event: NSEvent) -> Void? {
@@ -506,7 +590,7 @@ final class ZoomCanvasView: NSView {
         if shift {
             commandSink(up ? .increasePenWidth : .decreasePenWidth)
         } else {
-            commandSink(up ? .zoomIn : .zoomOutOrExit)
+            commandSink(up ? .zoomIn : .zoomOut)
         }
         needsDisplay = true
     }
@@ -596,8 +680,10 @@ final class ZoomCanvasView: NSView {
 
     private func finishLockedTypingAtCaret(reason: String) {
         let insertion = annotationController.typingCaret()?.origin ?? contentPoint(forViewPoint: pointerViewPoint)
-        annotationController.setInsertionPoint(insertion)
+        endTextEditingSession()
         anchorCursor(toContentPoint: insertion, reason: reason)
+        annotationController.setInsertionPoint(insertion)
+        beginTextEditingSession()
     }
 
     private func anchorCursor(toContentPoint point: CGPoint, reason: String) {
@@ -662,6 +748,7 @@ final class ZoomCanvasView: NSView {
     }
 
     func prepareForClose() {
+        endTextEditingSession()
         stopLiveMouseTracking()
         stopDrawingRightClickMonitor()
         showSystemCursor()
@@ -696,10 +783,11 @@ final class ZoomCanvasView: NSView {
         switch presentation.mouseRouting {
         case .passThroughToUnderlyingApp:
             // Pass mouse events through to the apps underneath and show the real
-            // cursor; a global monitor keeps the magnified view tracking it.
+            // cursor; a global monitor keeps the magnified view tracking it and
+            // routes wheel/trackpad scrolling back into the zoom controller.
             window.ignoresMouseEvents = true
             showSystemCursor()
-            startLiveMouseTracking()
+            startLiveMouseTracking(events: presentation.globalTrackingEvents)
         case .captureInOverlay:
             // Reclaim input so the overlay can draw/pan modally.
             stopLiveMouseTracking()
@@ -711,13 +799,34 @@ final class ZoomCanvasView: NSView {
         }
     }
 
-    private func startLiveMouseTracking() {
+    private func startLiveMouseTracking(events: [LiveZoomGlobalTrackingEvent]) {
         guard liveMouseMonitor == nil else { return }
+        var eventMask: NSEvent.EventTypeMask = []
+        if events.contains(.pointerMovement) {
+            eventMask.formUnion([
+                .mouseMoved,
+                .leftMouseDragged,
+                .rightMouseDragged,
+                .otherMouseDragged
+            ])
+        }
+        if events.contains(.scrollWheel) {
+            eventMask.insert(.scrollWheel)
+        }
+        guard !eventMask.isEmpty else { return }
+
         liveMouseMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
-        ) { [weak self] _ in
+            matching: eventMask
+        ) { [weak self] event in
             MainActor.assumeIsolated {
-                self?.handleGlobalMouseMove()
+                if event.type == .scrollWheel {
+                    self?.handleZoomScroll(
+                        delta: event.scrollingDeltaY,
+                        isPrecise: event.hasPreciseScrollingDeltas
+                    )
+                } else {
+                    self?.handleGlobalMouseMove()
+                }
             }
         }
     }
@@ -742,7 +851,7 @@ final class ZoomCanvasView: NSView {
     private func copyViewport() {
         guard let image = captureViewportImage() else { return }
         let changeCount = ImageExporter.copyToPasteboard(image)
-        onCopiedToPasteboard?(changeCount)
+        onPasteboardOutput?(.image(changeCount: changeCount))
     }
 
     /// Renders the current viewport and presents a Save dialog to write it as
@@ -787,9 +896,44 @@ final class ZoomCanvasView: NSView {
     /// Snapshots exactly what the overlay is displaying (magnified image plus
     /// annotations) at the view's backing resolution.
     private func captureViewportImage() -> CGImage? {
+        let nativeEditorWasActive = textEditingSession.isActive
+        if nativeEditorWasActive {
+            textEditingSession.inputClient.isHidden = true
+            annotationController.isTypingDraftPresentedByNativeEditor = false
+        }
+        isCapturingPrivacyBase = true
+        defer {
+            isCapturingPrivacyBase = false
+            if nativeEditorWasActive {
+                annotationController.isTypingDraftPresentedByNativeEditor = true
+                textEditingSession.inputClient.isHidden = false
+            }
+            needsDisplay = true
+        }
         guard let rep = bitmapImageRepForCachingDisplay(in: bounds) else { return nil }
         cacheDisplay(in: bounds, to: rep)
-        return rep.cgImage
+        guard let baseImage = rep.cgImage else { return nil }
+        let privacyOperations = annotationController.privacyRenderPlanSnapshot
+        guard !privacyOperations.isEmpty else { return baseImage }
+
+        let source = viewportController.sourceRect(for: bounds, cursorLocation: latestCursorLocation)
+        let contentToView = viewportController.contentToDestinationTransform(
+            source: source,
+            destinationBounds: bounds
+        )
+        let viewToImage = CGAffineTransform(
+            a: CGFloat(baseImage.width) / bounds.width,
+            b: 0,
+            c: 0,
+            d: CGFloat(baseImage.height) / bounds.height,
+            tx: -bounds.minX * CGFloat(baseImage.width) / bounds.width,
+            ty: -bounds.minY * CGFloat(baseImage.height) / bounds.height
+        )
+        return PrivacyAnnotationCompositor.composite(
+            source: baseImage,
+            operations: privacyOperations,
+            contentToImageTransform: contentToView.concatenating(viewToImage)
+        )
     }
 
     /// Snapshots the visible overlay for the recorder. `sourceRect` is a region
@@ -812,10 +956,14 @@ final class ZoomCanvasView: NSView {
     // MARK: - Region snip
 
     /// Begins selecting a rectangle of the current viewport to copy or save.
-    func beginRegionSnip(action: SnipAction, onCopiedToPasteboard: ((Int) -> Void)? = nil, onFinished: @escaping () -> Void) {
+    func beginRegionSnip(
+        action: SnipAction,
+        onPasteboardOutput: ((SnipPasteboardOutput) -> Void)? = nil,
+        onFinished: @escaping () -> Void
+    ) {
         regionAction = action
         onRegionSnipFinished = onFinished
-        onRegionCopiedToPasteboard = onCopiedToPasteboard
+        onRegionPasteboardOutput = onPasteboardOutput
         regionAnchor = nil
         regionRect = .zero
         isSelectingRegion = true
@@ -855,19 +1003,19 @@ final class ZoomCanvasView: NSView {
                 height: rect.height * scale
             ).integral
             if let cropped = full.cropping(to: pixelRect) {
+                let outputHandler = onRegionPasteboardOutput
                 let settings = UserDefaultsSettingsStore().load()
                 let executor = SnipExportExecutor<CGImage>(
                     copyToPasteboard: { ImageExporter.copyToPasteboard($0) },
                     writeToDirectory: { ImageExporter.writeToDirectory($0, directoryPath: settings.snipSaveDirectory) },
                     presentSavePanel: { [weak self] in self?.presentSavePanelOnlyOverOverlay($0) },
-                    copyOCR: { OcrService.recognizeAndCopy($0) }
+                    copyOCR: { OcrService.recognizeAndCopy($0, completion: $1) }
                 )
-                for changeCount in executor.execute(
+                executor.execute(
                     image: cropped,
-                    operations: SnipExportPlan.operations(for: action, settings: settings)
-                ) {
-                    onRegionCopiedToPasteboard?(changeCount)
-                }
+                    operations: SnipExportPlan.operations(for: action, settings: settings),
+                    onPasteboardOutput: { outputHandler?($0) }
+                )
             }
         }
         endRegionSnip()
@@ -890,7 +1038,7 @@ final class ZoomCanvasView: NSView {
         }
         let callback = onRegionSnipFinished
         onRegionSnipFinished = nil
-        onRegionCopiedToPasteboard = nil
+        onRegionPasteboardOutput = nil
         callback?()
     }
 
@@ -945,49 +1093,136 @@ final class ZoomCanvasView: NSView {
         )
     }
 
-    private func drawOverlayHUD() {
-        guard let hud = OverlayHUDPresentation.presentation(
-            interactionMode: interactionMode,
-            zoomFactor: viewportController.zoomFactor,
-            container: bounds
-        ) else { return }
-
-        drawHUD(hud)
-    }
-
-    private func drawDrawingHUD() {
-        guard let hud = DrawingHUDPresentation.presentation(
-            isDrawingMode: isDrawingMode,
-            tool: annotationController.currentTool,
-            style: annotationController.currentStyle,
-            container: bounds
-        ) else { return }
-
-        drawHUD(hud)
-    }
-
-    private func drawHUD(_ hud: OverlayHUD) {
-        NSColor(white: 0, alpha: 0.72).setFill()
-        NSBezierPath(roundedRect: hud.frame, xRadius: 6, yRadius: 6).fill()
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold),
-            .foregroundColor: NSColor.white
-        ]
-        NSString(string: hud.text).draw(
-            in: hud.frame.insetBy(dx: 10, dy: 4),
-            withAttributes: attributes
-        )
-    }
-
-    private func drawCursorIndicator(in context: CGContext, source: CGRect) {
+    private func drawPenRing(
+        in context: CGContext,
+        source: CGRect,
+        color: AnnotationColor,
+        diameter: CGFloat,
+        highContrast: Bool
+    ) {
         let zoomScale = source.width > 0 ? bounds.width / source.width : 1
-        let radius = max(4, annotationController.currentStyle.rootWidth * zoomScale / 2)
+        let radius = max(4, diameter * zoomScale / 2)
         let center = pointerViewPoint
         let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
 
         context.saveGState()
-        context.setFillColor(annotationController.currentStyle.color.nsColor.cgColor)
-        context.fillEllipse(in: rect)
+        context.setLineWidth(highContrast ? 4 : 3)
+        context.setStrokeColor(highContrast ? NSColor.labelColor.cgColor : NSColor(white: 0, alpha: 0.78).cgColor)
+        context.strokeEllipse(in: rect)
+        context.setLineWidth(2)
+        context.setStrokeColor(color.nsColor.cgColor)
+        context.strokeEllipse(in: rect)
+        context.restoreGState()
+    }
+
+    private func drawHighlighterNib(
+        in context: CGContext,
+        source: CGRect,
+        color: AnnotationColor,
+        width: CGFloat,
+        highContrast: Bool
+    ) {
+        let zoomScale = source.width > 0 ? bounds.width / source.width : 1
+        let nibWidth = max(10, width * zoomScale * 1.8)
+        let nibHeight = max(4, width * zoomScale * 0.55)
+        let rect = CGRect(
+            x: pointerViewPoint.x - nibWidth / 2,
+            y: pointerViewPoint.y - nibHeight / 2,
+            width: nibWidth,
+            height: nibHeight
+        )
+        context.saveGState()
+        context.setFillColor(color.nsColor.withAlphaComponent(0.5).cgColor)
+        context.fill(rect)
+        context.setLineWidth(highContrast ? 2 : 1)
+        context.setStrokeColor(highContrast ? NSColor.labelColor.cgColor : color.nsColor.cgColor)
+        context.stroke(rect)
+        context.restoreGState()
+    }
+
+    private func drawToolCrosshair(
+        in context: CGContext,
+        tool: AnnotationTool,
+        color: AnnotationColor,
+        highContrast: Bool
+    ) {
+        let center = pointerViewPoint
+        let length: CGFloat = 9
+        context.saveGState()
+        context.setLineCap(.round)
+        context.setLineWidth(highContrast ? 4 : 3)
+        context.setStrokeColor(highContrast ? NSColor.labelColor.cgColor : NSColor(white: 0, alpha: 0.78).cgColor)
+        context.move(to: CGPoint(x: center.x - length, y: center.y))
+        context.addLine(to: CGPoint(x: center.x + length, y: center.y))
+        context.move(to: CGPoint(x: center.x, y: center.y - length))
+        context.addLine(to: CGPoint(x: center.x, y: center.y + length))
+        context.strokePath()
+        context.setLineWidth(1.5)
+        context.setStrokeColor(color.nsColor.cgColor)
+        drawToolBadge(
+            tool,
+            color: color,
+            origin: CGPoint(x: center.x + 7, y: center.y + 7),
+            in: context
+        )
+        context.restoreGState()
+    }
+
+    private func drawToolBadge(
+        _ tool: AnnotationTool,
+        color: AnnotationColor,
+        origin: CGPoint,
+        in context: CGContext
+    ) {
+        let rect = CGRect(x: origin.x, y: origin.y, width: 10, height: 8)
+        switch tool {
+        case .line:
+            context.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        case .rectangle:
+            context.addRect(rect)
+        case .ellipse:
+            context.addEllipse(in: rect)
+        case .arrow:
+            context.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+            context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            context.move(to: CGPoint(x: rect.maxX - 4, y: rect.minY))
+            context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            context.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + 4))
+        case .blur:
+            context.addEllipse(in: rect.insetBy(dx: 1, dy: 1))
+            context.move(to: CGPoint(x: rect.minX + 2, y: rect.midY))
+            context.addLine(to: CGPoint(x: rect.maxX - 2, y: rect.midY))
+        case .redact:
+            context.addRect(rect)
+            context.saveGState()
+            context.setFillColor(NSColor.black.cgColor)
+            context.fill(rect.insetBy(dx: 1, dy: 1))
+            context.restoreGState()
+        case .numberedCallout:
+            context.addEllipse(in: rect)
+            let number = NSString(string: "1")
+            number.draw(
+                at: CGPoint(x: rect.midX - 2.5, y: rect.midY - 4.5),
+                withAttributes: [
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 7, weight: .bold),
+                    .foregroundColor: color.nsColor
+                ]
+            )
+        default:
+            return
+        }
+        context.strokePath()
+    }
+
+    private func drawPointerTextCaret(in context: CGContext, highContrast: Bool) {
+        let center = pointerViewPoint
+        context.saveGState()
+        context.setLineWidth(highContrast ? 3 : 2)
+        context.setStrokeColor(highContrast ? NSColor.labelColor.cgColor : NSColor.white.cgColor)
+        context.move(to: CGPoint(x: center.x, y: center.y - 9))
+        context.addLine(to: CGPoint(x: center.x, y: center.y + 9))
+        context.strokePath()
         context.restoreGState()
     }
 

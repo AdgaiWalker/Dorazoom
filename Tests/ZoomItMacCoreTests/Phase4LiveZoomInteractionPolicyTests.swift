@@ -12,6 +12,10 @@ final class Phase4LiveZoomInteractionPolicyTests: XCTestCase {
         XCTAssertEqual(presentation.mouseRouting, .passThroughToUnderlyingApp)
         XCTAssertEqual(presentation.systemCursor, .visible)
         XCTAssertEqual(presentation.mouseTracking, .global)
+        XCTAssertEqual(
+            presentation.globalTrackingEvents,
+            [.pointerMovement, .scrollWheel]
+        )
     }
 
     func testLiveZoomCapturesInputWhenDrawing() {
@@ -24,6 +28,7 @@ final class Phase4LiveZoomInteractionPolicyTests: XCTestCase {
         XCTAssertEqual(presentation.mouseRouting, .captureInOverlay)
         XCTAssertEqual(presentation.systemCursor, .hidden)
         XCTAssertEqual(presentation.mouseTracking, .none)
+        XCTAssertTrue(presentation.globalTrackingEvents.isEmpty)
     }
 
     func testLiveZoomCapturesInputWhenSelectingRegion() {
@@ -36,6 +41,7 @@ final class Phase4LiveZoomInteractionPolicyTests: XCTestCase {
         XCTAssertEqual(presentation.mouseRouting, .captureInOverlay)
         XCTAssertEqual(presentation.systemCursor, .hidden)
         XCTAssertEqual(presentation.mouseTracking, .none)
+        XCTAssertTrue(presentation.globalTrackingEvents.isEmpty)
     }
 
     func testStaticZoomAlwaysCapturesInput() {
@@ -48,5 +54,6 @@ final class Phase4LiveZoomInteractionPolicyTests: XCTestCase {
         XCTAssertEqual(presentation.mouseRouting, .captureInOverlay)
         XCTAssertEqual(presentation.systemCursor, .hidden)
         XCTAssertEqual(presentation.mouseTracking, .none)
+        XCTAssertTrue(presentation.globalTrackingEvents.isEmpty)
     }
 }

@@ -50,12 +50,12 @@ public enum SelfTestRunner {
         try testPanoramaSelectionBorderColor()
         try testPanoramaEscapeCancel()
         try testIdleSleepAssertionLifecycle()
-        try testStatusMenuOrderMatchesWindows()
+        try testStatusMenuHierarchyMatchesDoraZoom()
         try testClipTransitionUpdatesOnChange()
         try testWebcamOverlayDragOrigin()
         try testTrimSavePreservesOriginal()
-        try testSettingsWindowStaysOnTop()
-        try testZoomAndLiveZoomAreSeparateTabs()
+        try testSettingsWindowUsesNormalLevel()
+        try testSettingsNavigationUsesSixMacGroups()
         try testWhiteboardAndBlackboardUseZoomItKeys()
         try testTypeTabFontSampleUsesSelectedFont()
         try testMenuBarIconIsPaddedTemplate()
@@ -107,23 +107,26 @@ public enum SelfTestRunner {
         let controller = ZoomViewportController()
         controller.configure(for: try makeFrame(), initialZoom: 2)
 
-        controller.beginZoomInAnimation()
+        controller.beginZoomInAnimation(reduceMotion: false)
         try expect(controller.zoomFactor == 1, "Expected telescope to start at 1x")
         try expect(controller.isAnimatingZoom, "Expected zoom-in to be animating")
 
         var steps = 0
-        while controller.advanceZoomAnimation() {
+        var timestamp: TimeInterval = 0
+        while controller.advanceZoomAnimation(at: timestamp) {
             steps += 1
+            timestamp += 1.0 / 120.0
             try expect(steps < 1000, "Zoom-in animation did not converge")
         }
         try expect(controller.zoomFactor == 2, "Expected telescope to reach 2x, got \(controller.zoomFactor)")
         try expect(!controller.isAnimatingZoom, "Expected animation to stop at target")
 
-        controller.animateZoom(to: 1)
+        controller.animateZoom(to: 1, reduceMotion: false)
         try expect(controller.isAnimatingZoom, "Expected zoom-out to be animating")
         steps = 0
-        while controller.advanceZoomAnimation() {
+        while controller.advanceZoomAnimation(at: timestamp) {
             steps += 1
+            timestamp += 1.0 / 120.0
             try expect(steps < 1000, "Zoom-out animation did not converge")
         }
         try expect(controller.zoomFactor == 1, "Expected telescope to reach 1x, got \(controller.zoomFactor)")
@@ -215,15 +218,15 @@ public enum SelfTestRunner {
         let controller = AnnotationController()
         controller.setInsertionPoint(CGPoint(x: 20, y: 30))
 
-        controller.insertText("H")
-        controller.insertText("i")
+        controller.replaceTypingText("H")
+        controller.replaceTypingText("Hi")
 
         try expect(controller.annotationSnapshot.count == 1, "Expected one text annotation")
         try expect(controller.annotationSnapshot[0].tool == .text, "Expected text annotation tool")
         try expect(controller.annotationSnapshot[0].points == [CGPoint(x: 20, y: 30)], "Unexpected text insertion point")
         try expect(controller.annotationSnapshot[0].text == "Hi", "Expected text to append")
 
-        controller.deleteBackward()
+        controller.replaceTypingText("H")
 
         try expect(controller.annotationSnapshot[0].text == "H", "Expected deleteBackward to remove one character")
     }
@@ -251,7 +254,11 @@ public enum SelfTestRunner {
         controller.begin(at: CGPoint(x: 8, y: 32))
         controller.update(at: CGPoint(x: 56, y: 32))
         controller.end(at: CGPoint(x: 56, y: 32))
-        controller.render(in: context, bounds: CGRect(x: 0, y: 0, width: width, height: height))
+        controller.render(
+            in: context,
+            bounds: CGRect(x: 0, y: 0, width: width, height: height),
+            includesPrivacyPreview: true
+        )
 
         let touchedPixel = pixels.chunked(into: bytesPerPixel).contains { pixel in
             pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0 || pixel[3] > 0
@@ -387,15 +394,14 @@ public enum SelfTestRunner {
     }
 
     private static func testStaticZoomStaysAtOneX() throws {
-        // Windows ZoomIt keeps static zoom active when the user zooms all the
-        // way out to 1x; only Esc/right-click exits. Live zoom still exits at
-        // the floor.
+        // Reaching 1x is a boundary, not a dismissal gesture. Only an explicit
+        // exit action dismisses either zoom mode.
         try expect(ModeCoordinator.exitsOnZoomOutFloor(mode: .staticZoom) == false,
                    "Expected static zoom to stay active at 1x instead of exiting")
-        try expect(ModeCoordinator.exitsOnZoomOutFloor(mode: .liveZoom),
-                   "Expected live zoom to exit when zoomed out to 1x")
-        try expect(ModeCoordinator.exitsOnZoomOutFloor(mode: .typing),
-                   "Expected typing (live zoom sub-mode) to exit when zoomed out to 1x")
+        try expect(ModeCoordinator.exitsOnZoomOutFloor(mode: .liveZoom) == false,
+                   "Expected live zoom to stay active at 1x instead of exiting")
+        try expect(ModeCoordinator.exitsOnZoomOutFloor(mode: .typing) == false,
+                   "Expected typing to stay active at 1x instead of exiting")
     }
 
     /// The break timer view uses a flipped coordinate system. Drawing a
@@ -520,48 +526,40 @@ public enum SelfTestRunner {
         try expect(released == 1, "Expected end to be idempotent (no second release)")
     }
 
-    /// The menu-bar menu broadly follows the Windows ZoomIt tray order (Options
-    /// first, modes, then Check Permissions and Quit), with Panorama as a
-    /// macOS-only extra after Record and the Break Timer placed below Panorama
-    /// Capture.
-    private static func testStatusMenuOrderMatchesWindows() throws {
-        let titles = AppDelegate.statusMenuEntries()
-            .filter { !$0.isSeparator }
-            .map(\.title)
-
-        // Confirm the items appear in the expected relative order.
-        let expectedOrder = [
-            "Settings…",        // Options
-            "Draw",
-            "Static Zoom",      // Zoom
-            "Live Zoom",
-            "Record Screen",    // Record
-            "Panorama Capture", // macOS-only, after Record
-            "Break Timer",      // moved below Panorama Capture
-            "Check Permissions",
-            "Quit"
+    /// The menu-bar follows DoraZoom's Mac hierarchy: state, core actions,
+    /// advanced compatibility features, permissions, settings and quit.
+    private static func testStatusMenuHierarchyMatchesDoraZoom() throws {
+        let plan = StatusMenuPlan.make(
+            status: .idle,
+            permissions: .init(rows: [], platformBoundary: .simulatedOnly),
+            settings: .defaults
+        )
+        let expectedOrder: [StatusMenuItemID] = [
+            .status,
+            .draw,
+            .staticZoom,
+            .liveZoom,
+            .screenshot,
+            .recordScreen,
+            .toggleRecordingPause,
+            .coreSeparator,
+            .moreFeatures,
+            .managementSeparator,
+            .permissions,
+            .settings,
+            .quitSeparator,
+            .quit
         ]
 
-        let positions = expectedOrder.map { titles.firstIndex(of: $0) }
-        for (label, index) in zip(expectedOrder, positions) {
-            try expect(index != nil, "Expected status menu to contain '\(label)'")
-        }
-        let resolved = positions.compactMap { $0 }
-        try expect(resolved == resolved.sorted(),
-                   "Expected status menu items to follow the expected order, got \(titles)")
-
-        // Break Timer must come after Panorama Capture.
-        if let breakIndex = titles.firstIndex(of: "Break Timer"),
-           let panoramaIndex = titles.firstIndex(of: "Panorama Capture") {
-            try expect(breakIndex > panoramaIndex,
-                       "Expected Break Timer to be below Panorama Capture, got \(titles)")
-        } else {
-            throw SelfTestError.failure("Expected both Break Timer and Panorama Capture menu items")
-        }
-
-        // Options must be first and Quit last, as on Windows.
-        try expect(titles.first == "Settings…", "Expected Options/Settings to be the first menu item")
-        try expect(titles.last == "Quit", "Expected Quit to be the last menu item")
+        try expect(
+            plan.topLevelItems.map(\.id) == expectedOrder,
+            "Expected DoraZoom status menu hierarchy"
+        )
+        try expect(
+            plan.item(.moreFeatures)?.children.map(\.id)
+                == [.panorama, .demoType, .breakTimer, .advancedEditor],
+            "Expected compatibility features below More Features"
+        )
     }
 
     /// Changing the clip transition popup from Fade to Black to Fade to White
@@ -625,34 +623,22 @@ public enum SelfTestRunner {
                    "Expected an edited trim save to move the exported temp file")
     }
 
-    /// The Settings dialog must stay on top like the Windows Options dialog so
-    /// it can't get hidden behind other windows (which would leave ZoomIt's
-    /// hotkeys suspended and the app apparently unresponsive).
-    private static func testSettingsWindowStaysOnTop() throws {
+    private static func testSettingsWindowUsesNormalLevel() throws {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: true
         )
-        // Sanity: a normal window is at the normal level and hides on deactivate
-        // is off by default; ensure our configuration changes the level.
-        SettingsWindowController.configureAlwaysOnTop(window)
-        try expect(window.level == .floating, "Expected settings window to float above other windows")
+        SettingsWindowController.configureAsNormalWindow(window)
+        try expect(window.level == .normal, "Expected settings window to use the normal window level")
         try expect(window.hidesOnDeactivate == false, "Expected settings window not to hide when the app deactivates")
     }
 
-    /// Windows keeps static-zoom and live-zoom settings on separate tabs (the
-    /// Zoom tab is static-only). Verify the Mac Options dialog exposes a
-    /// distinct "Live Zoom" tab immediately after "Zoom".
-    private static func testZoomAndLiveZoomAreSeparateTabs() throws {
-        let titles = SettingsWindowController.settingsTabTitles
-        guard let zoomIndex = titles.firstIndex(of: "Zoom") else {
-            throw SelfTestError.failure("Expected a Zoom tab in the Options dialog")
-        }
-        try expect(titles.contains("Live Zoom"), "Expected a separate Live Zoom tab")
-        try expect(titles.firstIndex(of: "Live Zoom") == zoomIndex + 1,
-                   "Expected Live Zoom to be its own tab right after Zoom, got \(titles)")
+    private static func testSettingsNavigationUsesSixMacGroups() throws {
+        let sections = SettingsNavigationModel.defaultPlan.sections.map(\.id)
+        try expect(sections == SettingsNavigationSectionID.allCases,
+                   "Expected six fixed Mac settings groups, got \(sections)")
     }
 
     /// DoraZoom follows Windows ZoomIt for W/K: plain W switches to whiteboard,

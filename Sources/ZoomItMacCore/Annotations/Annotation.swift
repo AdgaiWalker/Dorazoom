@@ -8,6 +8,9 @@ enum AnnotationTool: Equatable, Sendable {
     case arrow
     case text
     case highlighter
+    case blur
+    case redact
+    case numberedCallout
 }
 
 enum AnnotationColor: String, CaseIterable, Equatable, Sendable {
@@ -67,4 +70,5 @@ struct Annotation: Equatable {
     var fontSize: CGFloat = 36
     var fontName: String = ""
     var rightAligned: Bool = false
+    var calloutNumber: Int? = nil
 }

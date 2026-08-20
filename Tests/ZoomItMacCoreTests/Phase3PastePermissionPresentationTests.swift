@@ -23,15 +23,6 @@ final class Phase3PastePermissionPresentationTests: XCTestCase {
         XCTAssertEqual(coordinator.settingStatus, .ready)
     }
 
-    func testAccessExplanationNamesControlVCompatibilityAndCommandVFallback() {
-        let explanation = InputCompatibilityAccessExplanation.controlVPaste
-
-        XCTAssertEqual(explanation.title, "启用 ⌃V 粘贴截图")
-        XCTAssertTrue(explanation.message.contains("⌃V"))
-        XCTAssertTrue(explanation.message.contains("⌘V"))
-        XCTAssertTrue(explanation.message.contains("不读取"))
-        XCTAssertTrue(explanation.message.contains("发送"))
-    }
 }
 
 private final class PresentationPermissionRequester: InputCompatibilityPermissionRequester {
@@ -45,5 +36,4 @@ private final class PresentationPermissionRequester: InputCompatibilityPermissio
         access
     }
 
-    func explainAndRequestInputCompatibilityAccess() {}
 }

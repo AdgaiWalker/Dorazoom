@@ -77,6 +77,10 @@ struct AppSettings: Equatable {
     var recordSystemAudio: Bool
     /// Whether to capture microphone audio in recordings.
     var recordMicrophone: Bool
+    /// Optional click highlights rendered into recording frames.
+    var recordMouseClicks: Bool
+    /// Optional privacy-filtered shortcut labels rendered into recording frames.
+    var recordShortcutKeys: Bool
     /// Whether to request capture-side microphone noise reduction when available.
     var recordNoiseCancellation: Bool
     /// The unique ID of the microphone device to record, or empty for the
@@ -96,6 +100,8 @@ struct AppSettings: Equatable {
     /// it is saved to a file. On by default so a saved snip is always available
     /// to paste.
     var copySnipToClipboardOnSave: Bool
+    /// Whether a direct window screenshot keeps the native window shadow.
+    var includeWindowShadow: Bool
     /// Whether saving a snip/screenshot writes directly to `snipSaveDirectory`
     /// with an auto-generated name instead of presenting a Save dialog.
     var saveSnipToDirectory: Bool
@@ -165,6 +171,8 @@ struct AppSettings: Equatable {
         breakBackgroundFile: "",
         recordSystemAudio: false,
         recordMicrophone: false,
+        recordMouseClicks: false,
+        recordShortcutKeys: false,
         recordNoiseCancellation: false,
         microphoneDeviceID: "",
         webcamEnabled: false,
@@ -173,6 +181,7 @@ struct AppSettings: Equatable {
         webcamSize: 1,
         webcamShape: 0,
         copySnipToClipboardOnSave: true,
+        includeWindowShadow: true,
         saveSnipToDirectory: false,
         snipSaveDirectory: ""
     )
@@ -228,6 +237,8 @@ final class UserDefaultsSettingsStore: SettingsStore {
         static let breakBackgroundFile = "breakBackgroundFile"
         static let recordSystemAudio = "recordSystemAudio"
         static let recordMicrophone = "recordMicrophone"
+        static let recordMouseClicks = "recordMouseClicks"
+        static let recordShortcutKeys = "recordShortcutKeys"
         static let recordNoiseCancellation = "recordNoiseCancellation"
         static let microphoneDeviceID = "microphoneDeviceID"
         static let webcamEnabled = "webcamEnabled"
@@ -236,6 +247,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
         static let webcamSize = "webcamSize"
         static let webcamShape = "webcamShape"
         static let copySnipToClipboardOnSave = "copySnipToClipboardOnSave"
+        static let includeWindowShadow = "includeWindowShadow"
         static let saveSnipToDirectory = "saveSnipToDirectory"
         static let snipSaveDirectory = "snipSaveDirectory"
     }
@@ -425,6 +437,14 @@ final class UserDefaultsSettingsStore: SettingsStore {
             settings.recordMicrophone = defaults.bool(forKey: Key.recordMicrophone)
         }
 
+        if defaults.object(forKey: Key.recordMouseClicks) != nil {
+            settings.recordMouseClicks = defaults.bool(forKey: Key.recordMouseClicks)
+        }
+
+        if defaults.object(forKey: Key.recordShortcutKeys) != nil {
+            settings.recordShortcutKeys = defaults.bool(forKey: Key.recordShortcutKeys)
+        }
+
         if defaults.object(forKey: Key.recordNoiseCancellation) != nil {
             settings.recordNoiseCancellation = defaults.bool(forKey: Key.recordNoiseCancellation)
         }
@@ -455,6 +475,10 @@ final class UserDefaultsSettingsStore: SettingsStore {
 
         if defaults.object(forKey: Key.copySnipToClipboardOnSave) != nil {
             settings.copySnipToClipboardOnSave = defaults.bool(forKey: Key.copySnipToClipboardOnSave)
+        }
+
+        if defaults.object(forKey: Key.includeWindowShadow) != nil {
+            settings.includeWindowShadow = defaults.bool(forKey: Key.includeWindowShadow)
         }
 
         if defaults.object(forKey: Key.saveSnipToDirectory) != nil {
@@ -512,6 +536,8 @@ final class UserDefaultsSettingsStore: SettingsStore {
         defaults.set(settings.breakBackgroundFile, forKey: Key.breakBackgroundFile)
         defaults.set(settings.recordSystemAudio, forKey: Key.recordSystemAudio)
         defaults.set(settings.recordMicrophone, forKey: Key.recordMicrophone)
+        defaults.set(settings.recordMouseClicks, forKey: Key.recordMouseClicks)
+        defaults.set(settings.recordShortcutKeys, forKey: Key.recordShortcutKeys)
         defaults.set(settings.recordNoiseCancellation, forKey: Key.recordNoiseCancellation)
         defaults.set(settings.microphoneDeviceID, forKey: Key.microphoneDeviceID)
         defaults.set(settings.webcamEnabled, forKey: Key.webcamEnabled)
@@ -520,6 +546,7 @@ final class UserDefaultsSettingsStore: SettingsStore {
         defaults.set(settings.webcamSize, forKey: Key.webcamSize)
         defaults.set(settings.webcamShape, forKey: Key.webcamShape)
         defaults.set(settings.copySnipToClipboardOnSave, forKey: Key.copySnipToClipboardOnSave)
+        defaults.set(settings.includeWindowShadow, forKey: Key.includeWindowShadow)
         defaults.set(settings.saveSnipToDirectory, forKey: Key.saveSnipToDirectory)
         defaults.set(settings.snipSaveDirectory, forKey: Key.snipSaveDirectory)
     }

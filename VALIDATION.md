@@ -1,6 +1,8 @@
 # DoraZoom Validation Record
 
-> Last updated: 2026-07-29 12:27:50 CST
+> Last updated: 2026-08-02 18:00:00 CST
+
+> Scope note: earlier sections preserve the pre-redesign implementation baseline；文末新增的 Apple 交互迭代章节才是当前 RED → GREEN → REFACTOR 证据。未在新章节关闭的能力仍按 `GOAL.md` 和覆盖表中的 gap 处理。
 
 ## Phase 1 Baseline
 
@@ -3457,3 +3459,523 @@ The daily install surfaces must be signed with hardened runtime: both `.build/Do
 ### Next Behavior
 
 Manual Phase 7 acceptance remains next unless another non-invasive delivery inconsistency is found.
+
+## Hai TDD：Apple 交互迭代 Phase 1 覆盖事实重置
+
+### Target Behavior
+
+最新 PRD 的功能覆盖表必须诚实列出新增能力和当前实现缺口，区分默认核心、高级兼容、共享平台三种产品层级，并把已完成证据、计划实现/测试引用和用户人工验收要求分开。历史阶段命名不得继续作为当前生产 API；覆盖表不能因为旧 Phase 6 曾经全绿而继续报告 `gaps == []`。
+
+### RED
+
+- **Test added**：`Tests/ZoomItMacCoreTests/AppleIterationFeatureCoverageTests.swift`。
+- **Behavior asserted**：最新 14 项能力进入 required/gap；当前 API 使用 `current` / `implementationGap`；所有 required 声明产品层级；真实、计划和人工证据互不冒充；错误混合证据会被 validation 拒绝。
+- **Command**：逐项运行 `swift test --filter AppleIterationFeatureCoverageTests/<test name>`。
+- **Observed failure**：首个测试运行后 required/gap 两个断言失败；通用命名、产品层级、计划证据和 validation issue 测试分别因目标 API 不存在而编译失败；精确 tier 测试随后产生 3 个断言失败，证明旧分类和 required 范围不符合最新 PRD。
+- **Failure is correct because**：失败均直接来自最新 PRD 覆盖语义缺失或旧阶段 API/证据模型过时，不是语法、依赖或平台故障。
+
+### GREEN
+
+- **Minimal implementation**：新增 14 项 capability 并标为 gap；把 `phase6Default` / `phase6ImplementationGap` 直接迁移为 `current` / `implementationGap`，不加兼容别名；增加 default/advanced/shared tier；将 paste/cursor 纳入 required；把 Phase 7 引用迁移为通用 evidence refs 并增加人工验收；分离真实与计划引用；增加 validation issues；重构旧覆盖测试以分别验证 accepted 与 gap 证据。
+- **Command**：`swift test --filter 'FeatureCoverageMapTests|AppleIterationFeatureCoverageTests'`，随后 `swift test`。
+- **Observed pass**：覆盖相关 10 项测试全部通过；全量 124 项 XCTest 全部通过，无失败、无跳过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：把 RED 的字符串能力名改为强类型集合，删除重复 gap 断言和无价值辅助方法，让 accepted/gap helper 自动构造互斥证据字段。
+- **Command after refactor**：`swift test --filter 'FeatureCoverageMapTests|AppleIterationFeatureCoverageTests'` 和 `swift test`。
+- **Observed result**：覆盖测试 10/10、全量测试 124/124 通过；`validationIssues == []`，并保留精确 14 项 `implementationGap`。
+
+### Next Behavior
+
+Phase 2：为 `PermissionCenterModel` 编写纯逻辑权限状态/动作矩阵 RED 测试；model 变绿前不修改 AppKit 权限窗口。
+
+## Hai TDD：Apple 交互迭代 Phase 2 权限中心纵向切片
+
+### Target Behavior
+
+权限必须由一个非模态中心统一呈现：每一行只给出当前唯一动作；未启用的麦克风/摄像头不显示为错误；从系统设置返回只刷新已经可见的窗口；截图后的 `⌃V` 缺少辅助功能权限时只打开一次权限中心，不再显示独立递归或重复授权弹窗；重新启动只能来自用户明确点击，并留下可消费一次的重启意图。自动化全部使用平台替身，不触碰真实 TCC。
+
+### RED
+
+- **Tests added/changed**：`ApplePermissionCenterTests.swift`、`Phase2ContractTests.swift`、`Phase3PastePermissionMatrixTests.swift`。
+- **Behavior asserted**：权限状态/动作矩阵、只刷新不重现、普通非模态窗口、系统适配动作路由、明确重启意图，以及 `⌃V` 首次缺权只请求权限中心一次。
+- **Observed failure**：model、lifecycle、coordinator、window、platform adapter 和 restart intent 的 RED 分别因目标类型/API 不存在而编译失败；`⌃V` RED 因旧协议仍要求 `explainAndRequestInputCompatibilityAccess()` 且 coordinator 没有 `onInputPostingPermissionNeeded` 而编译失败。迁移后矩阵测试曾以 `passThrough != convertToCommandV` 失败，定位到权限中心回调后没有重新读取授权状态。
+- **Failure is correct because**：失败直接证明旧实现只有递归模态权限流程、隐式重启时机和独立输入授权弹窗，且新统一状态刷新契约尚不存在。
+
+### GREEN
+
+- **Minimal implementation**：新增 `PermissionCenterModel`、`PermissionCenterCoordinator`、普通层级的 `PermissionCenterWindowController` 和集中平台边界的 `PermissionCenterSystemAdapter`；`AppController.checkPermissions()` 只调用 `show()`，`applicationDidBecomeActive` 只刷新可见窗口；删除旧 `presentPermissionsDialog` / `representWhenActive` 路径；新增可测试的 `PermissionCenterRestartIntent`，只有明确 action 才 terminate 并在 AppDelegate 终止阶段消费重启；`PasteCompatibilityCoordinator` 改为一次性请求统一权限中心，移除独立 `⌃V` 说明 `NSAlert`；回调后立即重读替身授权状态。
+- **Coverage**：`.permissionCenter` 从 `implementationGap` 改为 `localSimulationAccepted`，剩余 gap 从 14 项降为 13 项。
+- **Command**：`swift test --filter ApplePermissionCenterTests`、权限/粘贴相关定向测试、`swift test`、`Scripts/verify-test-boundary.sh`、`swift build`、`.build/debug/ZoomItMacSelfTest`、`git diff --check`。
+- **Observed pass**：权限中心 9/9，最终全量 132/132 XCTest 通过；测试边界审计 PASS；Swift build 与 self-test PASS；diff whitespace 检查 PASS。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：把权限状态读取、系统请求和设置 URL 从 UI 中收拢到平台适配器；把 presenter、coordinator、adapter 和 restart intent 拆成单向依赖；删除 `InputCompatibilityAccessExplanation` 和 `explainAndRequestInputCompatibilityAccess()` 旧协议，不保留兼容别名；菜单权限入口改为中文 `权限…`，同步模拟层和 self-test。
+- **Observed result**：`AppController` 中不再存在 `presentPermissionsDialog`、`representWhenActive`、`permissionReactivationObserver` 或递归权限 `NSAlert`；`Command+V` 放行与条件式 `Control+V` 的原有测试均未回归。
+
+### Next Behavior
+
+Phase 2 下一纵向切片：先为固定六组 `SettingsNavigationModel` 编写 RED 测试，再把设置窗口从 Windows 十标签结构迁移为通用/快捷键/截图与圈画/录制/权限/高级六组原生导航。
+
+## Hai TDD：Apple 交互迭代 Phase 2 六组设置与快捷键录入
+
+### Target Behavior
+
+设置必须固定为通用、快捷键、截图与圈画、录制、权限、高级六组；高级兼容能力不与核心动作平权。窗口使用普通、可调整大小的 `NSSplitViewController` 导航并持久化 frame。打开或关闭设置不改变全局热键；只有快捷键录入会话暂停，成功、冲突、Escape、重复结束和关闭窗口都最多恢复一次。
+
+### RED
+
+- **Tests added**：`Tests/ZoomItMacCoreTests/AppleSettingsNavigationTests.swift`。
+- **Observed failure**：六组顺序、destination 唯一归属和高级能力归属测试首先因 `SettingsNavigationModel` / `SettingsDestination` 不存在而编译失败；录入生命周期测试因 `HotkeyCaptureSession` 不存在而编译失败；窗口测试因 `close`、普通 level、split navigation、section IDs 和 frame autosave 证据 API 不存在而编译失败。
+- **Failure is correct because**：旧窗口仍是 Windows 十标签 `NSTabView`、floating 层级，且 `show()` 无条件暂停全部热键，直接命中目标差异。
+
+### GREEN
+
+- **Minimal implementation**：新增六组强类型 `SettingsNavigationModel`；用 `NSSplitViewController` 和 source-list table 替换十标签窗口；窗口改为 `.normal`、可调整大小、`DoraZoom.SettingsWindow` frame autosave；增加中文六组标题和权限中心入口；把 DemoType、倒计时、全景、摄像头细项、MOV/MP4/GIF 说明和高级编辑入口收进高级组；增加集中快捷键页。
+- **Hotkey lifecycle**：新增 `HotkeyCaptureSession`；删除 `show()` / `windowWillClose` 的无条件 stop/start；begin 才暂停，finish 幂等恢复；冲突分支统一结束会话，活动按钮恢复正确标题。
+- **Coverage**：`.macSettingsNavigation` 从 gap 改为本地模拟接受；当前剩余 gap 为 12 项。
+- **Command**：`swift test --filter AppleSettingsNavigationTests`、`swift test`、`Scripts/verify-test-boundary.sh`、`swift build`、`.build/debug/ZoomItMacSelfTest`、`git diff --check` 和旧布局符号搜索。
+- **Observed pass**：设置专项 5/5、全量 137/137 XCTest 通过；测试边界、build、self-test、diff 检查通过；目标搜索不再发现 `configureAlwaysOnTop`、`settingsTabTitles`、设置 `.floating` 或旧递归权限符号。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：用 destination 唯一归属表代替散落的产品分组判断；用一个会话对象取代窗口级 stop/start 配对；用 `activeHotKeyButton` 修复集中快捷键页与功能页并存时结束录入的标题恢复；self-test 从“Windows Zoom/Live Zoom 分离标签、always-on-top”迁移为“六组 Mac 导航、普通窗口层级”。
+- **Observed result**：设置窗口生命周期不再能因为被遮挡而让热键永久停用；所有 destination 恰有一个产品归属，高级能力集合有精确测试。
+
+### Next Behavior
+
+Phase 3：先为 `FeedbackPresentationAdapter` 的短暂状态胶囊、lease 隔离和虚拟时钟编写 RED 测试。
+
+## Hai TDD：Apple 交互迭代 Phase 3 即时反馈与显示同步动效
+
+### Target Behavior
+
+模式进入首帧必须可辨认，工具与操作结果使用短暂、非模态且不进入捕获结果的状态胶囊；缩放由显示同步时钟推进，支持中途反向与减少动态效果；摄像头 PiP 保持抓取偏移、1:1 跟手、边界渐进阻力和无弹跳角落吸附。所有自动化只使用注入的调度器、虚拟显示时钟与确定性几何，不访问真实屏幕、摄像头或全局输入。
+
+### RED
+
+- **Tests added**：`AppleTransientFeedbackTests.swift`、`ApplePointerPresentationTests.swift`、`AppleDisplaySynchronizedZoomTests.swift`、`AppleWebcamDirectManipulationTests.swift`。
+- **Behavior asserted**：独立反馈时长和 lease 隔离、减少动/透明度/增强对比度替代计划、形状与颜色双编码指针、60/120 Hz 节奏独立缩放、中途反向、减少动直接提交，以及 PiP 抓取偏移、阻力、速度投射和吸附。
+- **Observed failure**：反馈模型/适配器、短暂窗口、新指针视觉类型、时间戳缩放 API、`DisplaySynchronizedZoomDriver`、`WebcamDirectManipulationPolicy` 和 `WebcamSnapMotionState` 的首个 RED 均因目标 API 不存在而编译失败。
+- **Failure is correct because**：旧实现只有画布内永久黑色 HUD、粗粒度指针与固定 30 fps Timer，PiP 也没有独立可验证的直接操纵策略；失败直接指向目标行为缺失。
+
+### GREEN
+
+- **Transient feedback**：新增 `FeedbackPresentationAdapter` 和 `TransientFeedbackWindowController`，将模式、缩放比例、工具、完成、警告与错误映射为独立时长的短暂反馈；窗口非激活、忽略鼠标并设置 `sharingType = .none`。
+- **Pointer**：直接迁移 `OverlayPointerPresentation` 为放大镜、画笔圆环、高亮笔尖、工具十字和文本光标；黑/白画布自动交换高对比前景。
+- **Zoom motion**：新增 `DisplaySynchronizedMotionClock`、`DisplaySynchronizedZoomDriver` 和生产 `CADisplayLink`接线；`ZoomViewportController` 改为基于时间的临界阻尼精确积分，在新目标上保留当前呈现值和速度。
+- **PiP**：新增 `WebcamDirectManipulationPolicy` 与可注入显示时钟的 snap animator，并接入 `WebcamOverlayController`。
+- **Coverage**：`.transientModeFeedback` 和 `.displaySynchronizedZoom` 从 `implementationGap` 改为 `localSimulationAccepted`；当前剩余 gap 为 10 项。
+- **Observed pass**：Phase 3 新增的反馈/指针/缩放/PiP 定向测试 18/18 通过；2026-07-30 全量 `swift test` 为 147/147，0 失败、0 跳过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：删除旧 `OverlayHUDPresentation`、`DrawingHUDPresentation` 及对应测试，不保留兼容别名；删除 `zoomTimer`、`zoomStepInterval` 和无时间戳的固定步长缩放 API；把反馈调度、显示节拍和 PiP 运动拆成可注入边界，生产 AppKit 只负责渲染和路由。
+- **Command after refactor**：`swift test`，并搜索 `zoomTimer|zoomStepInterval|1.0 / 30.0|drawOverlayHUD|drawDrawingHUD|OverlayHUDPresentation|DrawingHUDPresentation`。
+- **Observed result**：147/147 XCTest 通过；生产与测试源码不再包含固定 30 fps 缩放或旧永久 HUD 实现。
+
+### Limits
+
+- 这些证据不能证明真实显示器上的指针手感、实际刷新率、透明材质观感或真实摄像头 PiP 延迟；这些仍属 Phase 7 用户可见人工验收。
+- 本阶段结束时 OCR 复制的字符数尚未回传，因此当时没有冒充完成；该项已在后续 Phase 6 的强类型输出切片中关闭。
+
+### Next Behavior
+
+Phase 4：先用固定图片 fixture 为模糊笔和实色遮挡编写最终像素 RED 测试，确保隐私保护不只停留在 annotation model。
+
+## Hai TDD：Apple 交互迭代 Phase 4 截图沟通与隐私闭环
+
+### Target Behavior
+
+截图链路必须在不建立素材库、不默认落盘、不访问真实测试设备的前提下补齐五项能力：模糊/实色遮挡进入最终像素；编号标记自动递增并可撤销；上一次区域只在当前进程和未变显示拓扑下复用；鼠标指向窗口直接进入内存剪贴板边界；负坐标、上下排列与不同缩放因子的目标屏、选区、HUD 和像素坐标保持一致。
+
+### RED
+
+- **Blur/redact tests added**：`AppleBlurAndRedactTests.swift`。首次定向运行因 `.blur`、`.redact`、`.blurFreehand`、`.redactionFill`、`privacyRenderPlanSnapshot` 和 `PrivacyAnnotationCompositor` 不存在而编译失败。
+- **Numbered callout tests added**：`AppleNumberedCalloutTests.swift`。首次运行因 `.numberedCallout` 和 `calloutNumber` 不存在而编译失败；最小实现后的首次像素测试仍失败，正确暴露了脱离 `NSGraphicsContext.current` 时 `NSBezierPath` 没有写入注入的 `CGContext`。
+- **Previous-region tests added**：`ApplePreviousRegionSnipTests.swift`。首次运行因 `PreviousRegionSnipMemory`、拓扑签名、复用计划和菜单 action 全部缺失而编译失败。
+- **Window tests added**：`AppleWindowSnipTests.swift`。首次运行因 `WindowSnipSession`、鼠标命中候选模型、阴影设置和菜单 action 缺失而编译失败；后续的可见目标选择器 RED 因 `WindowTargetSelectionController` 不存在而失败。
+- **Multi-display tests added**：`AppleMultiDisplayTargetingTests.swift`。负 X 原点、上方显示器、AppKit/ScreenCaptureKit 坐标往返、不同 scale 像素矩形、HUD 边界和捕获排除计划均因 `MultiDisplayTargetingPolicy` 缺失而编译失败。
+- **Coverage RED**：每个纵向切片变绿后，先修改 `AppleIterationFeatureCoverageTests` 要求相应 capability 退出 gap；每次都以单一集合断言失败，证明覆盖表尚未冒充完成。
+- **Failure is correct because**：失败均直接指向新 PRD 能力、最终像素或生命周期缺失，不是真实 TCC、屏幕、剪贴板、设备或测试环境故障。
+
+### GREEN
+
+- **Privacy composition**：新增 `.blur` / `.redact` 工具、隐私 render operation 与原生 Core Image / Core Graphics `PrivacyAnnotationCompositor`；实色遮挡强制不透明，模糊只通过笔刷 clip 影响目标像素，导出时抑制预览层再进行不可编辑的像素合成。
+- **Callouts**：新增 `.numberedCallout`，从 1 自动递增，拖动采用释放点，撤销回退号码，清除后从 1 重启；圆形与等宽数字直接写入注入的 bitmap context。
+- **Mode-local access**：`M` / `X` / `N` 分别切换模糊、遮挡与编号，只在圈画模式生效，不新增全局默认热键；状态胶囊与工具指针已同步。
+- **Previous region**：新增进程内 `PreviousRegionSnipMemory`，完整比较显示器 ID/frame/scale 拓扑；只记录成功选区，取消保留旧成功记录，拓扑改变立即作废并回退可见选区，重复路径固定为 `.pasteboardImage`。
+- **Window screenshot**：新增鼠标命中策略、阴影偏好、ScreenCaptureKit `desktopIndependentWindow` 捕获和捕获排除的透明目标选择层；选择层排除 DoraZoom 自身进程，点击、Escape、无目标、窗口消失和捕获失败均释放临时状态。
+- **Multi-display**：新增唯一坐标策略，并接入 `SystemDisplayManager`、`SnipController`、窗口目标捕获和短暂 HUD 放置；控制层继续 `sharingType = .none`。
+- **Coverage**：`.blurAndRedact`、`.numberedCallouts`、`.previousRegionSnip`、`.windowSnipToClipboard`、`.multiDisplayTargeting` 全部改为 `localSimulationAccepted`；剩余 gap 从 10 项降为 5 项，全部属于 Phase 5 录制安全/结果闭环。
+- **Observed pass**：新增 24 项截图/多屏测试；2026-07-30 全量 `swift test` 为 171/171，0 失败、0 跳过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：缓存单一 `CIContext` 避免每帧重建 GPU context；把跨屏坐标、像素和 HUD 夹取收敛到 `MultiDisplayTargetingPolicy`；把上一区域和窗口命中状态拆成可测策略；将编号绘制从隐式 AppKit current context 改为显式 `CGContext`；直接迁移穷举分支与菜单调用方，没有兼容别名或第二套截图引擎。
+- **Command after refactor**：`swift test`、`Scripts/verify-test-boundary.sh`、`swift build`、`.build/debug/ZoomItMacSelfTest`、`git diff --check`。
+- **Observed result**：171/171 XCTest PASS；测试边界 PASS；build 与 self-test PASS；diff 检查 PASS；对应五项 capability 不再出现于生产/测试中的 `implementationGap` 搜索结果。
+
+### Limits
+
+- 自动化不证明真实窗口层级、阴影观感、实际多显示器物理布局或系统剪贴板粘贴体验；它们仍属用户可见人工验收。
+- 本阶段结束时 Vision 生产复制管线仍未回传字符数；该项已按计划在后续 Phase 6 最终 PRD 审计中补齐。
+
+### Next Behavior
+
+Phase 5：先为录制开始前的音源/音量、权限、磁盘空间、目标存活与正常开始矩阵编写纯逻辑 RED；不访问真实音频设备、目录或 TCC。
+
+## Hai TDD：Apple 交互迭代 Phase 5 录制预检
+
+### Target Behavior
+
+录制 writer 初始化前必须通过确定性预检：目标和磁盘是硬阻塞；只有已启用的麦克风/摄像头才检查权限；静音麦克风要求一次明确确认；未启用的可选输入不得申请权限或阻塞。自动化只注入音源、音量、磁盘和目标 fixture。
+
+### RED
+
+- **Test added**：`AppleRecordingPreflightTests.swift`。
+- **Observed failure**：首次运行因 `RecordingPreflightPlanner`、输入源状态、问题矩阵和决策 plan 不存在而编译失败。
+- **Failure is correct because**：旧控制器会直接进入媒体初始化，没有可独立证明无音源、静音、权限缺失、空间不足和目标消失的预检契约。
+
+### GREEN
+
+- **Minimal implementation**：增加纯值 `RecordingPreflightPlanner` 和五行预检 plan；生产 `RecordingController` 在用户确认或所有硬条件通过后才启动捕获。
+- **Observed pass**：预检 5/5 测试通过；disabled 可选输入不产生权限请求，silent microphone 只产生 confirmation，磁盘不足和目标消失均为 blocked。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：把系统探测集中在 preflight provider，把 AppKit 窗口限制为渲染 plan 和返回用户决定；测试不实例化真实设备、目录或 TCC。
+
+## Hai TDD：Apple 交互迭代 Phase 5 暂停、继续与连续时间线
+
+### Target Behavior
+
+暂停期间的音频、视频和标注样本必须丢弃；继续后所有媒体使用同一累计暂停偏移映射，重复暂停/继续幂等，输出时长只包含有效片段。
+
+### RED
+
+- **Test added**：`AppleRecordingPauseResumeTests.swift`。
+- **Observed failure**：首次运行因 `RecordingPauseTimeline`、命令效果和显式 paused 状态不存在而编译失败。
+- **Failure is correct because**：旧录制状态只能开始/停止，无法证明多段暂停后的时间戳连续性或重复命令行为。
+
+### GREEN
+
+- **Minimal implementation**：增加共享的 pause timeline 和命令 policy，将映射接入 writer sample append；`RecordingController`、`ModeCoordinator` 和菜单动作使用显式 pause/resume。
+- **Observed pass**：4/4 测试覆盖多暂停区间、幂等命令、暂停样本丢弃以及音视频相同映射。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：删除控制器内分散的暂停偏移计算，只保留一个可注入源时钟的时间线状态机。
+
+## Hai TDD：Apple 交互迭代 Phase 5 分片写入与恢复
+
+### Target Behavior
+
+录制开始、暂停、继续、finalize 和录后编辑结果替换路径时都必须先持久化恢复清单；MOV 使用短 fragment interval 降低崩溃全丢风险；清单只能在用户成功保存、明确取消或丢弃后删除，不能演变为历史库。
+
+### RED
+
+- **Tests added**：`AppleRecordingRecoveryTests.swift`。
+- **Observed failure**：恢复 manifest/planner/store 的首个 RED 因类型不存在而失败；生产生命周期 RED 随后因 `RecordingRecoverySession` 不存在而编译失败；覆盖 RED 正确报告额外 recovery gap。
+- **Failure is correct because**：旧 writer 只有一个最终输出，没有跨风险边界持久化的恢复证据。
+
+### GREEN
+
+- **Minimal implementation**：设置 2 秒 `movieFragmentInterval`；增加 manifest、planner、文件 store、模拟 store、会话生命周期和正常 AppKit 恢复窗口；生产录制与编辑路径在每个风险边界保存 phase/path，成功 disposition 后才清理。
+- **Observed pass**：恢复专项 6/6 测试通过；存储失败不会错误推进内存状态；missing/finalized/fragmented fixture 均产生明确恢复计划。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：移除恢复窗口的全局按钮 closure 字典，改由 coordinator 持有当前 manifest；恢复只在用户主动启动 DoraZoom 后显示普通、可取消窗口，不静默导出。
+
+### Limits
+
+- 模拟测试不证明真实进程崩溃后 AVAssetWriter 片段一定能被播放器修复；真实结果仍需用户可见验收。
+
+## Hai TDD：Apple 交互迭代 Phase 5 点击与快捷键隐私显示
+
+### Target Behavior
+
+点击和快捷键显示默认关闭；启用且已有监听权限时才安装生产 monitor。点击短暂高亮，修饰键命令和安全特殊键可显示，普通文字、Shift-only、Option-only 文本及未授权事件不得进入录制像素。
+
+### RED
+
+- **Test added**：`AppleRecordingInputOverlayTests.swift`。
+- **Observed failure**：首个 RED 因输入事件、过滤 policy、timeline、设置项和 renderer 不存在而编译失败；最终像素 RED 在 renderer 尚不可测试时失败。
+- **Failure is correct because**：旧录制没有该叠加层，也没有防止密码式正文泄露的过滤边界。
+
+### GREEN
+
+- **Minimal implementation**：增加纯事件模型、过滤 policy、单调时钟 timeline 和最终像素 compositor；只有用户在设置中启用并通过 preflight 时，生产控制器才注册 global monitor；原始帧和圈画合成帧统一在最终编码前装饰。
+- **Observed pass**：6/6 测试覆盖点击时长、修饰键顺序、普通文字过滤、未授权事件、确定性过期和最终像素。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：复用录制最终帧合成路径，不建立第二套屏幕捕获；event timestamp 与渲染时钟统一采用系统 uptime。
+
+## Hai TDD：Apple 交互迭代 Phase 5 轻量录后结果
+
+### Target Behavior
+
+默认录后路径只提供预览、裁剪、静音/音量、导出和访达入口；拼接、删除与转场仅从高级入口进入；所有修改非破坏性，音量/静音必须真实影响导出而非只影响预览。
+
+### RED
+
+- **Test added**：`AppleRecordingResultTests.swift`。
+- **Observed failure**：首次运行因 result mode、presentation plan、audio export policy 和 `RecordingResultController` 不存在而编译失败；覆盖 RED 正确显示轻量结果 gap。
+- **Failure is correct because**：旧录制结束后直接打开重型编辑器，且音量/静音可能只改变 preview 后错误复用原文件。
+
+### GREEN
+
+- **Minimal implementation**：在现有 `VideoClipEditorController` 上增加 lightweight/advanced 两个显式 mode，由 `RecordingResultController` 默认打开轻量模式；高级入口复用同一编辑 graph；音量/静音变化强制构建带 audio mix 的新导出文件。
+- **Observed pass**：结果页 4/4 测试通过；轻量控制集合精确，高级功能不平权，默认 mode 固定且导出保持非破坏性。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：复用单一媒体编辑引擎，不增加第二套 AVFoundation 管线；将 volume 从 preview player 状态分离为持久编辑状态。
+
+## Hai TDD：Apple 交互迭代 Phase 6 OCR 反馈与菜单分层
+
+### Target Behavior
+
+OCR 成功复制后必须把实际剪贴板变更号和用户可感知字符数交给协调器，显示“已复制 N 个字符”并复用条件式 `Control+V`。菜单栏必须使用状态、核心动作、更多功能、权限、设置、退出的 Mac 层级；全景、DemoType、倒计时和高级编辑只位于“更多功能”；权限就绪时安静，存在可操作问题时才标记；菜单快捷键来自当前设置。
+
+### RED
+
+- **Tests changed/added**：`Phase3SnipExportPlanTests.swift`、`Phase6ImageExportSimulationTests.swift`、`Phase6AppLifecycleSimulationTests.swift`。
+- **OCR observed failure**：测试因 `SnipPasteboardOutput`、异步 OCR 输出 callback、字符数和模拟输出 ledger 不存在而编译失败。
+- **Menu observed failure**：测试因 `StatusMenuPlan`、层级 item ID、子菜单、权限 attention 和 settings-aware shortcut API 不存在而编译失败；第二个 RED 因 `settings` 参数缺失而失败。
+- **Failure is correct because**：旧 OCR 复制返回 `Void`，旧菜单是固定英文扁平列表，并错误平权全景/倒计时且在快捷键自定义后继续显示默认键。
+
+### GREEN
+
+- **OCR implementation**：用 `.image` / `.ocrText(changeCount:characterCount:)` 单一输出替换裸 `Int`；Vision 成功写入后回传 `pasteboard.changeCount` 和 `text.count`；idle 与 overlay OCR 路径均保留异步 callback；协调器按输出类型呈现反馈并武装粘贴兼容。
+- **Menu implementation**：新增纯值 `StatusMenuPlan`；生产 AppDelegate 递归映射为原生 `NSMenu`/submenu，设置保存、权限变化、应用恢复活跃和录制状态变化时重建；补齐 OCR、DemoType 和高级编辑 selector。
+- **Observed pass**：OCR/export 定向测试 13/13、菜单/设置定向测试 16/16 通过；2026-07-30 全量 `swift test` 为 199/199，0 失败、0 跳过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：删除 `activeSnipAction` 的旁路推断和重复菜单标题数组；图片与 OCR 反馈由强类型输出决定，生产菜单和模拟菜单共享同一计划；菜单键位从当前 `AppSettings` 生成，不保留旧 flat API。
+- **Command after refactor**：`swift test && Scripts/verify-test-boundary.sh && swift build && .build/debug/ZoomItMacSelfTest && git diff --check`。
+- **Observed result**：199/199 XCTest PASS；自动化测试边界 PASS；build、self-test 和 diff 检查 PASS；`ZoomItFeatureCoverageMap.current.gaps == []`。
+
+### Limits
+
+- 自动化没有触碰真实 Vision、系统剪贴板、全局键盘、TCC、真实菜单栏或目标 App；真实字符识别质量、菜单手感和 `Control+V` 仍不能由模拟证据冒充。
+
+### Next Behavior
+
+同步 `ACCEPTANCE.md` 与 README 的当前迭代状态，运行完整 `Scripts/verify-delivery.sh` 并生成只供用户主动验收的 dev/daily/zip 产物。
+
+## Phase 6 完整交付门禁
+
+- **Command**：`Scripts/verify-delivery.sh`。
+- **Observed result**：PASS。
+- **Automated evidence**：199/199 本地模拟 XCTest、测试边界、Swift build、self-test、零外部 SwiftPM 依赖、bundle identity、codesign、entitlements、hardened runtime、arm64 架构、根级 App 白名单、zip 清洁度和 diff 检查全部通过。
+- **Artifacts**：
+  - `.build/DoraZoom Dev.app`：6.1 MB，`com.duola.dorazoom.dev`，ad-hoc，arm64。
+  - `.build/DoraZoom.app`：2.8 MB，`com.duola.dorazoom`，Apple Development 签名，arm64。
+  - `.build/DoraZoom.zip`：1.1 MB，顶层仅 `DoraZoom.app`。
+- **Size snapshot**：首次 Phase 6 门禁为 167 个项目文件、1,614,572 字节（约 1.54 MB）；最终 Phase 7 preflight 为 1,617,311 字节；`Sources` 下 23,424 行 Swift。
+- **Boundary**：门禁未安装或启动 App，未请求/重置 TCC，未读写真实剪贴板、全局键盘、真实屏幕/音频/摄像头、登录项、目标 App 或真实用户输出目录。
+- **当时工程判断**：Phase 6 工程完成；`ZoomItFeatureCoverageMap.current.gaps == []`。该历史判断只关闭当时的本地模拟目标；当前真机验收门以文末稳定化记录和 `ACCEPTANCE.md` 第 7 节为准。
+
+## Phase 7 本地模拟最终验收
+
+- **Command**：`Scripts/phase7-preflight.sh`。
+- **Observed result**：PASS；终端明确输出 `Phase 7 local-simulation acceptance passed.`。
+- **Evidence**：内部完整复跑 `Scripts/verify-delivery.sh`，199/199 XCTest、测试边界、build、self-test、依赖、签名、entitlements、arm64、包体、zip、diff 和 `ACCEPTANCE.md` 完整性校验全部通过。
+- **当时快照**：167 个项目文件、1,617,311 字节；23,424 行 Swift；dev 6.1 MB、daily 2.8 MB、zip 1.1 MB。当前快照见文末“已知缺陷稳定化最终门禁”。
+- **Boundary proof**：脚本输出确认没有执行真实安装、启动、TCC、pasteboard、capture、device 或 target-app workflow。
+- **当时结论**：该轮“全部本地模拟”目标完成；此结论已被当前稳定化目标扩展，真实设备体验现列为明确的用户验收门。
+
+## Hai TDD：真实试用反馈——实时缩放滚轮与录制音频选择
+
+### Target Behavior
+
+`Control+4` 进入鼠标穿透的实时缩放后，覆盖层仍必须接收滚轮/触控板滚动并路由为倍率变化；录制前检查必须允许用户在当前流程直接选择系统声音和麦克风，明确选择后保存并用于实际录制。
+
+### RED
+
+- **Tests added**：`Phase4LiveZoomInteractionPolicyTests.testLiveZoomPassesMouseThroughToUnderlyingAppsWhenNotDrawingOrSelecting` 增加全局事件集合断言；`AppleRecordingPreflightTests.testAudioSelectionStartsFromSettingsAndAppliesExplicitPreflightChanges` 增加音频选择应用断言。
+- **Command**：`swift test --filter Phase4LiveZoomInteractionPolicyTests`。
+- **Observed failure**：编译器报告 `LiveZoomInteractionPresentation` 不存在 `globalTrackingEvents`，`.pointerMovement` / `.scrollWheel` 无上下文类型；同时报告 `RecordingPreflightAudioSelection` 不存在。
+- **Failure is correct because**：旧生产监听只订阅鼠标移动/拖动，没有滚轮；旧预检只有静态状态行，没有能回传并应用到设置的音频选择模型。失败直接约束缺失行为，不是真实设备、TCC 或测试环境错误。
+
+### GREEN
+
+- **Minimal implementation**：实时缩放呈现计划显式列出全局指针与滚轮事件，穿透状态的生产 monitor 同时订阅 `.scrollWheel`，并复用本地滚轮的精确滚动累计逻辑；新增强类型 `RecordingPreflightAudioSelection`，预检窗口以复选框呈现系统声音/麦克风，开始时保存选择，麦克风未请求时只在用户明确勾选后请求权限。
+- **Command**：`swift test --filter 'Phase4LiveZoomInteractionPolicyTests|AppleRecordingPreflightTests'`。
+- **Observed pass**：10/10 定向 XCTest 通过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：把本地与全局滚轮统一到 `handleZoomScroll(delta:isPrecise:)`，避免两套倍率步进；录制预检只回传值对象，媒体 writer 仍从唯一 `SettingsStore` 读取，不建立第二套录音管线。
+- **Command after refactor**：`swift test && Scripts/verify-test-boundary.sh && git diff --check`。
+- **Observed result**：200/200 全量本地模拟 XCTest PASS；测试边界 PASS；diff 检查 PASS。
+
+### Limits
+
+- 自动化只证明事件订阅计划、滚动路由、设置应用和权限决策；真实鼠标滚轮、真实系统声音/麦克风仍需用户在可见 App 中亲自试用，本节不把它们冒充为已验证。
+
+## Hai TDD：真实试用反馈——实时缩放低增益与 100% 稳定边界
+
+### Target Behavior
+
+实时缩放的鼠标滚轮必须使用小幅比例步进而不是倍增；触控板必须低增益连续调整、正反输入对称且单事件封顶；缩小到 `100%` 后保持实时缩放，不得把滚动惯性解释为退出命令。退出仅来自 `Esc`、右键或再次按 `Control+4`。
+
+### RED
+
+- **Tests added**：新增 `AppleLiveZoomScrollTests.swift`，覆盖鼠标小步、触控板连续对称、异常输入封顶和 100% 不退出。
+- **Initial command**：`swift test --filter AppleLiveZoomScrollTests`。
+- **Initial observed failure**：`ZoomScrollInputPolicy` 不存在，证明当前没有独立、可校准的滚动倍率契约。
+- **Calibration RED**：第一版小步实现后收紧手感范围再次运行测试；鼠标结果 `2.16657` 超过 `2.16` 上限，触控板 5 点输入结果 `2.10254` 超过 `2.06` 上限，两项按预期失败。
+- **Failure is correct because**：旧滚轮路径直接发出 `zoomIn/zoomOutOrExit`，会从 2× 翻到 4×，连续向下事件到 1× 后又触发退出；第二次失败则直接证明第一版增益仍高于本轮明确校准范围，不是测试或平台故障。
+
+### GREEN
+
+- **Minimal implementation**：新增纯值 `ZoomScrollInputPolicy`，使用对数比例映射；鼠标每格采用 `0.06` 对数步进（约 6.2%），触控板采用 `0.0035/点` 且单事件原始增量封顶为 8；滚轮改发带原始增量的强类型命令，由唯一 `ModeCoordinator` 按当前 min/max 计算目标；所有模式到 1× 只停留在边界。
+- **Command**：`swift test --filter AppleLiveZoomScrollTests`。
+- **Observed pass**：4/4 定向 XCTest 通过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：删除旧触控板累计到 40 后倍增的离散路径；把不再负责退出的 `zoomOutOrExit` 直接迁移命名为 `zoomOut`，未保留兼容别名；滚动动画仍从当前 presentation value 和速度重定向，保持临界阻尼、可中断、无弹跳。
+- **Command after refactor**：`swift test && Scripts/verify-test-boundary.sh && swift build && .build/debug/ZoomItMacSelfTest && git diff --check`。
+- **Observed result**：204/204 全量本地模拟 XCTest PASS；测试边界 PASS；build、自测和 diff 检查 PASS。
+
+### Apple Design Judgment
+
+- **Agency / predictability**：倍率下限不再承担隐藏退出语义，用户不会因惯性失去当前工作状态。
+- **Direct manipulation**：触控板输入持续映射到比例变化，而非跨过阈值后突然翻倍。
+- **Interruptibility**：新输入继续重定向当前显示值和速度，不锁住上一段动画。
+- **Restraint**：没有增加弹跳、惯性投射或额外面板；缩放是精确工具，采用临界阻尼和稳定边界。
+
+### Limits
+
+- 数值由确定性输入范围和 Mac 触控板事件量估算约束；最终是否“顺手”仍以用户在当前硬件上的可见试用为准，可依据反馈继续微调单一策略常量。
+
+## Hai TDD：原生文字编辑会话与组合输入
+
+### Target Behavior
+
+进入文字工具时由 AppKit 原生文本系统持有 first responder、marked text、候选与选择生命周期；中日韩组合输入、大小写、输入源切换和原生编辑命令不再经过 `NSEvent.characters` 追加。最终提交普通文本 Annotation，捕获结果不得包含插入点、选择高亮或编辑器 UI。
+
+### RED
+
+- **Tests added**：`AppleNativeTextEditingTests.swift`。
+- **Commands**：逐项运行 `swift test --filter AppleNativeTextEditingTests`。
+- **Observed failure**：初始编译失败，缺少 `CanvasTextEditingSession` 与 `replaceTypingText`；视图集成测试发现进入文字模式后 `NSTextView` 数量为 0 且没有 first responder；组合输入、点击新位置、字体输入策略和重复状态提交测试随后分别暴露编辑器缺失、旧文本串接、策略缺失以及 marked text 被清空。
+- **Failure is correct because**：旧实现只从离散键盘事件追加字符，无法表达 marked text、候选选择、输入源切换、选择范围和原生编辑命令。
+
+### GREEN
+
+- **Minimal implementation**：新增 `CanvasTextEditingSession`，按需创建原生 `NSTextView`；`ZoomCanvasView` 安装/移除编辑器并管理 first responder；`AnnotationController.replaceTypingText` 镜像草稿；屏幕呈现排除重复草稿，捕获时隐藏编辑器并合成普通文本；点击新位置提交上一段并建立新会话；`CanvasTextEditingInputPolicy` 只处理文字字号相关滚动与 `Command+加减号`。
+- **Observed pass**：`swift test --filter AppleNativeTextEditingTests` 为 10/10 PASS。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：删除旧 `event.characters` 正文追加、`insertText` 和 `deleteBackward` 并行路径；重复 `.typing` 状态不重建编辑器；提取唯一字号读取；`CanvasTextEditingSession.begin()` 不再静默结束并丢弃活跃草稿。
+- **Boundary**：测试只使用进程内 AppKit 窗口和确定性调用，不发送真实全局按键、不切换系统输入源，也不声称真实候选窗口手感已通过。
+
+## Hai TDD：文字模式、Escape 与 `Control+V` 仲裁
+
+### Target Behavior
+
+marked text 活跃时 `Esc` 先留给输入法取消组合，没有组合文本时才请求退出文字编辑。文字编辑期间，Event Tap 放行精确 `Control+V`，Carbon 临时截图热键实际注销；结束编辑后只有同一截图仍在剪贴板且权限满足时恢复。`Command+V` 始终由 AppKit 原生处理。
+
+### RED
+
+- **Tests changed**：`AppleNativeTextEditingTests.swift`、`Phase3EventTapTests.swift`。
+- **Observed failure**：缺少文字编辑暂停 API；只在 Carbon 回调中忽略会吞掉原始 `Control+V`；组合文本取消与退出请求没有独立状态。
+- **Failure is correct because**：两条全局输入路径若只停用其中一条，仍会抢占文字系统；Carbon 已注册热键即使忽略回调也不会把原事件送回目标编辑器。
+
+### GREEN
+
+- **Minimal implementation**：`ModeCoordinator` 在模式变化时同步 Event Tap 与 Carbon 服务；Event Tap 依据 `isNativeTextEditingActive` 放行；Carbon 服务在编辑期间注销、保留 armed change count，并在编辑结束后按权限和剪贴板状态重注册；原生文字会话将 Escape 区分为取消组合与退出请求。
+- **Observed pass**：`swift test --filter Phase3EventTapTests` 为 8/8 PASS；相关原生文字测试同样通过。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：输入仲裁只有 `ModeCoordinator.mode` 一个模式事实源；不增加第二套粘贴实现或旧输入兼容层。
+- **Boundary**：模拟热键、权限和剪贴板 change count 不能证明真实目标 App 中的 `Control+V`；该事实保留给用户真机验收。
+
+## Hai TDD：文字能力覆盖证据
+
+### Target Behavior
+
+功能覆盖表必须把文字能力追溯到原生编辑器、画布接线、Annotation 草稿、两条粘贴仲裁路径、文字模拟测试和用户 IME 人工验收，不能沿用只指向旧绘制模型的“已完成”证据。
+
+### RED
+
+- **Test added**：`AppleIterationFeatureCoverageTests.testTextInputCoverageIncludesNativeEditorPasteArbitrationAndManualIMEAcceptance`。
+- **Command**：`swift test --filter AppleIterationFeatureCoverageTests/testTextInputCoverageIncludesNativeEditorPasteArbitrationAndManualIMEAcceptance`。
+- **Observed failure**：5 个断言按预期失败，分别缺少原生编辑器、Carbon 粘贴仲裁、原生文字测试、Event Tap 测试和用户人工验收引用。
+- **Failure is correct because**：代码已改变，但覆盖表仍只声明旧 Annotation、快捷键策略与渲染计划，文档会据此产生虚假完成结论。
+
+### GREEN
+
+- **Minimal implementation**：扩充 `.textInputAlignmentAndFontSize` 的实现与测试引用，并增加 `.userManualAcceptance`；未新增重复 capability。
+- **Observed pass**：同一定向测试 1/1 PASS。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：沿用现有文字 capability，保持覆盖模型简单并明确“本地模拟已接收、真机体验待用户验收”的双证据边界。
+
+## Clean Code Review：文字稳定化范围
+
+- **Scope**：`CanvasTextEditingSession`、`ZoomCanvasView` 的直接接线、`AnnotationController` 草稿同步、`PasteCompatibilityService`、`ControlVPasteHotkeyService` 与 `ModeCoordinator` 仲裁。
+- **Result**：高等级问题 0。
+- **Medium findings fixed**：删除旧追加/删除正文的并行实现；修复 `CanvasTextEditingSession.begin()` 静默结束活跃会话并丢弃返回文本的问题。
+- **Low finding fixed**：提取当前文字字号读取，移除重复逻辑。
+- **Remaining judgment**：`ZoomCanvasView` 仍是较大的上游核心视图，但本次输入法复杂度已隔离到独立深模块；没有为了文件长度进行无关重构。
+
+## Hai TDD：设置内快捷键指南与真实策略一致
+
+### Target Behavior
+
+设置页不能继续展示上游旧键位：`W/K` 必须明确为圈画状态内的白板/黑板，白色/黑色画笔无默认键；文字页必须说明点击新位置开始下一段、滚轮或 `Command++ / Command+-` 调字号，方向键和编辑命令由原生文本系统处理。
+
+### RED
+
+- **Test added**：`AppleShortcutGuideConsistencyTests.swift`。
+- **Command**：`swift test --filter AppleShortcutGuideConsistencyTests`。
+- **Observed failure**：首次编译失败，`DrawingShortcutGuide` 不存在；审计同时直接发现设置源代码仍写“W/K 为白黑画笔”“Ctrl+W/Ctrl+K 切画布”“左键退出文字”“方向键调字号”。
+- **Failure is correct because**：这些说明与 `DrawingShortcutPolicy`、原生文字编辑器和用户实际操作冲突，属于可发现性缺陷而非文案偏好。
+
+### GREEN
+
+- **Minimal implementation**：在快捷键策略旁建立三段单一指南事实，设置页直接引用；白板/黑板、颜色和文字生命周期改为中文且与生产事件路由一致。
+- **Observed pass**：`AppleShortcutGuideConsistencyTests` 2/2 PASS；文字能力覆盖测试增加该文件引用后 1/1 PASS。
+
+### REFACTOR
+
+- **Refactor done**：yes。
+- **Change**：删除设置窗口中的三段重复旧说明；没有增加新的全局快捷键或兼容分支。
+
+## 已知缺陷稳定化最终门禁
+
+- **Commands**：`swift test`、`.build/debug/ZoomItMacSelfTest`、`Scripts/verify-test-boundary.sh`、`Scripts/verify-delivery.sh`、`Scripts/phase7-preflight.sh`、`git diff --check`。
+- **Observed result**：219/219 本地模拟 XCTest PASS；self-test、测试边界、交付和 Phase 7 preflight PASS；功能覆盖 `gaps == []`；无外部 SwiftPM 依赖。
+- **Artifacts**：`.build/DoraZoom Dev.app` 为 arm64、约 6.2 MB、ad-hoc、`com.duola.dorazoom.dev`；`.build/DoraZoom.app` 为 arm64、约 2.8 MB、Apple Development 签名、`com.duola.dorazoom`；`.build/DoraZoom.zip` 约 1.1 MB。
+- **Size snapshot**：175 个项目文件、2,116,130 字节（约 2.02 MB）；`Sources` 下 23,903 行 Swift。
+- **Boundary proof**：门禁没有执行真实安装、启动、TCC、全局键盘、系统剪贴板、屏幕/音频/摄像头、登录项、目标 App 或用户输出流程。
+- **Manual gate**：中日韩候选、大小写/输入源、`Control+4` 手感、`Control+6` 双粘贴、真实 MOV 音轨、白板/黑板与快捷键发现性仍待用户在可见开发版中验收。

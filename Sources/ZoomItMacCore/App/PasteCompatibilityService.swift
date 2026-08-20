@@ -1,5 +1,4 @@
 import CoreGraphics
-import AppKit
 
 struct KeyboardEventAccess: Equatable, Sendable {
     var canListen: Bool
@@ -23,16 +22,6 @@ enum KeyboardEventAccessRequirement: Equatable, Hashable, Sendable {
 enum PasteCompatibilitySettingStatus: Equatable, Sendable {
     case ready
     case waitingForAuthorization(missing: Set<KeyboardEventAccessRequirement>)
-}
-
-struct InputCompatibilityAccessExplanation: Equatable, Sendable {
-    let title: String
-    let message: String
-
-    static let controlVPaste = InputCompatibilityAccessExplanation(
-        title: "启用 ⌃V 粘贴截图",
-        message: "DoraZoom 可以把刚截取的图片用 ⌃V 粘贴。macOS 需要在“辅助功能”中允许 DoraZoom 发送原生 ⌘V；DoraZoom 不读取你的按键内容。未授权时仍可直接使用 ⌘V。"
-    )
 }
 
 enum KeyboardModifier: Equatable, Hashable, Sendable {
@@ -91,17 +80,17 @@ final class PasteCompatibilityService {
 
 protocol InputCompatibilityPermissionRequester: AnyObject {
     func currentAccess() -> KeyboardEventAccess
-    @MainActor
-    func explainAndRequestInputCompatibilityAccess()
 }
 
 final class PasteCompatibilityCoordinator {
     private let permissionRequester: InputCompatibilityPermissionRequester
     private let service: PasteCompatibilityService
-    private var didRequestInputCompatibility = false
+    private var didPresentInputPostingPermission = false
     private var didNotifyAccessComplete = false
+    private var isTextEditingActive = false
     var onAccessBecameComplete: (() -> Void)?
     var onScreenshotCopied: ((Int) -> Void)?
+    var onInputPostingPermissionNeeded: (() -> Void)?
 
     init(permissionRequester: InputCompatibilityPermissionRequester) {
         self.permissionRequester = permissionRequester
@@ -116,9 +105,9 @@ final class PasteCompatibilityCoordinator {
     @MainActor
     func screenshotCopied(changeCount: Int) {
         refreshAccess()
-        if !permissionRequester.currentAccess().canPost, !didRequestInputCompatibility {
-            didRequestInputCompatibility = true
-            permissionRequester.explainAndRequestInputCompatibilityAccess()
+        if !permissionRequester.currentAccess().canPost, !didPresentInputPostingPermission {
+            didPresentInputPostingPermission = true
+            onInputPostingPermissionNeeded?()
             refreshAccess()
         }
         notifyAccessCompleteIfNeeded()
@@ -130,7 +119,12 @@ final class PasteCompatibilityCoordinator {
         service.pasteboardDidChange(changeCount: changeCount)
     }
 
+    func setTextEditingActive(_ isActive: Bool) {
+        isTextEditingActive = isActive
+    }
+
     func handle(_ event: KeyboardEvent) -> PasteCompatibilityDecision {
+        guard !isTextEditingActive else { return .passThrough }
         refreshAccess()
         return service.handle(event)
     }
@@ -147,12 +141,6 @@ final class PasteCompatibilityCoordinator {
 }
 
 final class SystemInputCompatibilityPermissionRequester: InputCompatibilityPermissionRequester {
-    private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
-
-    init(permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil) {
-        self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
-    }
-
     func currentAccess() -> KeyboardEventAccess {
         KeyboardEventAccess(
             canListen: CGPreflightListenEventAccess(),
@@ -160,21 +148,4 @@ final class SystemInputCompatibilityPermissionRequester: InputCompatibilityPermi
         )
     }
 
-    @MainActor
-    func explainAndRequestInputCompatibilityAccess() {
-        let explanation = InputCompatibilityAccessExplanation.controlVPaste
-        let alert = NSAlert()
-        alert.messageText = explanation.title
-        alert.informativeText = explanation.message
-        alert.addButton(withTitle: "继续")
-        alert.addButton(withTitle: "稍后")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-
-        if !CGPreflightPostEventAccess() {
-            permissionRelaunchCoordinator?.notePermissionFlowMayRequireRelaunch()
-        }
-        if !CGPreflightPostEventAccess() {
-            _ = CGRequestPostEventAccess()
-        }
-    }
 }

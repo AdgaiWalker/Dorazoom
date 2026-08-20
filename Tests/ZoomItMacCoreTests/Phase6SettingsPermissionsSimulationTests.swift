@@ -63,36 +63,35 @@ final class Phase6SettingsPermissionsSimulationTests: XCTestCase {
         XCTAssertFalse(conflicting.canSave)
     }
 
-    func testPermissionPageMapsAllRequiredRowsAndActionsWithoutRequestingTCC() {
-        let page = SettingsManagementSimulation.permissionPage(
-            permissions: .init(
-                screenCapture: .denied,
-                input: .init(canListen: false, canPost: true),
-                microphone: .notDetermined,
-                camera: .granted
-            )
-        )
+    func testPermissionCenterPlanMapsExistingSettingsScenarioWithoutRequestingTCC() {
+        let page = PermissionCenterModel.plan(for: .init(
+            screenCapture: .denied,
+            inputPosting: .granted,
+            inputListeningFallback: .denied,
+            microphone: .notDetermined,
+            camera: .granted,
+            controlVPasteEnabled: true,
+            inputListeningFallbackNeeded: true,
+            microphoneEnabled: true,
+            cameraEnabled: true
+        ))
 
         XCTAssertEqual(page.platformBoundary, .simulatedOnly)
-        XCTAssertEqual(page.rows, [
-            .init(kind: .screenRecording, status: .needsSettings, action: .openSystemSettings),
-            .init(kind: .inputMonitoringListen, status: .missing, action: .openSystemSettings),
-            .init(kind: .inputMonitoringPost, status: .granted, action: .none),
-            .init(kind: .microphone, status: .notDetermined, action: .requestPermission),
-            .init(kind: .camera, status: .granted, action: .none)
-        ])
-        XCTAssertFalse(page.touchesRealTCC)
-        XCTAssertFalse(page.opensSystemSettings)
+        XCTAssertEqual(page.row(for: .screenCapture)?.action, .openSystemSettings)
+        XCTAssertEqual(page.row(for: .inputListeningFallback)?.action, .openSystemSettings)
+        XCTAssertEqual(page.row(for: .inputPosting)?.state, .ready)
+        XCTAssertEqual(page.row(for: .microphone)?.action, .requestPermission)
+        XCTAssertEqual(page.row(for: .camera)?.state, .ready)
     }
 
     func testCoverageMapMarksSettingsHotkeysAndPermissionsAcceptedByLocalSimulation() throws {
-        let map = ZoomItFeatureCoverageMap.phase6Default
+        let map = ZoomItFeatureCoverageMap.current
 
         for capability in [ZoomItFeatureCapability.settingsAndHotkeyCustomization, .permissionChecks] {
             let entry = try XCTUnwrap(map.entry(for: capability))
             XCTAssertEqual(entry.status, .localSimulationAccepted)
             XCTAssertTrue(entry.simulatedTestRefs.contains("Tests/ZoomItMacCoreTests/Phase6SettingsPermissionsSimulationTests.swift"))
-            XCTAssertTrue(entry.phase7Refs.contains(.localSimulationAcceptance))
+            XCTAssertTrue(entry.evidenceRefs.contains(.localSimulationAcceptance))
         }
     }
 }

@@ -89,6 +89,10 @@ final class Phase6ImageExportSimulationTests: XCTestCase {
         XCTAssertEqual(recognized.pasteboard.images, [])
         XCTAssertEqual(recognized.files, [])
         XCTAssertEqual(recognized.feedback, [])
+        XCTAssertEqual(
+            recognized.pasteboardOutputs,
+            [.ocrText(changeCount: 1, characterCount: 17)]
+        )
         XCTAssertEqual(recognized.outcome, .completed)
 
         let empty = ImageExportSimulation.run(

@@ -229,13 +229,16 @@ final class SnipController {
     private let settingsStore: SettingsStore
     private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
     private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
+    private let windowCaptureService: WindowCaptureService
 
     private var window: NSWindow?
     private var capturedFrame: CapturedFrame?
     private var action: SnipAction = .copyImage
     private var onFinished: (() -> Void)?
-    private let onCopiedToPasteboard: ((Int) -> Void)?
+    private let onPasteboardOutput: ((SnipPasteboardOutput) -> Void)?
     private var cursorLease: CrosshairCursorLease?
+    private var previousRegionMemory = PreviousRegionSnipMemory()
+    private var windowTargetSelectionController: WindowTargetSelectionController?
 
     init(
         captureService: ScreenCaptureService,
@@ -244,7 +247,8 @@ final class SnipController {
         settingsStore: SettingsStore,
         permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
         screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
-        onCopiedToPasteboard: ((Int) -> Void)? = nil
+        windowCaptureService: WindowCaptureService,
+        onPasteboardOutput: ((SnipPasteboardOutput) -> Void)? = nil
     ) {
         self.captureService = captureService
         self.displayManager = displayManager
@@ -252,7 +256,8 @@ final class SnipController {
         self.settingsStore = settingsStore
         self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
         self.screenRecordingPermissionSession = screenRecordingPermissionSession
-        self.onCopiedToPasteboard = onCopiedToPasteboard
+        self.windowCaptureService = windowCaptureService
+        self.onPasteboardOutput = onPasteboardOutput
     }
 
     /// Begins a region selection. `action` chooses what to do with the selected
@@ -295,6 +300,117 @@ final class SnipController {
         }
     }
 
+    /// Reuses the last successful region only while the complete display
+    /// topology is unchanged. Missing or invalid history falls back to the
+    /// normal visible selector instead of guessing with stale coordinates.
+    func beginPreviousRegion(onFinished: @escaping () -> Void) {
+        let displays = displayManager.displays()
+        switch previousRegionMemory.plan(for: displays.map(PreviousRegionDisplay.init)) {
+        case .selectNew:
+            begin(action: .copyImage, onFinished: onFinished)
+        case .reuse(let plan):
+            guard ScreenRecordingPrompt.ensureGranted(
+                permissionService,
+                permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+                permissionSession: screenRecordingPermissionSession
+            ) else {
+                onFinished()
+                return
+            }
+            guard let display = displays.first(where: { $0.id == plan.displayID }) else {
+                begin(action: .copyImage, onFinished: onFinished)
+                return
+            }
+            action = .copyImage
+            self.onFinished = onFinished
+            Task { @MainActor in
+                do {
+                    let frame = try await captureService.captureDisplay(display)
+                    guard let cropped = frame.image.cropping(to: plan.pixelRect) else {
+                        self.finish()
+                        return
+                    }
+                    self.executeExport(
+                        image: cropped,
+                        operations: PreviousRegionSnipMemory.exportOperations
+                    )
+                    self.finish()
+                } catch {
+                    NSSound.beep()
+                    self.finish()
+                }
+            }
+        }
+    }
+
+    /// Enters a capture-excluded pointer selection layer, then captures the
+    /// frontmost eligible window the user clicks. This keeps the target pointer
+    /// independent from the menu-bar click that invoked the command.
+    func beginWindowAtPointer(onFinished: @escaping () -> Void) {
+        guard ScreenRecordingPrompt.ensureGranted(
+            permissionService,
+            permissionRelaunchCoordinator: permissionRelaunchCoordinator,
+            permissionSession: screenRecordingPermissionSession
+        ) else {
+            onFinished()
+            return
+        }
+        action = .copyImage
+        self.onFinished = onFinished
+        let includeShadow = settingsStore.load().includeWindowShadow
+        Task { @MainActor in
+            do {
+                let candidates = try await windowCaptureService.candidatesFrontToBack()
+                guard !candidates.isEmpty else {
+                    NSSound.beep()
+                    finishWindowSnip(.cancelled)
+                    return
+                }
+                let selector = WindowTargetSelectionController(
+                    candidatesFrontToBack: candidates,
+                    ownProcessID: ProcessInfo.processInfo.processIdentifier,
+                    includeShadow: includeShadow,
+                    displayFrames: displayManager.displays().map(\.frame),
+                    pointerProvider: { [windowCaptureService] in
+                        windowCaptureService.pointerLocation()
+                    },
+                    onSelected: { [weak self] plan in
+                        self?.captureSelectedWindow(plan)
+                    },
+                    onCancelled: { [weak self] in
+                        self?.finishWindowSnip(.cancelled)
+                    }
+                )
+                windowTargetSelectionController = selector
+                selector.present()
+            } catch {
+                NSSound.beep()
+                finishWindowSnip(.failed)
+            }
+        }
+    }
+
+    private func captureSelectedWindow(_ plan: WindowSnipRequestPlan) {
+        windowTargetSelectionController = nil
+        Task { @MainActor in
+            do {
+                let image = try await windowCaptureService.capture(plan)
+                executeExport(image: image, operations: plan.outputOperations)
+                finishWindowSnip(.copied)
+            } catch WindowCaptureError.windowDisappeared {
+                finishWindowSnip(.windowDisappeared)
+            } catch {
+                NSSound.beep()
+                finishWindowSnip(.failed)
+            }
+        }
+    }
+
+    private func finishWindowSnip(_ result: WindowSnipCaptureResult) {
+        windowTargetSelectionController = nil
+        finish()
+    }
+
     private func show(frame: CapturedFrame) {
         capturedFrame = frame
 
@@ -333,17 +449,15 @@ final class SnipController {
         closeWindow()
 
         guard let rect, let frame else {
+            previousRegionMemory.selectionCancelled()
             finish()
             return
         }
 
-        let scale = frame.display.scaleFactor
-        let pixelRect = CGRect(
-            x: rect.minX * scale,
-            y: rect.minY * scale,
-            width: rect.width * scale,
-            height: rect.height * scale
-        ).integral
+        let pixelRect = MultiDisplayTargetingPolicy.pixelRect(
+            forLocalTopLeftSelection: rect,
+            in: frame.display
+        )
 
         guard let cropped = frame.image.cropping(to: pixelRect) else {
             finish()
@@ -351,19 +465,36 @@ final class SnipController {
         }
 
         let settings = settingsStore.load()
+        let displays = displayManager.displays().map(PreviousRegionDisplay.init)
+        if displays.contains(where: { $0.id == frame.display.id }) {
+            previousRegionMemory.remember(
+                selection: rect,
+                displayID: frame.display.id,
+                displays: displays
+            )
+        }
+        executeExport(
+            image: cropped,
+            operations: SnipExportPlan.operations(for: action, settings: settings)
+        )
+        finish()
+    }
+
+    private func executeExport(image: CGImage, operations: [SnipExportOperation]) {
+        let settings = settingsStore.load()
         let executor = SnipExportExecutor<CGImage>(
             copyToPasteboard: { ImageExporter.copyToPasteboard($0) },
             writeToDirectory: { ImageExporter.writeToDirectory($0, directoryPath: settings.snipSaveDirectory) },
             presentSavePanel: { ImageExporter.presentSavePanel(for: $0) },
-            copyOCR: { OcrService.recognizeAndCopy($0) }
+            copyOCR: { OcrService.recognizeAndCopy($0, completion: $1) }
         )
-        for changeCount in executor.execute(
-            image: cropped,
-            operations: SnipExportPlan.operations(for: action, settings: settings)
-        ) {
-            onCopiedToPasteboard?(changeCount)
-        }
-        finish()
+        executor.execute(
+            image: image,
+            operations: operations,
+            onPasteboardOutput: { [onPasteboardOutput] output in
+                onPasteboardOutput?(output)
+            }
+        )
     }
 
     private func closeWindow() {

@@ -17,9 +17,8 @@ private final class VideoEditorWindow: NSWindow {
     }
 }
 
-/// Shows ZoomIt's recording in a clip editor before saving, mirroring the
-/// Windows trim dialog: preview, a scrub timeline with trim grips, transport
-/// controls, append-with-transition, and Save. Styled for macOS.
+/// Reuses one media editor in either a lightweight daily result presentation
+/// or an explicitly requested advanced composition presentation.
 @MainActor
 final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimelineViewDelegate {
     enum Transition: CaseIterable {
@@ -113,6 +112,7 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
     private var isPlaying = false
     private var isMuted = false
     private var lastAudibleVolume: Float = 1
+    private var playbackVolume: Float = 1
     private var pendingDeleteStart: Double?
     private var pendingDeleteEnd: Double?
     private var undoStack: [EditorSnapshot] = []
@@ -123,12 +123,14 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
     private var outputProfile = RecordingOutputStrategy.defaultMovieProfile
     private var preferredWindowLevel: NSWindow.Level = .normal
     private var originalURL: URL?
+    private var presentationMode = RecordingEditorPresentationMode.advanced
 
     /// Shows the editor for `tempURL`. Calls `onSave` with an exported movie of
     /// the edited result, or `onCancel` if dismissed.
     func present(tempURL: URL, suggestedName: String,
                  outputProfile: MovieRecordingProfile = RecordingOutputStrategy.defaultMovieProfile,
                  windowLevel: NSWindow.Level = .normal,
+                 mode: RecordingEditorPresentationMode,
                  onSave: @escaping (URL) -> Void, onCancel: @escaping () -> Void) {
         self.onSave = onSave
         self.onCancel = onCancel
@@ -136,6 +138,7 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         self.outputProfile = outputProfile
         self.preferredWindowLevel = windowLevel
         self.originalURL = tempURL
+        self.presentationMode = mode
         let asset = AVURLAsset(url: tempURL)
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -144,6 +147,9 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
             joinTransitions = []
             joinKinds = []
             selectedTransition = .fadeBlack
+            isMuted = false
+            playbackVolume = 1
+            lastAudibleVolume = 1
             duration = max(segment.duration.seconds, 0.1)
             trimStart = 0
             trimEnd = duration
@@ -162,7 +168,9 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
             backing: .buffered, defer: false
         )
         win.editorController = self
-        win.title = "DoraZoom: Edit Recording"
+        win.title = presentationMode == .lightweight
+            ? "DoraZoom：录制结果"
+            : "DoraZoom：高级编辑"
         win.delegate = self
         win.center()
         win.isReleasedWhenClosed = false
@@ -201,7 +209,13 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         volumeButton = transportButton("speaker.wave.2.fill", #selector(toggleMute))
         volumeButton.contentTintColor = .secondaryLabelColor
         volumeButton.toolTip = "Mute"
-        volumeSlider = NSSlider(value: 1, minValue: 0, maxValue: 1, target: self, action: #selector(volumeChanged))
+        volumeSlider = NSSlider(
+            value: Double(playbackVolume),
+            minValue: 0,
+            maxValue: 1,
+            target: self,
+            action: #selector(volumeChanged)
+        )
         volumeSlider.widthAnchor.constraint(equalToConstant: 80).isActive = true
 
         // Centered transport controls; time on the left, volume on the right.
@@ -221,31 +235,52 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         transport.addSubview(volume)
         content.addSubview(transport)
 
-        let append = NSButton(title: "Append…", target: self, action: #selector(appendClip))
-        append.bezelStyle = .rounded
-        deleteButton = NSButton(title: "Delete Region", target: self, action: #selector(commitPendingDelete))
-        deleteButton.bezelStyle = .rounded
-        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
-        deleteButton.imagePosition = .imageLeading
-        deleteButton.contentTintColor = .systemRed
-        deleteButton.toolTip = "Delete selected timeline region (Delete). Undo with Command-Z."
-        deleteButton.isEnabled = false
-        let transitionLabel = NSTextField(labelWithString: "Transition:")
-        transitionLabel.textColor = .secondaryLabelColor
-        transitionPopup = NSPopUpButton()
-        transitionPopup.addItems(withTitles: Transition.allCases.map(\.title))
-        transitionPopup.selectItem(at: Transition.allCases.firstIndex(of: selectedTransition) ?? 0)
-        transitionPopup.target = self
-        transitionPopup.action = #selector(transitionChanged)
-        let cancel = NSButton(title: "Cancel", target: self, action: #selector(cancel))
+        let cancel = NSButton(title: "取消", target: self, action: #selector(cancel))
         cancel.bezelStyle = .rounded
-        let save = NSButton(title: "Save…", target: self, action: #selector(save))
+        let save = NSButton(title: "导出…", target: self, action: #selector(save))
         save.bezelStyle = .rounded
         save.keyEquivalent = "\r"
-        let transitionControls = NSStackView(views: [transitionLabel, transitionPopup])
-        transitionControls.spacing = 6
-        transitionControls.alignment = .centerY
-        let bottom = NSStackView(views: [append, deleteButton, transitionControls, NSView(), cancel, save])
+        let reveal = NSButton(
+            title: "在访达中打开文件",
+            target: self,
+            action: #selector(revealOriginalInFinder)
+        )
+        reveal.bezelStyle = .rounded
+
+        let bottomViews: [NSView]
+        if presentationMode == .lightweight {
+            deleteButton = nil
+            transitionPopup = nil
+            let advanced = NSButton(
+                title: "高级编辑…",
+                target: self,
+                action: #selector(showAdvancedEditor)
+            )
+            advanced.bezelStyle = .rounded
+            bottomViews = [reveal, advanced, NSView(), cancel, save]
+        } else {
+            let append = NSButton(title: "拼接…", target: self, action: #selector(appendClip))
+            append.bezelStyle = .rounded
+            deleteButton = NSButton(title: "删除片段", target: self, action: #selector(commitPendingDelete))
+            deleteButton.bezelStyle = .rounded
+            deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+            deleteButton.imagePosition = .imageLeading
+            deleteButton.contentTintColor = .systemRed
+            deleteButton.toolTip = "删除时间线选区（Delete），使用 Command-Z 撤销。"
+            deleteButton.isEnabled = false
+            let transitionLabel = NSTextField(labelWithString: "转场：")
+            transitionLabel.textColor = .secondaryLabelColor
+            transitionPopup = NSPopUpButton()
+            transitionPopup.addItems(withTitles: Transition.allCases.map(\.title))
+            transitionPopup.selectItem(at: Transition.allCases.firstIndex(of: selectedTransition) ?? 0)
+            transitionPopup.target = self
+            transitionPopup.action = #selector(transitionChanged)
+            let transitionControls = NSStackView(views: [transitionLabel, transitionPopup])
+            transitionControls.spacing = 6
+            transitionControls.alignment = .centerY
+            bottomViews = [reveal, append, deleteButton, transitionControls, NSView(), cancel, save]
+        }
+        let bottom = NSStackView(views: bottomViews)
         bottom.spacing = 12
         bottom.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(bottom)
@@ -314,7 +349,7 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         item.videoComposition = comp.videoComposition
         item.audioMix = comp.audioMix
         let p = AVPlayer(playerItem: item)
-        p.volume = volumeSlider?.floatValue ?? 1
+        p.volume = playbackVolume
         p.isMuted = isMuted
         player = p
         playerView.player = p
@@ -372,6 +407,7 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
     @objc private func stepForward() { pause(); seek(min(trimEnd, (player?.currentTime().seconds ?? 0) + 2)) }
     @objc private func volumeChanged() {
         let volume = volumeSlider.floatValue
+        playbackVolume = volume
         player?.volume = volume
         if volume > 0 {
             lastAudibleVolume = volume
@@ -388,6 +424,7 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
             isMuted = false
             if volumeSlider.floatValue <= 0 {
                 volumeSlider.floatValue = max(lastAudibleVolume, 0.5)
+                playbackVolume = volumeSlider.floatValue
             }
         } else {
             lastAudibleVolume = volumeSlider.floatValue
@@ -414,20 +451,25 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
     func timelineDidChangeSelection(start: Double, end: Double) { trimStart = start; trimEnd = end }
     func timelineDidScrub(to position: Double, scrubbing: Bool) { pause(); seek(position) }
     func timelineDidChangePendingDelete(start: Double, end: Double) {
+        guard presentationMode == .advanced else { return }
         pendingDeleteStart = start
         pendingDeleteEnd = end
         syncDeleteButton()
     }
-    func timelineDidCommitDeleteSelection() { commitPendingDelete() }
+    func timelineDidCommitDeleteSelection() {
+        guard presentationMode == .advanced else { return }
+        commitPendingDelete()
+    }
     func timelineDidRequestUndo() { undoLastEdit() }
 
     fileprivate func handleEditorKey(_ event: NSEvent) -> Bool {
-        if event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
+        if presentationMode == .advanced,
+           event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.command),
            event.charactersIgnoringModifiers?.lowercased() == "z" {
             undoLastEdit()
             return true
         }
-        if event.keyCode == 51 || event.keyCode == 117 {
+        if presentationMode == .advanced, (event.keyCode == 51 || event.keyCode == 117) {
             commitPendingDelete()
             return true
         }
@@ -622,6 +664,21 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
 
     // MARK: - Save / Cancel
 
+    @objc private func revealOriginalInFinder() {
+        guard let originalURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([originalURL])
+    }
+
+    @objc private func showAdvancedEditor() {
+        guard presentationMode == .lightweight else { return }
+        tearDownPlayback()
+        window?.orderOut(nil)
+        window = nil
+        presentationMode = .advanced
+        buildWindow()
+        rebuildPlayer()
+    }
+
     @objc private func cancel() { closeWindow(); onCancel?() }
 
     @objc private func save() {
@@ -639,6 +696,10 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
 
     private func canSaveOriginalWithoutExport() -> Bool {
         guard segments.count == 1, joinTransitions.isEmpty else { return false }
+        guard !RecordingResultAudioPolicy.requiresExport(
+            sliderVolume: playbackVolume,
+            isMuted: isMuted
+        ) else { return false }
         guard abs(segments[0].range.start.seconds) <= 1.0 / 600.0,
               abs(segments[0].range.duration.seconds - duration) <= 1.0 / 600.0 else { return false }
         let tolerance = 1.0 / 600.0
@@ -718,12 +779,27 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
             if index < self.segments.count - 1 { boundaries.append(cursor) }
         }
 
-        // Nothing to scale and no fades: play the single clip as-is.
+        // Keep the original media graph when no visual or audio adjustment is
+        // required. Volume/mute still creates an audio mix even for one clip.
         let fades = zip(boundaries, joinTransitions).filter { $0.1 != .none }
         let needsScaling = segments.contains { abs($0.size.width - renderSize.width) > 1 || abs($0.size.height - renderSize.height) > 1 }
-        guard !fades.isEmpty || needsScaling else { return Built(composition: comp, videoComposition: nil, audioMix: nil) }
+        let needsAudioAdjustment = RecordingResultAudioPolicy.requiresExport(
+            sliderVolume: playbackVolume,
+            isMuted: isMuted
+        )
+        guard !fades.isEmpty || needsScaling || needsAudioAdjustment else {
+            return Built(composition: comp, videoComposition: nil, audioMix: nil)
+        }
 
         let fadeDur = CMTime(seconds: 1, preferredTimescale: 600)
+        let audioMix = buildAudioMix(
+            for: audioSegments,
+            fades: fades,
+            fadeDuration: fadeDur
+        )
+        guard !fades.isEmpty || needsScaling else {
+            return Built(composition: comp, videoComposition: nil, audioMix: audioMix)
+        }
         let layer = AVMutableVideoCompositionLayerInstruction(assetTrack: vTrack)
         // Aspect-fill each clip into the (largest) render size, centered, so
         // smaller segments magnify to fill instead of leaving blank borders.
@@ -764,7 +840,6 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         vc.instructions = [instruction]
         vc.renderSize = renderSize
         vc.frameDuration = CMTime(value: 1, timescale: 30)
-        let audioMix = buildAudioMix(for: audioSegments, fades: fades, fadeDuration: fadeDur)
         return Built(composition: comp, videoComposition: vc, audioMix: audioMix)
     }
 
@@ -796,19 +871,24 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
     }
 
     private func buildAudioMix(for audioSegments: [AudioSegment], fades: [(CMTime, Transition)], fadeDuration: CMTime) -> AVMutableAudioMix? {
-        guard !audioSegments.isEmpty, !fades.isEmpty else { return nil }
+        guard !audioSegments.isEmpty else { return nil }
+        let exportVolume = RecordingResultAudioPolicy.exportVolume(
+            sliderVolume: playbackVolume,
+            isMuted: isMuted
+        )
+        guard !fades.isEmpty || abs(exportVolume - 1) > 0.0001 else { return nil }
         let parameters = audioSegments.map { audioSegment in
             let parameter = AVMutableAudioMixInputParameters(track: audioSegment.track)
-            parameter.setVolume(1, at: .zero)
+            parameter.setVolume(exportVolume, at: .zero)
             for (time, _) in fades {
                 if sameTime(audioSegment.end, time) {
                     let duration = min(fadeDuration.seconds, max(0, CMTimeSubtract(audioSegment.end, audioSegment.start).seconds))
                     if duration > 0 {
                         let fade = CMTime(seconds: duration, preferredTimescale: fadeDuration.timescale)
                         let fadeStart = CMTimeSubtract(audioSegment.end, fade)
-                        parameter.setVolume(1, at: fadeStart)
+                        parameter.setVolume(exportVolume, at: fadeStart)
                         parameter.setVolumeRamp(
-                            fromStartVolume: 1,
+                            fromStartVolume: exportVolume,
                             toEndVolume: 0,
                             timeRange: CMTimeRange(start: fadeStart, duration: fade)
                         )
@@ -822,10 +902,10 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
                         parameter.setVolume(0, at: audioSegment.start)
                         parameter.setVolumeRamp(
                             fromStartVolume: 0,
-                            toEndVolume: 1,
+                            toEndVolume: exportVolume,
                             timeRange: CMTimeRange(start: audioSegment.start, duration: fade)
                         )
-                        parameter.setVolume(1, at: CMTimeAdd(audioSegment.start, fade))
+                        parameter.setVolume(exportVolume, at: CMTimeAdd(audioSegment.start, fade))
                     }
                 }
             }

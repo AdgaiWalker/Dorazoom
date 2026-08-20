@@ -13,10 +13,16 @@ enum LiveMouseTracking: Equatable, Sendable {
     case none
 }
 
+enum LiveZoomGlobalTrackingEvent: Equatable, Sendable {
+    case pointerMovement
+    case scrollWheel
+}
+
 struct LiveZoomInteractionPresentation: Equatable, Sendable {
     var mouseRouting: OverlayMouseRouting
     var systemCursor: SystemCursorVisibility
     var mouseTracking: LiveMouseTracking
+    var globalTrackingEvents: [LiveZoomGlobalTrackingEvent]
 }
 
 enum LiveZoomInteractionPolicy {
@@ -29,14 +35,16 @@ enum LiveZoomInteractionPolicy {
             return LiveZoomInteractionPresentation(
                 mouseRouting: .passThroughToUnderlyingApp,
                 systemCursor: .visible,
-                mouseTracking: .global
+                mouseTracking: .global,
+                globalTrackingEvents: [.pointerMovement, .scrollWheel]
             )
         }
 
         return LiveZoomInteractionPresentation(
             mouseRouting: .captureInOverlay,
             systemCursor: .hidden,
-            mouseTracking: .none
+            mouseTracking: .none,
+            globalTrackingEvents: []
         )
     }
 }

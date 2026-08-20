@@ -33,6 +33,7 @@ final class ControlVPasteHotkeyService {
     private let pasteboard: PasteboardChangeCountProviding
     private var armedChangeCount: Int?
     private var pasteboardMonitor: Timer?
+    private var isTextEditingActive = false
 
     init(
         permissionRequester: InputCompatibilityPermissionRequester,
@@ -51,17 +52,21 @@ final class ControlVPasteHotkeyService {
         guard permissionRequester.currentAccess().canPost else { return }
 
         armedChangeCount = changeCount
-        guard registrar.register(.controlV, handler: { [weak self] in
-            self?.pasteScreenshot()
-        }) else {
-            armedChangeCount = nil
-            return
-        }
-
         pasteboardMonitor = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.disarmIfPasteboardChanged()
             }
+        }
+        registerIfAvailable()
+    }
+
+    func setTextEditingActive(_ isActive: Bool) {
+        guard isTextEditingActive != isActive else { return }
+        isTextEditingActive = isActive
+        if isActive {
+            registrar.unregister()
+        } else {
+            registerIfAvailable()
         }
     }
 
@@ -73,11 +78,25 @@ final class ControlVPasteHotkeyService {
     }
 
     private func pasteScreenshot() {
-        guard let armedChangeCount, pasteboard.changeCount == armedChangeCount else {
+        guard !isTextEditingActive,
+              let armedChangeCount,
+              pasteboard.changeCount == armedChangeCount else {
             stop()
             return
         }
         poster.post(.commandV)
+    }
+
+    private func registerIfAvailable() {
+        guard !isTextEditingActive,
+              let armedChangeCount,
+              pasteboard.changeCount == armedChangeCount,
+              permissionRequester.currentAccess().canPost else {
+            return
+        }
+        _ = registrar.register(.controlV, handler: { [weak self] in
+            self?.pasteScreenshot()
+        })
     }
 
     private func disarmIfPasteboardChanged() {

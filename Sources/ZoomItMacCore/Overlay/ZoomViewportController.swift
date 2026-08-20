@@ -1,63 +1,98 @@
 import CoreGraphics
+import Foundation
 
 @MainActor
 final class ZoomViewportController {
     private(set) var zoomFactor: CGFloat = 1
     private(set) var targetZoomFactor: CGFloat = 2
-    private var telescopeStep: CGFloat = 0
+    private var zoomVelocity: CGFloat = 0
+    private var lastAnimationTimestamp: TimeInterval?
+    private var animationActive = false
     private(set) var capturedFrame: CapturedFrame?
 
-    // Matches ZoomIt's ZOOM_LEVEL_STEP_IN / ZOOM_LEVEL_STEP_OUT telescope factors.
-    private static let stepIn: CGFloat = 1.1
-    private static let stepOut: CGFloat = 0.8
+    /// Critically damped response tuned to settle in roughly 0.3 seconds.
+    private static let zoomAngularFrequency: CGFloat = 24
 
     func configure(for frame: CapturedFrame, initialZoom: CGFloat) {
         capturedFrame = frame
         targetZoomFactor = Self.clampZoom(initialZoom)
         zoomFactor = targetZoomFactor
-        telescopeStep = 0
+        resetAnimationState()
     }
 
     func setZoomFactor(_ factor: CGFloat) {
         zoomFactor = Self.clampZoom(factor)
         targetZoomFactor = zoomFactor
-        telescopeStep = 0
+        resetAnimationState()
     }
 
     /// Restarts the displayed zoom at 1x so it can telescope back in to the
     /// configured target, matching ZoomIt's zoom-in animation on activation.
-    func beginZoomInAnimation() {
-        zoomFactor = 1
-        telescopeStep = targetZoomFactor > 1 ? Self.stepIn : 0
-    }
-
-    /// Sets a new target and chooses the telescope direction for animation.
-    func animateZoom(to factor: CGFloat) {
-        targetZoomFactor = Self.clampZoom(factor)
-        if targetZoomFactor > zoomFactor {
-            telescopeStep = Self.stepIn
-        } else if targetZoomFactor < zoomFactor {
-            telescopeStep = Self.stepOut
-        } else {
-            telescopeStep = 0
+    func beginZoomInAnimation(reduceMotion: Bool) {
+        if reduceMotion {
+            resetAnimationState()
+            return
         }
+        zoomFactor = 1
+        zoomVelocity = 0
+        lastAnimationTimestamp = nil
+        animationActive = targetZoomFactor > 1
     }
 
-    var isAnimatingZoom: Bool { telescopeStep != 0 }
-
-    /// Advances the telescope by one step. Returns `true` while still animating.
-    @discardableResult
-    func advanceZoomAnimation() -> Bool {
-        guard telescopeStep != 0 else { return false }
-
-        zoomFactor *= telescopeStep
-        if (telescopeStep > 1 && zoomFactor >= targetZoomFactor) ||
-            (telescopeStep < 1 && zoomFactor <= targetZoomFactor) {
+    /// Redirects the current presentation toward a new target while preserving
+    /// its current velocity. Reduced-motion environments commit immediately.
+    func animateZoom(to factor: CGFloat, reduceMotion: Bool) {
+        targetZoomFactor = Self.clampZoom(factor)
+        if reduceMotion || abs(targetZoomFactor - zoomFactor) < 0.0001 {
             zoomFactor = targetZoomFactor
-            telescopeStep = 0
+            resetAnimationState()
+            return
+        }
+        if !animationActive {
+            zoomVelocity = 0
+            lastAnimationTimestamp = nil
+        }
+        animationActive = true
+    }
+
+    var isAnimatingZoom: Bool { animationActive }
+
+    /// Advances the critically damped presentation using display timestamps.
+    /// The closed-form update is cadence independent, so 60 Hz and 120 Hz
+    /// event sequences converge to the same presentation.
+    @discardableResult
+    func advanceZoomAnimation(at timestamp: TimeInterval) -> Bool {
+        guard animationActive else { return false }
+        guard let previousTimestamp = lastAnimationTimestamp else {
+            lastAnimationTimestamp = timestamp
+            return true
+        }
+
+        let delta = max(0, min(timestamp - previousTimestamp, 0.25))
+        lastAnimationTimestamp = timestamp
+        guard delta > 0 else { return true }
+
+        let omega = Self.zoomAngularFrequency
+        let displacement = zoomFactor - targetZoomFactor
+        let coefficient = zoomVelocity + omega * displacement
+        let decay = CGFloat(exp(-Double(omega) * delta))
+        let nextDisplacement = (displacement + coefficient * delta) * decay
+        let nextVelocity = (coefficient - omega * (displacement + coefficient * delta)) * decay
+        zoomFactor = Self.clampZoom(targetZoomFactor + nextDisplacement)
+        zoomVelocity = nextVelocity
+
+        if abs(zoomFactor - targetZoomFactor) < 0.001 && abs(zoomVelocity) < 0.01 {
+            zoomFactor = targetZoomFactor
+            resetAnimationState()
             return false
         }
         return true
+    }
+
+    private func resetAnimationState() {
+        zoomVelocity = 0
+        lastAnimationTimestamp = nil
+        animationActive = false
     }
 
     private static func clampZoom(_ factor: CGFloat) -> CGFloat {

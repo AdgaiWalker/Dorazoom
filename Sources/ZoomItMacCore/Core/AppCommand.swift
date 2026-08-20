@@ -1,9 +1,12 @@
+import CoreGraphics
+
 enum AppCommand: Equatable {
     case activateStaticZoom
     case activateLiveZoom
     case activateDrawWithoutZoom
     case zoomIn
-    case zoomOutOrExit
+    case zoomOut
+    case adjustZoomFromScroll(scrollingDeltaY: CGFloat, isPrecise: Bool)
     case toggleTyping(rightAligned: Bool)
     case increaseFontSize
     case decreaseFontSize
@@ -16,9 +19,12 @@ enum AppCommand: Equatable {
     case undo
     case clear
     case snipRegion(save: Bool)
+    case snipPreviousRegion
+    case snipWindowAtPointer
     case snipOcr
     case startPanorama(save: Bool)
     case toggleRecording(region: Bool)
+    case toggleRecordingPause
     case startDemoType
     case resetDemoType
     case toggleBreakTimer

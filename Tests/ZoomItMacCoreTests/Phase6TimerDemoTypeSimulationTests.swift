@@ -70,13 +70,13 @@ final class Phase6TimerDemoTypeSimulationTests: XCTestCase {
     }
 
     func testFeatureCoverageMarksTimerAndDemoTypeAcceptedByLocalSimulation() throws {
-        let map = ZoomItFeatureCoverageMap.phase6Default
+        let map = ZoomItFeatureCoverageMap.current
 
         for capability in [ZoomItFeatureCapability.breakTimer, .demoType] {
             let entry = try XCTUnwrap(map.entry(for: capability))
             XCTAssertEqual(entry.status, .localSimulationAccepted)
             XCTAssertTrue(entry.simulatedTestRefs.contains("Tests/ZoomItMacCoreTests/Phase6TimerDemoTypeSimulationTests.swift"))
-            XCTAssertTrue(entry.phase7Refs.contains(.localSimulationAcceptance))
+            XCTAssertTrue(entry.evidenceRefs.contains(.localSimulationAcceptance))
         }
     }
 }

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 
-const title = "DoraZoom — 把注意力带到你正在讲的地方";
-const description = "为 Mac 上的讲解者而做。一个快捷键，放大、圈画、截图或录制。无需账号，本地运行。";
+const title = "DoraZoom — 就在屏幕上，指给他看";
+const description = "不用切应用，也不用重复解释。放大、圈画、截图和录制，都留在当前画面。";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       type: "website",
       locale: "zh_CN",
-      images: [{ url: `${origin}/og.png`, width: 1536, height: 1024, alt: "DoraZoom 官网预览" }],
+      images: [{ url: `${origin}/og.png`, width: 1440, height: 900, alt: "DoraZoom — 就在屏幕上，指给他看" }],
     },
     twitter: {
       card: "summary_large_image",

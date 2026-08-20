@@ -112,42 +112,49 @@ final class Phase2ContractTests: XCTestCase {
         XCTAssertEqual(service.handle(.keyDown(key: "v", modifiers: [.control], isSynthetic: true)), .passThrough)
     }
 
-    func testPasteCoordinatorRequestsInputAccessAfterFirstScreenshotAndArmsIfGranted() {
+    func testPasteCoordinatorOpensPermissionCenterOnceThenArmsAfterAccessIsGranted() {
         let requester = FakeInputCompatibilityPermissionRequester(access: .init(canListen: false, canPost: false))
-        requester.accessAfterRequest = .init(canListen: true, canPost: true)
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        var permissionCenterRequestCount = 0
         var accessCompleteCount = 0
+        coordinator.onInputPostingPermissionNeeded = {
+            permissionCenterRequestCount += 1
+        }
         coordinator.onAccessBecameComplete = {
             accessCompleteCount += 1
         }
 
         coordinator.screenshotCopied(changeCount: 20)
 
-        XCTAssertEqual(requester.requestCount, 1)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
+        XCTAssertEqual(accessCompleteCount, 0)
+        XCTAssertEqual(coordinator.handle(.keyDown(key: "v", modifiers: [.control])), .passThrough)
+
+        requester.access = .init(canListen: true, canPost: true)
+        coordinator.screenshotCopied(changeCount: 21)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
         XCTAssertEqual(accessCompleteCount, 1)
         XCTAssertEqual(coordinator.handle(.keyDown(key: "v", modifiers: [.control])), .convertToCommandV)
-
-        coordinator.screenshotCopied(changeCount: 21)
-        XCTAssertEqual(requester.requestCount, 1)
-        XCTAssertEqual(accessCompleteCount, 1)
     }
 
-    func testPasteCoordinatorDoesNotArmWhenAccessRemainsPartial() {
+    func testPasteCoordinatorDoesNotRepeatedlyOpenPermissionCenterWhenAccessRemainsPartial() {
         let requester = FakeInputCompatibilityPermissionRequester(access: .init(canListen: true, canPost: false))
-        requester.accessAfterRequest = .init(canListen: true, canPost: false)
         let coordinator = PasteCompatibilityCoordinator(permissionRequester: requester)
+        var permissionCenterRequestCount = 0
+        coordinator.onInputPostingPermissionNeeded = {
+            permissionCenterRequestCount += 1
+        }
 
         coordinator.screenshotCopied(changeCount: 30)
+        coordinator.screenshotCopied(changeCount: 31)
 
-        XCTAssertEqual(requester.requestCount, 1)
+        XCTAssertEqual(permissionCenterRequestCount, 1)
         XCTAssertEqual(coordinator.handle(.keyDown(key: "v", modifiers: [.control])), .passThrough)
     }
 }
 
 private final class FakeInputCompatibilityPermissionRequester: InputCompatibilityPermissionRequester {
     var access: KeyboardEventAccess
-    var accessAfterRequest: KeyboardEventAccess?
-    private(set) var requestCount = 0
 
     init(access: KeyboardEventAccess) {
         self.access = access
@@ -155,12 +162,5 @@ private final class FakeInputCompatibilityPermissionRequester: InputCompatibilit
 
     func currentAccess() -> KeyboardEventAccess {
         access
-    }
-
-    func explainAndRequestInputCompatibilityAccess() {
-        requestCount += 1
-        if let accessAfterRequest {
-            access = accessAfterRequest
-        }
     }
 }

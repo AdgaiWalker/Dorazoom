@@ -5,22 +5,23 @@ enum OverlayInteractionResource: Equatable, Hashable, Sendable {
     case hiddenSystemCursor
     case zoomPointer
     case penPointer
-    case zoomHUD
+    case toolPointer
 }
 
 struct OverlayInteractionLifecycle: Equatable, Sendable {
     private(set) var isActive: Bool
     private let mode: AppMode
     private let pointerVisual: OverlayPointerVisual
-    private let hud: OverlayHUD?
 
     static func active(
         mode: AppMode,
         isDrawingMode: Bool,
         isSelectingRegion: Bool,
         activeStrokeTool: AnnotationTool?,
-        zoomFactor: CGFloat,
-        container: CGRect
+        currentTool: AnnotationTool,
+        style: AnnotationStyle,
+        canvas: CanvasBackground,
+        environment: FeedbackPresentationEnvironment
     ) -> OverlayInteractionLifecycle {
         OverlayInteractionLifecycle(
             isActive: true,
@@ -29,12 +30,11 @@ struct OverlayInteractionLifecycle: Equatable, Sendable {
                 interactionMode: mode,
                 isDrawingMode: isDrawingMode,
                 isSelectingRegion: isSelectingRegion,
-                activeStrokeTool: activeStrokeTool
-            ),
-            hud: OverlayHUDPresentation.presentation(
-                interactionMode: mode,
-                zoomFactor: zoomFactor,
-                container: container
+                activeStrokeTool: activeStrokeTool,
+                currentTool: currentTool,
+                style: style,
+                canvas: canvas,
+                environment: environment
             )
         )
     }
@@ -43,15 +43,14 @@ struct OverlayInteractionLifecycle: Equatable, Sendable {
         guard isActive else { return [] }
         var resources: [OverlayInteractionResource] = [.overlayWindow, .hiddenSystemCursor]
         switch pointerVisual {
-        case .zoomCrosshair:
+        case .magnifier:
             resources.append(.zoomPointer)
-        case .penDot:
+        case .penRing, .highlighterNib:
             resources.append(.penPointer)
+        case .toolCrosshair, .textCaret:
+            resources.append(.toolPointer)
         case .hidden:
             break
-        }
-        if hud != nil {
-            resources.append(.zoomHUD)
         }
         return resources
     }

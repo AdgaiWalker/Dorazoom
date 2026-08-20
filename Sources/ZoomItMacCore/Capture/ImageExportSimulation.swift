@@ -73,6 +73,7 @@ enum ImageExportSimulationOutcome: Equatable, Sendable {
 struct ImageExportSimulationResult: Equatable, Sendable {
     var source: ImageExportSimulationSource
     var pasteboard: ImageExportSimulationPasteboard
+    var pasteboardOutputs: [SnipPasteboardOutput]
     var files: [ImageExportSimulationFile]
     var savePanelEvents: [ImageExportSimulationSavePanelEvent]
     var feedback: [ImageExportSimulationFeedback]
@@ -92,6 +93,7 @@ enum ImageExportSimulation {
         clock: ImageExportSimulationClock
     ) -> ImageExportSimulationResult {
         var pasteboard = ImageExportSimulationPasteboard()
+        var pasteboardOutputs: [SnipPasteboardOutput] = []
         var files: [ImageExportSimulationFile] = []
         var savePanelEvents: [ImageExportSimulationSavePanelEvent] = []
         var feedback: [ImageExportSimulationFeedback] = []
@@ -104,6 +106,7 @@ enum ImageExportSimulation {
                 let changeCount = nextChangeCount(after: pasteboard)
                 pasteboard.images.append(image)
                 pasteboard.changeCounts.append(changeCount)
+                pasteboardOutputs.append(.image(changeCount: changeCount))
                 pasteCompatibilityChangeCountsToArm.append(changeCount)
 
             case .directoryFile:
@@ -133,8 +136,14 @@ enum ImageExportSimulation {
                     feedback.append(.beep(reason: .ocrFoundNoText))
                     outcome = .cancelled
                 case .recognized(let text):
+                    let changeCount = nextChangeCount(after: pasteboard)
                     pasteboard.text = text
-                    pasteboard.changeCounts.append(nextChangeCount(after: pasteboard))
+                    pasteboard.changeCounts.append(changeCount)
+                    pasteboardOutputs.append(.ocrText(
+                        changeCount: changeCount,
+                        characterCount: text.count
+                    ))
+                    pasteCompatibilityChangeCountsToArm.append(changeCount)
                 }
             }
         }
@@ -142,6 +151,7 @@ enum ImageExportSimulation {
         return ImageExportSimulationResult(
             source: source,
             pasteboard: pasteboard,
+            pasteboardOutputs: pasteboardOutputs,
             files: files,
             savePanelEvents: savePanelEvents,
             feedback: feedback,

@@ -27,7 +27,9 @@ final class SystemDisplayManager: DisplayManager {
     }
 
     func activeDisplay() -> DisplayDescriptor? {
-        let cursor = NSEvent.mouseLocation
-        return displays().first { $0.frame.contains(cursor) } ?? displays().first
+        MultiDisplayTargetingPolicy.targetDisplay(
+            forAppKitPoint: NSEvent.mouseLocation,
+            displays: displays()
+        )
     }
 }

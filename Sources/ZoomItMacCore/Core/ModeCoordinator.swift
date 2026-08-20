@@ -6,14 +6,25 @@ final class ModeCoordinator {
     private let permissionService: PermissionService
     private let displayManager: DisplayManager
     private let captureService: ScreenCaptureService
+    private let windowCaptureService: WindowCaptureService
     private let overlayController: OverlayWindowController
     private let annotationController: AnnotationController
     private let viewportController: ZoomViewportController
+    private let feedbackAdapter: FeedbackPresentationAdapter
     private let pasteCompatibilityCoordinator: PasteCompatibilityCoordinator
     private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
     private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
+    private let recordingRecoveryStore: RecordingRecoveryStoring
 
-    private(set) var mode: AppMode = .idle
+    private(set) var mode: AppMode = .idle {
+        didSet {
+            let wasTextEditing = oldValue == .typing
+            let isTextEditing = mode == .typing
+            guard wasTextEditing != isTextEditing else { return }
+            pasteCompatibilityCoordinator.setTextEditingActive(isTextEditing)
+            onTextEditingStateChanged?(isTextEditing)
+        }
+    }
     private var isExiting = false
     /// The mode to restore when leaving typing mode (zoom vs. draw-without-zoom).
     private var modeBeforeTyping: AppMode = .staticZoom
@@ -27,8 +38,9 @@ final class ModeCoordinator {
         settingsStore: settingsStore,
         permissionRelaunchCoordinator: permissionRelaunchCoordinator,
         screenRecordingPermissionSession: screenRecordingPermissionSession,
-        onCopiedToPasteboard: { [weak self] changeCount in
-            self?.pasteCompatibilityCoordinator.screenshotCopied(changeCount: changeCount)
+        windowCaptureService: windowCaptureService,
+        onPasteboardOutput: { [weak self] output in
+            self?.handleSnipPasteboardOutput(output)
         }
     )
     private var isSnipping = false
@@ -39,7 +51,10 @@ final class ModeCoordinator {
         permissionService: permissionService,
         settingsStore: settingsStore,
         permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-        screenRecordingPermissionSession: screenRecordingPermissionSession
+        screenRecordingPermissionSession: screenRecordingPermissionSession,
+        preflightProvider: SystemRecordingPreflightProvider(permissionService: permissionService),
+        preflightWindowController: RecordingPreflightWindowController(),
+        recoveryStore: recordingRecoveryStore
     )
     /// Drives panorama (scrolling) capture (Control+8 / Control+Shift+8).
     private lazy var panoramaController = PanoramaController(
@@ -63,15 +78,19 @@ final class ModeCoordinator {
     /// hotkeys can be registered only while live zoom is active.
     var onBeginLiveZoomNavigation: (() -> Void)?
     var onEndLiveZoomNavigation: (() -> Void)?
+    var onTextEditingStateChanged: ((Bool) -> Void)?
 
     init(
         settingsStore: SettingsStore,
         permissionService: PermissionService,
         displayManager: DisplayManager,
         captureService: ScreenCaptureService,
+        windowCaptureService: WindowCaptureService,
         overlayController: OverlayWindowController,
         annotationController: AnnotationController,
         viewportController: ZoomViewportController,
+        feedbackAdapter: FeedbackPresentationAdapter,
+        recordingRecoveryStore: RecordingRecoveryStoring,
         permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
         screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
         pasteCompatibilityCoordinator: PasteCompatibilityCoordinator = PasteCompatibilityCoordinator(
@@ -82,9 +101,12 @@ final class ModeCoordinator {
         self.permissionService = permissionService
         self.displayManager = displayManager
         self.captureService = captureService
+        self.windowCaptureService = windowCaptureService
         self.overlayController = overlayController
         self.annotationController = annotationController
         self.viewportController = viewportController
+        self.feedbackAdapter = feedbackAdapter
+        self.recordingRecoveryStore = recordingRecoveryStore
         self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
         self.screenRecordingPermissionSession = screenRecordingPermissionSession
         self.pasteCompatibilityCoordinator = pasteCompatibilityCoordinator
@@ -95,7 +117,7 @@ final class ModeCoordinator {
             // Ignore activation and snip hotkeys while a region selection is on
             // screen so a second trigger can't stack overlays.
             switch command {
-            case .activateStaticZoom, .activateLiveZoom, .activateDrawWithoutZoom, .snipRegion, .zoomIn, .zoomOutOrExit:
+            case .activateStaticZoom, .activateLiveZoom, .activateDrawWithoutZoom, .snipRegion, .snipPreviousRegion, .snipWindowAtPointer, .snipOcr, .zoomIn, .zoomOut, .adjustZoomFromScroll:
                 return
             default:
                 break
@@ -119,8 +141,13 @@ final class ModeCoordinator {
             activateDrawWithoutZoom()
         case .zoomIn:
             zoomIn()
-        case .zoomOutOrExit:
-            zoomOutOrExit()
+        case .zoomOut:
+            zoomOut()
+        case let .adjustZoomFromScroll(scrollingDeltaY, isPrecise):
+            adjustZoomFromScroll(
+                scrollingDeltaY: scrollingDeltaY,
+                isPrecise: isPrecise
+            )
         case .exit:
             if mode == .breakTimer {
                 stopBreakTimer()
@@ -135,10 +162,23 @@ final class ModeCoordinator {
             overlayController.requestRedraw()
         case .snipRegion(let save):
             startSnip(action: save ? .saveImage : .copyImage)
+        case .snipPreviousRegion:
+            startPreviousRegionSnip()
+        case .snipWindowAtPointer:
+            startWindowSnip()
         case .snipOcr:
             startSnip(action: .recognizeText)
         case .toggleRecording(let region):
             toggleRecording(region: region)
+        case .toggleRecordingPause:
+            switch recordingController.togglePause() {
+            case .pause:
+                feedbackAdapter.present(.warning("录制已暂停"))
+            case .resume:
+                feedbackAdapter.present(.warning("录制已继续"))
+            case .reject:
+                break
+            }
         case .startPanorama(let save):
             togglePanorama(save: save)
         case .startDemoType:
@@ -149,20 +189,32 @@ final class ModeCoordinator {
             toggleBreakTimer()
         case .setTool(let tool):
             annotationController.currentTool = tool
+            if tool == .redact {
+                annotationController.currentStyle.color = .black
+                annotationController.currentStyle.alpha = 1
+            } else if tool == .blur {
+                annotationController.currentStyle.alpha = 1
+            }
+            presentToolFeedback(tool: tool)
         case .setColor(let color):
             annotationController.currentStyle.color = color
             annotationController.currentStyle.alpha = 1
+            presentToolFeedback(tool: annotationController.currentTool)
         case .setHighlightColor(let color):
             // Shift+color: translucent highlighter of that color.
             annotationController.currentStyle.color = color
             annotationController.currentStyle.alpha = AnnotationStyle.highlightAlpha
+            presentToolFeedback(tool: .highlighter)
         case .setCanvas(let background):
             annotationController.setCanvasBackground(background)
             overlayController.requestRedraw()
+            presentToolFeedback(tool: annotationController.currentTool)
         case .increasePenWidth:
             annotationController.currentStyle.rootWidth += 1
+            presentToolFeedback(tool: annotationController.currentTool)
         case .decreasePenWidth:
             annotationController.currentStyle.rootWidth = max(1, annotationController.currentStyle.rootWidth - 1)
+            presentToolFeedback(tool: annotationController.currentTool)
         case .toggleTyping(let rightAligned):
             if mode == .typing {
                 mode = modeBeforeTyping
@@ -173,6 +225,7 @@ final class ModeCoordinator {
             }
             overlayController.updateInteractionMode(mode)
             overlayController.requestRedraw()
+            feedbackAdapter.present(.modeEntered(.typing(rightAligned: rightAligned)))
         case .increaseFontSize:
             annotationController.increaseFontSize()
             saveCurrentTypingFontSize()
@@ -188,6 +241,15 @@ final class ModeCoordinator {
         var settings = settingsStore.load()
         settings.typingFontSize = annotationController.typingFontSize
         settingsStore.save(settings)
+    }
+
+    private func presentToolFeedback(tool: AnnotationTool) {
+        feedbackAdapter.present(.toolChanged(
+            tool: tool,
+            color: annotationController.currentStyle.color,
+            width: annotationController.currentStyle.rootWidth,
+            canvas: annotationController.canvasBackground
+        ))
     }
 
     private func activateStaticZoom() {
@@ -209,6 +271,8 @@ final class ModeCoordinator {
             return
         }
 
+        feedbackAdapter.present(.modeEntered(.staticZoom))
+
         Task { @MainActor in
             do {
                 let frame = try await captureDisplayForOverlay(display)
@@ -222,7 +286,9 @@ final class ModeCoordinator {
                 if settings.animateZoom {
                     // Start fully zoomed out so the overlay telescopes in to the
                     // target zoom, matching Windows ZoomIt.
-                    viewportController.beginZoomInAnimation()
+                    viewportController.beginZoomInAnimation(
+                        reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                    )
                 }
                 overlayController.show(
                     frame: frame,
@@ -230,8 +296,8 @@ final class ModeCoordinator {
                     annotationController: annotationController,
                     smoothImage: settings.smoothImage,
                     commandSink: { [weak self] command in self?.handle(command) },
-                    onCopiedToPasteboard: { [weak self] changeCount in
-                        self?.pasteCompatibilityCoordinator.screenshotCopied(changeCount: changeCount)
+                    onPasteboardOutput: { [weak self] output in
+                        self?.handleSnipPasteboardOutput(output)
                     }
                 )
                 mode = .staticZoom
@@ -263,6 +329,8 @@ final class ModeCoordinator {
             return
         }
 
+        feedbackAdapter.present(.modeEntered(.liveZoom))
+
         Task { @MainActor in
             do {
                 // Capture one still frame for the initial display, then let the
@@ -275,7 +343,9 @@ final class ModeCoordinator {
                 annotationController.typingFontName = settings.typingFontName
                 annotationController.typingFontSize = settings.typingFontSize
                 if settings.animateZoom {
-                    viewportController.beginZoomInAnimation()
+                    viewportController.beginZoomInAnimation(
+                        reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                    )
                 }
                 overlayController.show(
                     frame: frame,
@@ -284,8 +354,8 @@ final class ModeCoordinator {
                     smoothImage: settings.smoothImage,
                     excludeFromScreenCapture: true,
                     commandSink: { [weak self] command in self?.handle(command) },
-                    onCopiedToPasteboard: { [weak self] changeCount in
-                        self?.pasteCompatibilityCoordinator.screenshotCopied(changeCount: changeCount)
+                    onPasteboardOutput: { [weak self] output in
+                        self?.handleSnipPasteboardOutput(output)
                     }
                 )
                 mode = .liveZoom
@@ -345,6 +415,8 @@ final class ModeCoordinator {
             return
         }
 
+        feedbackAdapter.present(.modeEntered(.drawing(live: false)))
+
         Task { @MainActor in
             do {
                 let frame = try await captureDisplayForOverlay(display)
@@ -372,11 +444,10 @@ final class ModeCoordinator {
         }
     }
 
-    /// At the zoom-out floor (1x), decides whether the overlay should exit.
-    /// Matches Windows ZoomIt: static zoom stays active at 1x, while live zoom
-    /// (and its typing sub-mode) still exits when zoomed all the way out.
-    static func exitsOnZoomOutFloor(mode: AppMode) -> Bool {
-        mode != .staticZoom
+    /// Reaching 1x is a boundary, not an exit gesture. The user retains control
+    /// of dismissal through Escape, right-click, or the active mode hotkey.
+    static func exitsOnZoomOutFloor(mode _: AppMode) -> Bool {
+        false
     }
 
     private func zoomIn() {
@@ -390,15 +461,12 @@ final class ModeCoordinator {
         applyZoom(to: target, animate: settings.animateZoom)
     }
 
-    private func zoomOutOrExit() {
+    private func zoomOut() {
         guard mode == .staticZoom || mode == .liveZoom || mode == .typing, !isExiting else { return }
         let settings = settingsStore.load()
         let current = viewportController.targetZoomFactor
         // At 1x there is nothing left to zoom out of.
         guard current > settings.minimumZoomFactor else {
-            // Static zoom matches Windows ZoomIt: it stays active at 1x instead
-            // of exiting when the user zooms all the way out. Only Esc (or right
-            // click) exits static zoom. Live zoom still exits at 1x.
             if Self.exitsOnZoomOutFloor(mode: mode) {
                 animateExit()
             }
@@ -413,9 +481,35 @@ final class ModeCoordinator {
         applyZoom(to: target, animate: settings.animateZoom)
     }
 
+    private func adjustZoomFromScroll(
+        scrollingDeltaY: CGFloat,
+        isPrecise: Bool
+    ) {
+        guard mode == .staticZoom || mode == .liveZoom || mode == .typing,
+              !isExiting else {
+            return
+        }
+
+        let settings = settingsStore.load()
+        let current = viewportController.targetZoomFactor
+        let target = ZoomScrollInputPolicy.targetZoomFactor(
+            current: current,
+            scrollingDeltaY: scrollingDeltaY,
+            isPrecise: isPrecise,
+            minimum: settings.minimumZoomFactor,
+            maximum: settings.maximumZoomFactor
+        )
+        guard abs(target - current) > 0.0001 else { return }
+        applyZoom(to: target, animate: settings.animateZoom)
+    }
+
     private func applyZoom(to target: CGFloat, animate: Bool) {
+        feedbackAdapter.present(.zoomChanged(factor: target))
         if animate {
-            viewportController.animateZoom(to: target)
+            viewportController.animateZoom(
+                to: target,
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            )
             overlayController.runZoomAnimation()
         } else {
             viewportController.setZoomFactor(target)
@@ -432,7 +526,10 @@ final class ModeCoordinator {
         guard mode != .idle, !isExiting else { return }
         isExiting = true
         // Telescope back out to 1x before tearing down the overlay.
-        viewportController.animateZoom(to: 1)
+        viewportController.animateZoom(
+            to: 1,
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )
         overlayController.runZoomAnimation { [weak self] in
             self?.exitActiveMode()
         }
@@ -458,6 +555,14 @@ final class ModeCoordinator {
             NSSound.beep()
             return
         }
+        switch action {
+        case .copyImage:
+            feedbackAdapter.present(.modeEntered(.regionSelection(.screenshotToClipboard)))
+        case .saveImage:
+            feedbackAdapter.present(.modeEntered(.regionSelection(.screenshotToFile)))
+        case .recognizeText:
+            feedbackAdapter.present(.modeEntered(.regionSelection(.ocrToClipboard)))
+        }
         switch mode {
         case .idle:
             isSnipping = true
@@ -468,8 +573,8 @@ final class ModeCoordinator {
             isSnipping = true
             overlayController.beginRegionSnip(
                 action: action,
-                onCopiedToPasteboard: { [weak self] changeCount in
-                    self?.pasteCompatibilityCoordinator.screenshotCopied(changeCount: changeCount)
+                onPasteboardOutput: { [weak self] output in
+                    self?.handleSnipPasteboardOutput(output)
                 }
             ) { [weak self] in
                 self?.isSnipping = false
@@ -477,6 +582,39 @@ final class ModeCoordinator {
         default:
             NSSound.beep()
         }
+    }
+
+    private func startPreviousRegionSnip() {
+        guard mode == .idle else {
+            startSnip(action: .copyImage)
+            return
+        }
+        guard !isSnipping else {
+            NSSound.beep()
+            return
+        }
+        feedbackAdapter.present(.modeEntered(.regionSelection(.screenshotToClipboard)))
+        isSnipping = true
+        snipController.beginPreviousRegion { [weak self] in
+            self?.isSnipping = false
+        }
+    }
+
+    private func startWindowSnip() {
+        guard !isSnipping else {
+            NSSound.beep()
+            return
+        }
+        feedbackAdapter.present(.modeEntered(.regionSelection(.screenshotToClipboard)))
+        isSnipping = true
+        snipController.beginWindowAtPointer { [weak self] in
+            self?.isSnipping = false
+        }
+    }
+
+    private func handleSnipPasteboardOutput(_ output: SnipPasteboardOutput) {
+        pasteCompatibilityCoordinator.screenshotCopied(changeCount: output.changeCount)
+        feedbackAdapter.present(.completed(output.feedbackCompletion))
     }
 
     /// Opens an existing video in the clip editor (trim/append/save) without
@@ -507,6 +645,7 @@ final class ModeCoordinator {
     /// independently of the zoom overlay so the Save dialog isn't hidden behind
     /// an active overlay.
     private func togglePanorama(save: Bool) {
+        feedbackAdapter.present(.modeEntered(.panorama(save: save)))
         panoramaController.onWillShowSaveDialog = { [weak self] in
             guard let self, self.mode != .idle else { return }
             self.exitActiveMode()
@@ -526,6 +665,7 @@ final class ModeCoordinator {
         }
 
         let settings = settingsStore.load()
+        feedbackAdapter.present(.modeEntered(.timer))
         Task { @MainActor in
             do {
                 try await breakTimerController.begin(settings: settings) { [weak self] in
@@ -553,7 +693,6 @@ final class ModeCoordinator {
     }
 
     private func presentError(_ error: Error) {
-        let alert = NSAlert(error: error)
-        alert.runModal()
+        feedbackAdapter.present(.error(error.localizedDescription))
     }
 }

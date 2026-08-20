@@ -7,10 +7,14 @@ final class Phase4OverlayPointerPresentationTests: XCTestCase {
             interactionMode: .staticZoom,
             isDrawingMode: false,
             isSelectingRegion: false,
-            activeStrokeTool: nil
+            activeStrokeTool: nil,
+            currentTool: .pen,
+            style: .default,
+            canvas: .transparent,
+            environment: .default
         )
 
-        XCTAssertEqual(visual, .zoomCrosshair)
+        XCTAssertEqual(visual, .magnifier)
     }
 
     func testDrawOnlyShowsPenPointerBeforeFirstStroke() {
@@ -18,20 +22,28 @@ final class Phase4OverlayPointerPresentationTests: XCTestCase {
             interactionMode: .drawOnly,
             isDrawingMode: true,
             isSelectingRegion: false,
-            activeStrokeTool: nil
+            activeStrokeTool: nil,
+            currentTool: .pen,
+            style: .default,
+            canvas: .transparent,
+            environment: .default
         )
 
-        XCTAssertEqual(visual, .penDot)
+        XCTAssertEqual(visual, .penRing(color: .red, diameter: 5, highContrast: false))
     }
 
-    func testShapeStrokeHidesPenPointerWhilePreviewOwnsTheCursor() {
+    func testShapeStrokeUsesToolSpecificCrosshairWhilePreviewIsActive() {
         let visual = OverlayPointerPresentation.visual(
             interactionMode: .drawOnly,
             isDrawingMode: true,
             isSelectingRegion: false,
-            activeStrokeTool: .rectangle
+            activeStrokeTool: .rectangle,
+            currentTool: .pen,
+            style: .default,
+            canvas: .transparent,
+            environment: .default
         )
 
-        XCTAssertEqual(visual, .hidden)
+        XCTAssertEqual(visual, .toolCrosshair(tool: .rectangle, color: .red, highContrast: false))
     }
 }

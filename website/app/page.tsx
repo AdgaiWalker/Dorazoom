@@ -1,480 +1,572 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- tiny local icon; avoids an unnecessary image runtime in the interactive client surface */
+/* eslint-disable @next/next/no-img-element -- documentary product images are local and intentionally unprocessed */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Magnet from "@/components/Magnet";
-import SpotlightCard from "@/components/SpotlightCard";
+import { createFrameAnimator } from "../lib/oil-motion/interactive-motion";
 
-type Mode = "zoom" | "draw" | "capture" | "record";
+type ScenarioId = "codex" | "teaching" | "share" | "recording";
 
-const modes: Array<{ id: Mode; label: string; key: string; result: string }> = [
-  { id: "zoom", label: "放大", key: "⌃1", result: "细节进入视野" },
-  { id: "draw", label: "圈画", key: "⌃2", result: "重点留在画面" },
-  { id: "capture", label: "截图", key: "⌃6", result: "结果已到剪贴板" },
-  { id: "record", label: "录制", key: "⌃5", result: "讲解完整留下" },
-];
+type Scenario = {
+  id: ScenarioId;
+  audience: string;
+  title: string;
+  detail: string;
+  image: string;
+  alt: string;
+  note?: string;
+};
 
-const flow = [
-  {
-    index: "01",
-    title: "讲到哪里，放大哪里",
-    body: "静态或实时缩放，光标和内容始终跟得上思路。听众不再猜“你说的是哪一块”。",
-    shortcut: "Control + 1",
-  },
-  {
-    index: "02",
-    title: "顺手圈出关键关系",
-    body: "画笔、箭头、高亮、文字和白板随时接上。不是切换工具，是继续讲解。",
-    shortcut: "Control + 2",
-  },
-  {
-    index: "03",
-    title: "把结果直接带走",
-    body: "截图进剪贴板，录制导出为常用格式。少一次保存和寻找，多一次自然衔接。",
-    shortcut: "Control + 6",
-  },
-];
-
-const localPoints = ["无需账号", "不依赖云服务", "截图可不落盘", "按需申请权限"];
 const githubUrl = "https://github.com/AdgaiWalker/zoomit";
 
-function project(velocity: number, decelerationRate = 0.99) {
-  return (velocity / 1000) * (decelerationRate / (1 - decelerationRate));
+const scenarios: Scenario[] = [
+  {
+    id: "codex",
+    audience: "同事",
+    title: "看到要改的位置",
+    detail: "圈出图标，截图直接进入对话。",
+    image: "/scenes/codex-mark.png",
+    alt: "DoraZoom 官网中，GitHub 图标被红框圈出",
+  },
+  {
+    id: "teaching",
+    audience: "学生",
+    title: "对着原题看重点",
+    detail: "不切白板，重点还留在原题上。",
+    image: "/scenes/teaching.png",
+    alt: "数学原题中的函数图像被红框标出",
+  },
+  {
+    id: "share",
+    audience: "收件人",
+    title: "找到你标的位置",
+    detail: "截下、标出、复制，对方不用猜。",
+    image: "/scenes/share.png",
+    alt: "数据界面中的运行次数被红色箭头指出",
+  },
+  {
+    id: "recording",
+    audience: "观众",
+    title: "在录屏里看重点",
+    detail: "边讲边画，说明留在画面里。",
+    image: "/scenes/recording.jpg",
+    alt: "电脑上正在编辑一段带有屏幕标注的录屏",
+    note: "录制工作现场；画面中的 Screen Studio 不代表产品集成。",
+  },
+];
+
+const capabilities = [
+  "放大当前画面，直接圈画。",
+  "遮挡内容，添加编号。",
+  "截图到剪贴板或文件。",
+  "OCR 文字到剪贴板。",
+  "录全屏或区域，可暂停继续。",
+  "无需账号或云同步。当前未正式分发。",
+];
+
+type KeySet = {
+  keys: string[];
+  label: string;
+  caption?: string;
+};
+
+const quickStartSteps = [
+  {
+    number: "01",
+    keySet: { keys: ["⌃", "2"], label: "Control 加 2" },
+    title: "进入圈画",
+    detail: "按下 Control+2，当前画面立即成为画布。",
+  },
+  {
+    number: "02",
+    keySet: { keys: ["拖动鼠标"], label: "拖动鼠标" },
+    title: "指出重点",
+    detail: "直接画线；按住 Control 画矩形，按住 Control+Shift 画箭头。",
+  },
+  {
+    number: "03",
+    keySet: { keys: ["⌃", "6"], label: "Control 加 6" },
+    title: "框选并复制",
+    detail: "拖出范围，松手即复制到剪贴板；不需要先保存文件。",
+  },
+  {
+    number: "04",
+    keySet: { keys: ["⌘", "V"], label: "Command 加 V" },
+    title: "粘贴给对方",
+    detail: "先按 Esc 退出圈画，再到聊天、邮件或 AI 对话里按 Command+V 粘贴。",
+  },
+];
+
+const taskShortcuts: Array<{
+  title: string;
+  detail: string;
+  keySets: KeySet[];
+}> = [
+  {
+    title: "放大当前画面",
+    detail: "冻结并放大当前画面，单击后可继续圈画；按 Esc 退出。",
+    keySets: [{ keys: ["⌃", "1"], label: "Control 加 1" }],
+  },
+  {
+    title: "边操作边放大",
+    detail: "移动鼠标平移，滚轮或触控板调倍率；再次按 Control+4 退出。",
+    keySets: [{ keys: ["⌃", "4"], label: "Control 加 4" }],
+  },
+  {
+    title: "识别屏幕文字",
+    detail: "框住文字，松手后由 OCR 复制到剪贴板。",
+    keySets: [{ keys: ["⌃", "⌥", "6"], label: "Control 加 Option 加 6" }],
+  },
+  {
+    title: "录下讲解",
+    detail: "开始前可选声音；菜单栏可暂停。再次按 Control+5 停止，然后预览、裁剪和导出。",
+    keySets: [
+      { keys: ["⌃", "5"], label: "Control 加 5", caption: "全屏" },
+      { keys: ["⌃", "⇧", "5"], label: "Control 加 Shift 加 5", caption: "区域" },
+    ],
+  },
+];
+
+const shortcutGroups: Array<{
+  title: string;
+  rows: Array<{ keySet: KeySet; action: string }>;
+}> = [
+  {
+    title: "进入模式",
+    rows: [
+      { keySet: { keys: ["⌃", "1"], label: "Control 加 1" }, action: "静态放大" },
+      { keySet: { keys: ["⌃", "2"], label: "Control 加 2" }, action: "原比例圈画" },
+      { keySet: { keys: ["⌃", "3"], label: "Control 加 3" }, action: "休息倒计时" },
+      { keySet: { keys: ["⌃", "4"], label: "Control 加 4" }, action: "实时放大" },
+      { keySet: { keys: ["⌃", "5"], label: "Control 加 5" }, action: "录制全屏" },
+      { keySet: { keys: ["⌃", "⇧", "5"], label: "Control 加 Shift 加 5" }, action: "录制区域" },
+      { keySet: { keys: ["⌃", "6"], label: "Control 加 6" }, action: "框选截图到剪贴板" },
+      { keySet: { keys: ["⌃", "⇧", "6"], label: "Control 加 Shift 加 6" }, action: "框选截图保存为文件" },
+      { keySet: { keys: ["⌃", "⌥", "6"], label: "Control 加 Option 加 6" }, action: "框选文字到剪贴板" },
+      { keySet: { keys: ["⌃", "7"], label: "Control 加 7" }, action: "DemoType" },
+      { keySet: { keys: ["⌃", "⇧", "7"], label: "Control 加 Shift 加 7" }, action: "DemoType 回到上一段" },
+      { keySet: { keys: ["⌃", "8"], label: "Control 加 8" }, action: "滚动长截图到剪贴板" },
+      { keySet: { keys: ["⌃", "⇧", "8"], label: "Control 加 Shift 加 8" }, action: "滚动长截图保存为文件" },
+    ],
+  },
+  {
+    title: "圈画时",
+    rows: [
+      { keySet: { keys: ["鼠标拖动"], label: "鼠标拖动" }, action: "自由画笔" },
+      { keySet: { keys: ["⇧", "拖动"], label: "Shift 加拖动" }, action: "直线" },
+      { keySet: { keys: ["⌃", "拖动"], label: "Control 加拖动" }, action: "矩形" },
+      { keySet: { keys: ["⌃", "⇧", "拖动"], label: "Control 加 Shift 加拖动" }, action: "箭头" },
+      { keySet: { keys: ["Tab", "拖动"], label: "Tab 加拖动" }, action: "椭圆" },
+      { keySet: { keys: ["F", "/", "L", "/", "A", "/", "H"], label: "F、L、A 或 H" }, action: "画笔 / 直线 / 箭头 / 高亮" },
+      { keySet: { keys: ["M", "/", "X", "/", "N"], label: "M、X 或 N" }, action: "模糊 / 实色遮挡 / 编号" },
+      { keySet: { keys: ["T"], label: "T" }, action: "输入文字；Shift+T 右对齐" },
+      { keySet: { keys: ["R", "G", "B", "Y", "O", "P"], label: "R、G、B、Y、O 或 P" }, action: "切换颜色；加 Shift 使用高亮墨水" },
+      { keySet: { keys: ["[", "]"], label: "左方括号或右方括号" }, action: "减小 / 增大画笔粗细" },
+      { keySet: { keys: ["W", "/", "K"], label: "W 或 K" }, action: "白板 / 黑板" },
+      { keySet: { keys: ["⌘", "Z"], label: "Command 加 Z" }, action: "撤销上一步" },
+      { keySet: { keys: ["E"], label: "E" }, action: "清除全部标注" },
+    ],
+  },
+  {
+    title: "输出与退出",
+    rows: [
+      { keySet: { keys: ["⌘", "C"], label: "Command 加 C" }, action: "复制当前视图" },
+      { keySet: { keys: ["⌘", "S"], label: "Command 加 S" }, action: "保存当前视图" },
+      { keySet: { keys: ["右键"], label: "鼠标右键" }, action: "退出圈画，回到当前缩放画面" },
+      { keySet: { keys: ["Esc"], label: "Escape" }, action: "取消框选或退出当前状态；实时圈画中第一次只退画笔" },
+    ],
+  },
+];
+
+function KeyCombo({ keySet }: { keySet: KeySet }) {
+  return (
+    <span className="key-combo" aria-label={keySet.label}>
+      {keySet.keys.map((key, index) => <kbd key={`${key}-${index}`}>{key}</kbd>)}
+    </span>
+  );
 }
 
-function rubberband(value: number, min: number, max: number, dimension: number) {
-  if (value < min) {
-    const over = value - min;
-    return min + (over * dimension * 0.55) / (dimension + 0.55 * Math.abs(over));
-  }
-  if (value > max) {
-    const over = value - max;
-    return max + (over * dimension * 0.55) / (dimension + 0.55 * Math.abs(over));
-  }
-  return value;
+function ArrowDownIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 3v12M5.5 10.5 10 15l4.5-4.5" />
+    </svg>
+  );
+}
+
+function ArrowOutIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M7 5h8v8M15 5 5 15" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="m5 5 10 10M15 5 5 15" />
+    </svg>
+  );
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<Mode>("zoom");
-  const [lens, setLens] = useState({ x: 395, y: 185 });
-  const [dragging, setDragging] = useState(false);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number | null>(null);
-  const lensRef = useRef(lens);
-  const gestureRef = useRef({
-    pointerId: -1,
-    startX: 0,
-    startY: 0,
-    lensX: 0,
-    lensY: 0,
-    lastX: 0,
-    lastY: 0,
-    lastTime: 0,
-    velocityX: 0,
-    velocityY: 0,
-  });
+  const [activeScenario, setActiveScenario] = useState<ScenarioId>("codex");
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const lastManualSelectionRef = useRef(0);
+  const statusTriggerRef = useRef<HTMLButtonElement>(null);
+  const statusPanelRef = useRef<HTMLElement>(null);
+  const statusCloseRef = useRef<HTMLButtonElement>(null);
+  const proofMotionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    lensRef.current = lens;
-  }, [lens]);
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const queryRequestsReduced = new URLSearchParams(window.location.search).get("motion") === "reduce";
+    const update = () => setReducedMotion(media.matches || queryRequestsReduced);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const elements = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
-    if (reduced) {
-      elements.forEach((element) => element.classList.add("is-visible"));
+    const onVisibilityChange = () => setPageVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    const root = proofMotionRef.current;
+    const thumb = root?.querySelector<HTMLElement>(".transfer-thumb");
+    const path = root?.querySelector<SVGPathElement>("path");
+    if (!root || !thumb || !path) return;
+
+    const showStaticLink = () => {
+      thumb.style.opacity = "0";
+      thumb.style.transform = "translateX(38px) scale(1)";
+      path.style.opacity = "0.72";
+      path.style.strokeDashoffset = "0";
+    };
+
+    if (reducedMotion || !pageVisible || statusOpen) {
+      showStaticLink();
       return;
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            (entry.target as HTMLElement).classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.14 },
-    );
+    let animator: ReturnType<typeof createFrameAnimator> | null = null;
+    const startCycle = () => {
+      animator?.destroy();
+      animator = createFrameAnimator({
+        frameCount: 121,
+        initialFrame: 0,
+        smoothTime: 0.32,
+        maxSpeed: 190,
+        render: (frame) => {
+          const progress = frame / 120;
+          const fadeIn = Math.min(1, progress * 6);
+          const fadeOut = 1 - Math.max(0, (progress - 0.78) / 0.22);
+          const opacity = Math.max(0, fadeIn * fadeOut);
+          thumb.style.opacity = opacity.toFixed(3);
+          thumb.style.transform = `translateX(${(-18 + progress * 66).toFixed(2)}px) scale(${(0.92 + progress * 0.08).toFixed(3)})`;
+          path.style.opacity = opacity.toFixed(3);
+          path.style.strokeDashoffset = `${(50 * (1 - Math.min(1, progress * 1.8))).toFixed(2)}`;
+        },
+      });
+      animator.setTarget(120);
+    };
 
-    elements.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, []);
+    startCycle();
+    const timer = window.setInterval(startCycle, 4800);
+    return () => {
+      window.clearInterval(timer);
+      animator?.destroy();
+    };
+  }, [pageVisible, reducedMotion, statusOpen]);
 
   useEffect(() => {
-    return () => {
-      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
-    };
-  }, []);
+    if (reducedMotion || !pageVisible || statusOpen) return;
+    const timer = window.setInterval(() => {
+      if (Date.now() - lastManualSelectionRef.current < 7000) return;
+      setActiveScenario((current) => {
+        const index = scenarios.findIndex((scenario) => scenario.id === current);
+        return scenarios[(index + 1) % scenarios.length].id;
+      });
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [pageVisible, reducedMotion, statusOpen]);
 
-  const setLensPosition = useCallback((x: number, y: number) => {
-    const next = { x, y };
-    lensRef.current = next;
-    setLens(next);
-  }, []);
+  useEffect(() => {
+    if (!statusOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const fallbackFocus = statusTriggerRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => statusCloseRef.current?.focus({ preventScroll: true }));
 
-  const animateLensTo = useCallback(
-    (targetX: number, targetY: number, velocityX = 0, velocityY = 0) => {
-      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        setLensPosition(targetX, targetY);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setStatusOpen(false);
         return;
       }
-
-      let { x, y } = lensRef.current;
-      let vx = velocityX;
-      let vy = velocityY;
-      let previous = performance.now();
-      const stiffness = 310;
-      const damping = 28;
-
-      const tick = (time: number) => {
-        const dt = Math.min((time - previous) / 1000, 0.032);
-        previous = time;
-        vx += ((targetX - x) * stiffness - vx * damping) * dt;
-        vy += ((targetY - y) * stiffness - vy * damping) * dt;
-        x += vx * dt;
-        y += vy * dt;
-        setLensPosition(x, y);
-
-        if (Math.hypot(targetX - x, targetY - y) < 0.35 && Math.hypot(vx, vy) < 5) {
-          setLensPosition(targetX, targetY);
-          animationRef.current = null;
-          return;
-        }
-        animationRef.current = requestAnimationFrame(tick);
-      };
-
-      animationRef.current = requestAnimationFrame(tick);
-    },
-    [setLensPosition],
-  );
-
-  const getBounds = useCallback(() => {
-    const rect = stageRef.current?.getBoundingClientRect();
-    return {
-      width: rect?.width ?? 720,
-      height: rect?.height ?? 460,
-      maxX: Math.max(16, (rect?.width ?? 720) - 166),
-      maxY: Math.max(70, (rect?.height ?? 460) - 166),
+      if (event.key !== "Tab") return;
+      const panel = statusPanelRef.current;
+      if (!panel) return;
+      const focusable = Array.from(
+        panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      (previousFocus ?? fallbackFocus)?.focus({ preventScroll: true });
+    };
+  }, [statusOpen]);
+
+  const selectScenario = useCallback((id: ScenarioId) => {
+    lastManualSelectionRef.current = Date.now();
+    setActiveScenario(id);
   }, []);
 
-  const onLensPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const now = performance.now();
-    gestureRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      lensX: lensRef.current.x,
-      lensY: lensRef.current.y,
-      lastX: event.clientX,
-      lastY: event.clientY,
-      lastTime: now,
-      velocityX: 0,
-      velocityY: 0,
-    };
-    setDragging(true);
-  };
-
-  const onLensPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging || gestureRef.current.pointerId !== event.pointerId) return;
-    const gesture = gestureRef.current;
-    const now = performance.now();
-    const dt = Math.max(8, now - gesture.lastTime) / 1000;
-    gesture.velocityX = (event.clientX - gesture.lastX) / dt;
-    gesture.velocityY = (event.clientY - gesture.lastY) / dt;
-    gesture.lastX = event.clientX;
-    gesture.lastY = event.clientY;
-    gesture.lastTime = now;
-
-    const bounds = getBounds();
-    const rawX = gesture.lensX + event.clientX - gesture.startX;
-    const rawY = gesture.lensY + event.clientY - gesture.startY;
-    setLensPosition(
-      rubberband(rawX, 16, bounds.maxX, bounds.width),
-      rubberband(rawY, 70, bounds.maxY, bounds.height),
-    );
-  };
-
-  const releaseLens = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging || gestureRef.current.pointerId !== event.pointerId) return;
-    setDragging(false);
-    const { maxX, maxY } = getBounds();
-    const gesture = gestureRef.current;
-    const projectedX = lensRef.current.x + project(gesture.velocityX);
-    const projectedY = lensRef.current.y + project(gesture.velocityY);
-    const snapPoints = [
-      { x: 54, y: 112 },
-      { x: maxX, y: 98 },
-      { x: 116, y: maxY },
-      { x: maxX - 34, y: maxY - 12 },
-    ];
-    const target = snapPoints.reduce((best, point) => {
-      const bestDistance = Math.hypot(best.x - projectedX, best.y - projectedY);
-      const distance = Math.hypot(point.x - projectedX, point.y - projectedY);
-      return distance < bestDistance ? point : best;
-    });
-    animateLensTo(target.x, target.y, gesture.velocityX, gesture.velocityY);
-  };
-
-  const onLensKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 28 : 10;
-    const movement: Record<string, [number, number]> = {
-      ArrowLeft: [-step, 0],
-      ArrowRight: [step, 0],
-      ArrowUp: [0, -step],
-      ArrowDown: [0, step],
-    };
-    if (!movement[event.key]) return;
-    event.preventDefault();
-    const bounds = getBounds();
-    const [dx, dy] = movement[event.key];
-    animateLensTo(
-      Math.min(bounds.maxX, Math.max(16, lensRef.current.x + dx)),
-      Math.min(bounds.maxY, Math.max(70, lensRef.current.y + dy)),
-    );
-  };
-
-  const activeMode = modes.find((item) => item.id === mode) ?? modes[0];
+  const currentScenario = scenarios.find((scenario) => scenario.id === activeScenario) ?? scenarios[0];
 
   return (
-    <main>
-      <header className="site-header" aria-label="主导航">
-        <a className="brand" href="#top" aria-label="DoraZoom 首页">
-          <img src="/dorazoom-icon.png" alt="" width="36" height="36" />
+    <main
+      className="product-site"
+      data-reduced={reducedMotion ? "true" : "false"}
+      data-page-visible={pageVisible ? "true" : "false"}
+    >
+      <a className="skip-link" href="#results">跳到四个结果</a>
+
+      <header className="site-header">
+        <a className="site-brand" href="#top" aria-label="DoraZoom 首页">
+          <img src="/dorazoom-icon.png" alt="" width="30" height="30" />
           <span>DoraZoom</span>
         </a>
-        <nav className="desktop-nav" aria-label="页面导航">
-          <a href="#why">为什么</a>
-          <a href="#workflow">怎么用</a>
-          <a href="#privacy">本地优先</a>
-          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+        <nav aria-label="官网导航">
+          <a href="#results">场景</a>
+          <a href="#tutorial">教程</a>
+          <a href="#capabilities">能力</a>
+          <a href={githubUrl} target="_blank" rel="noreferrer">
+            源码 <ArrowOutIcon />
+          </a>
         </nav>
-        <a className="nav-download pressable" href="/DoraZoom.zip" download>
-          下载 Mac 版 <span aria-hidden="true">↓</span>
-        </a>
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-aura" aria-hidden="true" />
-        <div className="hero-copy" data-reveal>
-          <div className="eyebrow"><span /> 为 Mac 上的讲解者而做</div>
-          <h1>把注意力，<br />带到你正在讲的地方。</h1>
-          <p className="hero-subtitle">
-            一个快捷键，放大、圈画、截图或录制。<br className="desktop-break" />
-            不打断表达，也不让重点从屏幕上溜走。
-          </p>
-          <div className="hero-actions">
-            <Magnet wrapperClassName="magnet-wrap" padding={68} magnetStrength={9}>
-              <a className="primary-button pressable" href="/DoraZoom.zip" download>
-                <span>下载 macOS 版</span>
-                <span className="button-arrow" aria-hidden="true">↘</span>
+      <section id="top" className="hero" aria-labelledby="hero-title">
+        <div className="hero-main">
+          <div className="hero-copy">
+            <h1 id="hero-title">就在屏幕上，<br />指给他看。</h1>
+            <p>不用切应用，也不用重复解释。放大、圈画、截图和录制，都留在当前画面。</p>
+            <div className="hero-actions">
+              <a className="primary-action" href="#results">
+                看四个结果 <ArrowDownIcon />
               </a>
-            </Magnet>
-            <a className="text-link" href="#demo">先体验一下 <span aria-hidden="true">→</span></a>
+              <a className="secondary-action" href={githubUrl} target="_blank" rel="noreferrer">
+                查看源码 <ArrowOutIcon />
+              </a>
+            </div>
           </div>
-          <p className="download-note">macOS 14+ · 无需账号 · 本地运行</p>
+
+          <div className="hero-proof" aria-label="圈出位置后，截图直接进入 Codex 对话">
+            <figure className="proof-step proof-source">
+              <div className="proof-image-wrap">
+                <img src="/scenes/codex-mark.png" alt="GitHub 图标在 DoraZoom 官网中被圈出" />
+              </div>
+              <figcaption>圈出位置</figcaption>
+            </figure>
+            <div ref={proofMotionRef} className="proof-transfer" aria-hidden="true">
+              <span className="transfer-thumb"><img src="/scenes/codex-mark.png" alt="" /></span>
+              <svg viewBox="0 0 48 20"><path d="M2 10h40M35 3l7 7-7 7" /></svg>
+            </div>
+            <figure className="proof-step proof-result">
+              <div className="proof-image-wrap">
+                <img src="/scenes/codex-result.png" alt="标注截图已经进入 Codex 对话" />
+              </div>
+              <figcaption>直接进入对话</figcaption>
+            </figure>
+          </div>
         </div>
 
-        <div className="product-shell" id="demo" data-reveal>
-          <div className="demo-toolbar" role="group" aria-label="体验不同功能">
-            {modes.map((item) => (
+        <div className="audience-strip" aria-label="适用对象">
+          {scenarios.map((scenario) => (
+            <div key={scenario.id}>
+              <span>{scenario.audience}</span>
+              <strong>{scenario.title}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="results" className="results" aria-labelledby="results-title">
+        <div className="section-heading">
+          <h2 id="results-title">四个结果，<br />一眼看完。</h2>
+          <p>真实画面，不是功能示意图。</p>
+        </div>
+
+        <div className="results-layout">
+          <figure key={currentScenario.id} className="result-media">
+            <div className="result-image-wrap">
+              <img src={currentScenario.image} alt={currentScenario.alt} />
+            </div>
+            {currentScenario.note && <figcaption>{currentScenario.note}</figcaption>}
+          </figure>
+
+          <div className="result-switcher" role="group" aria-label="选择真实场景">
+            {scenarios.map((scenario) => (
               <button
-                className={`mode-button ${mode === item.id ? "is-active" : ""}`}
-                key={item.id}
+                key={scenario.id}
                 type="button"
-                aria-pressed={mode === item.id}
-                onClick={() => setMode(item.id)}
+                className={activeScenario === scenario.id ? "is-active" : ""}
+                aria-pressed={activeScenario === scenario.id}
+                onClick={() => selectScenario(scenario.id)}
               >
-                <span>{item.label}</span>
-                <kbd>{item.key}</kbd>
+                <span>{scenario.audience}</span>
+                <strong>{scenario.title}</strong>
+                <em>{scenario.detail}</em>
               </button>
             ))}
           </div>
+        </div>
+        <p className="sr-only" aria-live="polite">
+          {currentScenario.audience}：{currentScenario.title}。{currentScenario.detail}
+        </p>
+      </section>
 
-          <div className={`demo-stage mode-${mode}`} ref={stageRef}>
-            <div className="mock-window">
-              <div className="window-bar">
-                <div className="traffic-lights" aria-hidden="true"><i /><i /><i /></div>
-                <div className="window-title">产品复盘 · 7 月</div>
-                <div className="window-actions" aria-hidden="true"><span>•••</span><span>分享</span></div>
-              </div>
-              <div className="workspace">
-                <aside className="sidebar" aria-hidden="true">
-                  <div className="side-title" />
-                  <div className="side-row active" /><div className="side-row" /><div className="side-row short" />
-                  <div className="side-caption" />
-                  <div className="side-row" /><div className="side-row short" />
-                </aside>
-                <div className="canvas">
-                  <div className="canvas-topline">本月，我们找对了增长杠杆</div>
-                  <div className="metric-row">
-                    <div className="metric"><span>活跃用户</span><strong>18.4k</strong><em>+24%</em></div>
-                    <div className="metric"><span>完成率</span><strong>72%</strong><em>+11%</em></div>
-                    <div className="metric"><span>平均时长</span><strong>8m</strong><em>−18%</em></div>
-                  </div>
-                  <div className="chart-card">
-                    <div className="chart-heading"><span>留存趋势</span><small>最近 8 周</small></div>
-                    <div className="chart" aria-label="上升的留存趋势图">
-                      <i style={{ height: "26%" }} /><i style={{ height: "34%" }} /><i style={{ height: "31%" }} />
-                      <i style={{ height: "46%" }} /><i style={{ height: "54%" }} /><i style={{ height: "61%" }} />
-                      <i className="focus-bar" style={{ height: "78%" }} /><i style={{ height: "88%" }} />
-                    </div>
-                  </div>
-                  <div className="insight-row"><span className="insight-dot" /> 新手引导缩短后，第二周留存提升最明显。</div>
+      <section id="tutorial" className="tutorial" aria-labelledby="tutorial-title">
+        <div className="tutorial-shell">
+          <div className="tutorial-heading">
+            <h2 id="tutorial-title">第一次用，<br />只记住四步。</h2>
+            <p>快捷键唤起，直接在当前屏幕完成，不先打开编辑器。</p>
+          </div>
+
+          <aside className="tutorial-first-run" aria-label="首次运行说明">
+            <span>首次运行</span>
+            <p>打开后，DoraZoom 待在菜单栏。第一次触发放大、圈画或截图时，允许“屏幕录制”；授权后若仍无反应，从菜单栏打开“权限”并按提示重启，再按一次快捷键。</p>
+          </aside>
+
+          <ol className="tutorial-steps">
+            {quickStartSteps.map((step) => (
+              <li key={step.number}>
+                <span className="tutorial-step-number">{step.number}</span>
+                <KeyCombo keySet={step.keySet} />
+                <h3>{step.title}</h3>
+                <p>{step.detail}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="tutorial-task-heading">
+            <h3>换个任务，<br />只换第一个快捷键。</h3>
+            <p>⌃ 是 Control。全局快捷键都可以在设置中修改。</p>
+          </div>
+
+          <div className="tutorial-tasks">
+            {taskShortcuts.map((task) => (
+              <article key={task.title}>
+                <div className="task-keysets">
+                  {task.keySets.map((keySet) => (
+                    <span className="task-key-choice" key={keySet.label}>
+                      <KeyCombo keySet={keySet} />
+                      {keySet.caption && <small>{keySet.caption}</small>}
+                    </span>
+                  ))}
                 </div>
-              </div>
-            </div>
-
-            <div className="draw-layer" aria-hidden="true">
-              <i className="draw-underline" /><i className="draw-circle" /><i className="draw-arrow" />
-              <span>关键变化</span>
-            </div>
-
-            <div className="capture-frame" aria-hidden="true">
-              <i /><i /><i /><i />
-              <span>860 × 420</span>
-            </div>
-
-            <div className="recording-ui" aria-hidden="true">
-              <span className="record-dot" /><strong>00:18</strong>
-              <div className="audio-wave"><i /><i /><i /><i /><i /></div>
-            </div>
-
-            <div
-              className={`zoom-lens ${dragging ? "is-dragging" : ""}`}
-              style={{ transform: `translate3d(${lens.x}px, ${lens.y}px, 0)` }}
-              role="slider"
-              tabIndex={mode === "zoom" ? 0 : -1}
-              aria-label="拖动放大镜查看屏幕细节"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(Math.min(100, Math.max(0, (lens.x / 554) * 100)))}
-              aria-valuetext="可移动的放大镜"
-              onPointerDown={onLensPointerDown}
-              onPointerMove={onLensPointerMove}
-              onPointerUp={releaseLens}
-              onPointerCancel={releaseLens}
-              onKeyDown={onLensKeyDown}
-            >
-              <div className="lens-content">
-                <span>完成率</span><strong>72%</strong><em>+11%</em>
-              </div>
-              <div className="lens-handle" aria-hidden="true" />
-            </div>
-
-            <div className="mode-result" aria-live="polite">
-              <span className={`result-icon result-${mode}`} aria-hidden="true" />
-              <strong>{activeMode.result}</strong>
-              <span className="result-hint">{mode === "zoom" ? "拖动光圈试试" : "点击上方切换功能"}</span>
-            </div>
+                <h4>{task.title}</h4>
+                <p>{task.detail}</p>
+              </article>
+            ))}
           </div>
+
+          <details className="shortcut-index">
+            <summary>
+              <strong>查看全部快捷键</strong>
+              <span>按任务查找</span>
+            </summary>
+            <div className="shortcut-groups">
+              {shortcutGroups.map((group) => (
+                <section key={group.title} aria-labelledby={`shortcut-${group.title}`}>
+                  <h3 id={`shortcut-${group.title}`}>{group.title}</h3>
+                  <div>
+                    {group.rows.map((row) => (
+                      <p key={`${group.title}-${row.keySet.label}`}>
+                        <KeyCombo keySet={row.keySet} />
+                        <span>{row.action}</span>
+                      </p>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </details>
         </div>
       </section>
 
-      <section className="audience-strip" aria-label="适用场景">
-        <span>给每一个需要讲清楚的人</span>
-        <div className="audience-list" aria-hidden="true">
-          <b>产品演示</b><i>•</i><b>在线教学</b><i>•</i><b>代码讲解</b><i>•</i><b>教程录制</b>
+      <section id="capabilities" className="capabilities" aria-labelledby="capabilities-title">
+        <div className="capabilities-heading">
+          <h2 id="capabilities-title">它替你省下<br />这些动作。</h2>
+          <p>先说结果，再看能力。</p>
+        </div>
+        <div className="capability-list">
+          {capabilities.map((capability) => <p key={capability}>{capability}</p>)}
         </div>
       </section>
 
-      <section className="purpose-section" id="why">
-        <div className="section-kicker" data-reveal>不是更多工具，是更少打断。</div>
-        <div className="purpose-grid">
-          <h2 data-reveal>你继续讲。<br /><span>DoraZoom 负责让人看见。</span></h2>
-          <p data-reveal>
-            屏幕讲解最怕注意力断线：找菜单、切应用、保存文件、再回到现场。
-            DoraZoom 把高频动作压进熟悉的快捷键里，让表达保持连续。
-          </p>
-        </div>
-        <div className="result-cards">
-          <SpotlightCard className="result-card orange-card" spotlightColor="rgba(255, 255, 255, 0.34)" data-reveal>
-            <div className="card-number">01</div>
-            <div className="focus-demo" aria-hidden="true"><span>看这里</span><i /></div>
-            <div><h3>听众看见重点</h3><p>放大与圈画发生在同一块屏幕上，不需要口头描述坐标。</p></div>
-          </SpotlightCard>
-          <SpotlightCard className="result-card ink-card" spotlightColor="rgba(255, 90, 24, 0.28)" data-reveal>
-            <div className="card-number">02</div>
-            <div className="clipboard-demo" aria-hidden="true"><div>⌘V</div><span>已复制</span></div>
-            <div><h3>结果立刻流转</h3><p>截图直接进入剪贴板，下一秒就能粘贴给同事或 AI。</p></div>
-          </SpotlightCard>
-          <SpotlightCard className="result-card blue-card" spotlightColor="rgba(255, 255, 255, 0.3)" data-reveal>
-            <div className="card-number">03</div>
-            <div className="record-demo" aria-hidden="true"><span /><i /><i /><i /><i /><i /></div>
-            <div><h3>讲解完整留下</h3><p>画面、声音、摄像头和标注一起录下，导出即可继续编辑。</p></div>
-          </SpotlightCard>
-        </div>
-      </section>
-
-      <section className="workflow-section" id="workflow">
-        <div className="workflow-heading" data-reveal>
-          <span className="section-label">一条不被打断的讲解流</span>
-          <h2>按下快捷键，<br />然后继续你的思路。</h2>
-        </div>
-        <div className="flow-list">
-          {flow.map((item) => (
-            <article className="flow-item" key={item.index} data-reveal>
-              <span className="flow-index">{item.index}</span>
-              <div><h3>{item.title}</h3><p>{item.body}</p></div>
-              <kbd>{item.shortcut}</kbd>
-            </article>
-          ))}
-        </div>
-        <div className="shortcut-ticker" aria-label="常用快捷键">
-          <div>
-            <span><kbd>⌃1</kbd> 静态缩放</span><span><kbd>⌃2</kbd> 原比例绘画</span>
-            <span><kbd>⌃5</kbd> 全屏录制</span><span><kbd>⌃6</kbd> 截图复制</span>
-            <span><kbd>⌃8</kbd> 长截图</span><span><kbd>W</kbd> 白板</span><span><kbd>K</kbd> 黑板</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="privacy-section" id="privacy">
-        <div className="privacy-visual" data-reveal aria-hidden="true">
-          <div className="privacy-orbit orbit-one" /><div className="privacy-orbit orbit-two" />
-          <div className="privacy-core"><img src="/dorazoom-icon.png" alt="" width="64" height="64" /><span>只在你的 Mac</span></div>
-          <span className="privacy-chip chip-one">屏幕</span><span className="privacy-chip chip-two">声音</span>
-          <span className="privacy-chip chip-three">剪贴板</span><span className="privacy-chip chip-four">录制</span>
-        </div>
-        <div className="privacy-copy" data-reveal>
-          <span className="section-label">本地优先</span>
-          <h2>你的屏幕，<br />不该绕远路。</h2>
-          <p>DoraZoom 不需要账号，也不把讲解交给云端。权限只在相关功能真正需要时说明和申请。</p>
-          <ul>
-            {localPoints.map((point) => <li key={point}><span aria-hidden="true">✓</span>{point}</li>)}
-          </ul>
-        </div>
-      </section>
-
-      <section className="final-cta" data-reveal>
-        <div className="cta-glow" aria-hidden="true" />
-        <img src="/dorazoom-icon.png" alt="DoraZoom" width="92" height="92" />
-        <h2>下一次讲解，<br />别让重点等你。</h2>
-        <p>下载 DoraZoom，让每一次放大、圈画和截取都跟得上思路。</p>
-        <Magnet wrapperClassName="magnet-wrap final-magnet" padding={80} magnetStrength={10}>
-          <a className="cta-button pressable" href="/DoraZoom.zip" download>
-            <span>下载 macOS 版</span><span aria-hidden="true">↓</span>
+      <footer className="site-footer">
+        <a className="footer-brand" href="#top">
+          <img src="/dorazoom-icon.png" alt="" width="36" height="36" />
+          <span>DoraZoom</span>
+        </a>
+        <div className="footer-actions">
+          <a href={githubUrl} target="_blank" rel="noreferrer">
+            查看源码 <ArrowOutIcon />
           </a>
-        </Magnet>
-        <div className="cta-meta">
-          <small>适用于 macOS 14 及以上 · 个人测试版</small>
-          <a href={githubUrl} target="_blank" rel="noreferrer">在 GitHub 查看源码 <span aria-hidden="true">↗</span></a>
-        </div>
-      </section>
-
-      <footer>
-        <a className="brand footer-brand" href="#top"><img src="/dorazoom-icon.png" alt="" width="32" height="32" />DoraZoom</a>
-        <p>为讲清楚而做。</p>
-        <div className="footer-meta">
-          <a href={githubUrl} target="_blank" rel="noreferrer">GitHub ↗</a>
-          <span>© 2026 DoraZoom</span>
+          <button ref={statusTriggerRef} type="button" onClick={() => setStatusOpen(true)}>
+            当前状态
+          </button>
         </div>
       </footer>
+
+      {statusOpen && (
+        <div className="status-scrim" role="presentation" onPointerDown={() => setStatusOpen(false)}>
+          <section
+            ref={statusPanelRef}
+            className="status-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="status-title"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <header>
+              <h2 id="status-title">当前状态</h2>
+              <button ref={statusCloseRef} type="button" onClick={() => setStatusOpen(false)} aria-label="关闭当前状态面板">
+                <CloseIcon />
+              </button>
+            </header>
+            <ol>
+              <li>自动化证据来自进程内模拟层、测试替身与确定性事件回放。</li>
+              <li>真实权限、真实剪贴板、真实播放器与真实硬件手感尚未完整验证。</li>
+              <li>目前没有 Developer ID 正式分发、公证或公开发布证据。</li>
+            </ol>
+            <a href={githubUrl} target="_blank" rel="noreferrer">
+              在 GitHub 查看源码 <ArrowOutIcon />
+            </a>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

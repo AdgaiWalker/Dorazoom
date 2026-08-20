@@ -8,13 +8,15 @@ final class Phase4StaticZoomLifecycleTests: XCTestCase {
             isDrawingMode: false,
             isSelectingRegion: false,
             activeStrokeTool: nil,
-            zoomFactor: 2,
-            container: CGRect(x: 0, y: 0, width: 500, height: 300)
+            currentTool: .pen,
+            style: .default,
+            canvas: .transparent,
+            environment: .default
         )
 
         XCTAssertEqual(
             lifecycle.activeResources,
-            [.overlayWindow, .hiddenSystemCursor, .zoomPointer, .zoomHUD]
+            [.overlayWindow, .hiddenSystemCursor, .zoomPointer]
         )
 
         lifecycle.close()
