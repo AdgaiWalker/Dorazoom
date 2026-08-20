@@ -42,10 +42,15 @@ final class AppleRecordingInputOverlayTests: XCTestCase {
             RecordingInputOverlayPolicy.presentation(for: safe, options: options),
             .shortcut(label: "⌃⌥⇧⌘K", duration: 1.2)
         )
-        XCTAssertEqual(
-            RecordingInputOverlayPolicy.presentation(for: safeSpecial, options: options),
-            .shortcut(label: "⌥Tab", duration: 1.2)
-        )
+        guard case let .shortcut(specialLabel, specialDuration)? = RecordingInputOverlayPolicy.presentation(
+            for: safeSpecial,
+            options: options
+        ) else {
+            return XCTFail("expected a localized special-key shortcut")
+        }
+        XCTAssertTrue(specialLabel.hasPrefix("⌥"))
+        XCTAssertGreaterThan(specialLabel.count, 1)
+        XCTAssertEqual(specialDuration, 1.2)
 
         for unsafe in [
             RecordingInputEvent.keyDown(key: .character("P"), modifiers: [], uptime: 22, isAuthorized: true),
@@ -80,9 +85,15 @@ final class AppleRecordingInputOverlayTests: XCTestCase {
         )
 
         XCTAssertEqual(timeline.activePresentations(at: 100.2).count, 2)
-        XCTAssertEqual(timeline.activePresentations(at: 100.7), [
-            .shortcut(label: "⌃Escape", duration: 1.2)
-        ])
+        let remaining = timeline.activePresentations(at: 100.7)
+        XCTAssertEqual(remaining.count, 1)
+        guard let presentation = remaining.first,
+              case let .shortcut(label, duration) = presentation else {
+            return XCTFail("expected a localized special-key shortcut")
+        }
+        XCTAssertTrue(label.hasPrefix("⌃"))
+        XCTAssertGreaterThan(label.count, 1)
+        XCTAssertEqual(duration, 1.2)
         XCTAssertEqual(timeline.activePresentations(at: 101.31), [])
     }
 

@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "DoraZoom zeichnet den Mikrofonton nur auf, wenn du ihn für eine Bildschirmaufnahme aktivierst.";
+"NSCameraUsageDescription" = "DoraZoom zeichnet dein Kamerabild nur dann als Bild-in-Bild auf, wenn du es für eine Bildschirmaufnahme aktivierst.";

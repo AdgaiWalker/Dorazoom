@@ -64,7 +64,16 @@ struct DrawingShortcutPolicy: Equatable, Sendable {
 }
 
 enum DrawingShortcutGuide {
-    static let colors = "按 R / G / B / Y / O / P 切换红、绿、蓝、黄、橙、粉画笔。白色和黑色画笔没有默认按键，可从颜色控件选择。"
-    static let canvas = "进入圈画状态后，按 W 进入白板，按 K 进入黑板；再次选择其他画布状态即可返回。W / K 不是全局快捷键，也不需要 Control。"
-    static let text = "进入圈画状态后，按 T 开始左对齐文字，按 Shift+T 开始右对齐文字。点击新位置会提交上一段并开始下一段；按 Esc 结束文字编辑。滚轮或 Command++ / Command+- 调整字号；方向键、删除、选择和粘贴由 macOS 文本系统处理。"
+    static let colors = AppLocalization.string(
+        "drawing_shortcut_guide.colors",
+        defaultValue: "Press R / G / B / Y / O / P to switch the pen to red, green, blue, yellow, orange, or pink. White and black have no default shortcuts; choose them from the color controls."
+    )
+    static let canvas = AppLocalization.string(
+        "drawing_shortcut_guide.canvas",
+        defaultValue: "While drawing, press W for a whiteboard or K for a blackboard. Choose another canvas state to return. W and K are not global shortcuts and do not require Control."
+    )
+    static let text = AppLocalization.string(
+        "drawing_shortcut_guide.text",
+        defaultValue: "While drawing, press T to start left-aligned text or Shift+T for right-aligned text. Clicking a new position commits the current text and starts another. Press Esc to finish editing. Use the scroll wheel or Command++ / Command+- to change the font size. Arrow keys, Delete, selection, and paste are handled by the macOS text system."
+    )
 }

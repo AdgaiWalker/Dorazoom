@@ -173,9 +173,15 @@ final class ModeCoordinator {
         case .toggleRecordingPause:
             switch recordingController.togglePause() {
             case .pause:
-                feedbackAdapter.present(.warning("录制已暂停"))
+                feedbackAdapter.present(.warning(AppLocalization.string(
+                    "recording_feedback.paused",
+                    defaultValue: "Recording paused"
+                )))
             case .resume:
-                feedbackAdapter.present(.warning("录制已继续"))
+                feedbackAdapter.present(.warning(AppLocalization.string(
+                    "recording_feedback.resumed",
+                    defaultValue: "Recording resumed"
+                )))
             case .reject:
                 break
             }

@@ -128,6 +128,26 @@ if [[ -d "$RESOURCE_BUNDLE/Contents/Resources" ]]; then
 else
     cp -R "$RESOURCE_BUNDLE/." "$APP_PATH/Contents/Resources/"
 fi
+
+# SwiftPM's command-line resource copier lowercases the region/script portion
+# of some `.lproj` directory names. Restore canonical BCP-47 casing in the
+# assembled app so Bundle and App Store localization discovery agree on every
+# filesystem, including case-sensitive APFS volumes.
+for localized_dir in "$APP_PATH/Contents/Resources"/*.lproj(N); do
+    localized_name="${localized_dir:t}"
+    canonical_name=""
+    case "$localized_name" in
+        zh-hans.lproj) canonical_name="zh-Hans.lproj" ;;
+        zh-hant.lproj) canonical_name="zh-Hant.lproj" ;;
+        es-es.lproj) canonical_name="es-ES.lproj" ;;
+        pt-br.lproj) canonical_name="pt-BR.lproj" ;;
+    esac
+    if [[ -n "$canonical_name" ]]; then
+        temporary_name="$APP_PATH/Contents/Resources/.canonical-$canonical_name"
+        mv "$localized_dir" "$temporary_name"
+        mv "$temporary_name" "$APP_PATH/Contents/Resources/$canonical_name"
+    fi
+done
 rm -f "$APP_PATH/Contents/Resources/ZoomItIcon.png" "$APP_PATH/Contents/Resources/ZoomItColorIcon.png"
 
 if [[ -f "$ICON_SOURCE" ]] && command -v sips >/dev/null && command -v iconutil >/dev/null; then
@@ -153,6 +173,19 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+        <string>zh-Hant</string>
+        <string>ja</string>
+        <string>ko</string>
+        <string>de</string>
+        <string>fr</string>
+        <string>es-ES</string>
+        <string>es-419</string>
+        <string>pt-BR</string>
+    </array>
     <key>CFBundleDisplayName</key>
     <string>$DISPLAY_NAME</string>
     <key>CFBundleExecutable</key>
@@ -176,9 +209,9 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
     <key>LSUIElement</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>DoraZoom shows your webcam as a picture-in-picture overlay when you enable it for screen recordings.</string>
+    <string>DoraZoom records your camera as a picture-in-picture overlay only when you enable it for a screen recording.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>DoraZoom records your microphone when you enable microphone capture for screen recordings.</string>
+    <string>DoraZoom records your microphone only when you enable microphone audio for a screen recording.</string>
 </dict>
 </plist>
 PLIST

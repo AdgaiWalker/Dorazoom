@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "當你為螢幕錄製啟用麥克風聲音時，DoraZoom 會錄製麥克風音訊。";
+"NSCameraUsageDescription" = "只有當你為螢幕錄製啟用相機時，DoraZoom 才會將相機影像錄製為子母畫面。";

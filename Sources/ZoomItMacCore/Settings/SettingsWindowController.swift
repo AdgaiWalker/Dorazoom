@@ -205,7 +205,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             backing: .buffered,
             defer: false
         )
-        window.title = "DoraZoom 设置"
+        window.title = localized("settings.window.title", "DoraZoom Settings")
         window.contentViewController = splitController
         window.isReleasedWhenClosed = false
         window.minSize = minimumContentSize
@@ -320,8 +320,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         case .recording:
             contentViews = [makeRecordTab()]
         case .permissions:
-            let explanation = makeLabel("查看屏幕录制、辅助功能、输入监控、麦克风和摄像头权限。", wraps: true)
-            let button = NSButton(title: "打开权限中心…", target: self, action: #selector(openPermissionCenter))
+            let explanation = makeLabel(
+                localized(
+                    "settings.permissions.description",
+                    "Review Screen Recording, Accessibility, Input Monitoring, microphone, and camera permissions."
+                ),
+                wraps: true
+            )
+            let button = NSButton(
+                title: localized("settings.permissions.open_center", "Open Permission Center…"),
+                target: self,
+                action: #selector(openPermissionCenter)
+            )
             button.bezelStyle = .rounded
             contentViews = [explanation, button]
         case .advanced:
@@ -357,17 +367,23 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private func makeShortcutsView() -> NSView {
-        let explanation = makeLabel("点击一个快捷键后再输入新的组合。只有录入期间会临时暂停全局热键；按 Escape 取消。", wraps: true)
+        let explanation = makeLabel(
+            localized(
+                "settings.shortcuts.description",
+                "Click a shortcut, then enter a new key combination. Global shortcuts pause only while recording; press Escape to cancel."
+            ),
+            wraps: true
+        )
         let rows = [
-            makeRow([makeLabel("静态缩放："), makeShortcutButton(zoomHotKeyDisplayString(), action: #selector(toggleZoomHotKeyRecording(_:)))]),
-            makeRow([makeLabel("圈画："), makeShortcutButton(drawHotKeyDisplayString(), action: #selector(toggleDrawHotKeyRecording(_:)))]),
-            makeRow([makeLabel("实时缩放："), makeShortcutButton(liveHotKeyDisplayString(), action: #selector(toggleLiveHotKeyRecording(_:)))]),
-            makeRow([makeLabel("截图："), makeShortcutButton(snipHotKeyDisplayString(), action: #selector(toggleSnipHotKeyRecording(_:)))]),
-            makeRow([makeLabel("OCR："), makeShortcutButton(snipOcrHotKeyDisplayString(), action: #selector(toggleSnipOcrHotKeyRecording(_:)))]),
-            makeRow([makeLabel("录制："), makeShortcutButton(recordHotKeyDisplayString(), action: #selector(toggleRecordHotKeyRecording(_:)))]),
-            makeRow([makeLabel("DemoType："), makeShortcutButton(demoTypeHotKeyDisplayString(), action: #selector(toggleDemoTypeHotKeyRecording(_:)))]),
-            makeRow([makeLabel("全景截图："), makeShortcutButton(panoramaHotKeyDisplayString(), action: #selector(togglePanoramaHotKeyRecording(_:)))]),
-            makeRow([makeLabel("倒计时："), makeShortcutButton(breakHotKeyDisplayString(), action: #selector(toggleBreakHotKeyRecording(_:)))])
+            makeRow([makeLabel(localized("settings.shortcuts.zoom", "Static Zoom:")), makeShortcutButton(zoomHotKeyDisplayString(), action: #selector(toggleZoomHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.draw", "Draw:")), makeShortcutButton(drawHotKeyDisplayString(), action: #selector(toggleDrawHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.live_zoom", "Live Zoom:")), makeShortcutButton(liveHotKeyDisplayString(), action: #selector(toggleLiveHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.snip", "Snip:")), makeShortcutButton(snipHotKeyDisplayString(), action: #selector(toggleSnipHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.ocr", "OCR:")), makeShortcutButton(snipOcrHotKeyDisplayString(), action: #selector(toggleSnipOcrHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.record", "Record:")), makeShortcutButton(recordHotKeyDisplayString(), action: #selector(toggleRecordHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.demo_type", "DemoType:")), makeShortcutButton(demoTypeHotKeyDisplayString(), action: #selector(toggleDemoTypeHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.panorama", "Panorama:")), makeShortcutButton(panoramaHotKeyDisplayString(), action: #selector(togglePanoramaHotKeyRecording(_:)))]),
+            makeRow([makeLabel(localized("settings.shortcuts.break_timer", "Break Timer:")), makeShortcutButton(breakHotKeyDisplayString(), action: #selector(toggleBreakHotKeyRecording(_:)))])
         ]
         return makeColumn([explanation] + rows, spacing: 10)
     }
@@ -406,6 +422,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.edgeInsets = NSEdgeInsets(top: 8, left: Self.panelHorizontalInset, bottom: 12, right: Self.panelHorizontalInset)
         return stack
+    }
+
+    private func localized(_ key: String, _ defaultValue: String) -> String {
+        AppLocalization.string(key, defaultValue: defaultValue)
     }
 
     private func makeLabel(_ text: String, wraps: Bool = false) -> NSTextField {
@@ -485,11 +505,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeGeneralTab() -> NSView {
         let help = makeLabel(
-            "DoraZoom runs in the menu bar. Use the Zoom and Draw tabs to set the keyboard shortcuts that activate it.",
+            localized(
+                "settings.general.description",
+                "DoraZoom runs in the menu bar. Use the Zoom and Draw settings to choose the keyboard shortcuts that activate it."
+            ),
             wraps: true
         )
 
-        let launchCheck = NSButton(checkboxWithTitle: "Launch DoraZoom when I log in", target: self, action: #selector(toggleLaunchAtLogin(_:)))
+        let launchCheck = NSButton(
+            checkboxWithTitle: localized("settings.general.launch_at_login", "Launch DoraZoom when I log in"),
+            target: self,
+            action: #selector(toggleLaunchAtLogin(_:))
+        )
         launchCheck.state = settings.launchAtLogin ? .on : .off
         launchCheck.isEnabled = LaunchAtLogin.isAvailable
         if !LaunchAtLogin.isAvailable {
@@ -508,9 +535,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             try LaunchAtLogin.setEnabled(enable)
         } catch {
             let alert = NSAlert()
-            alert.messageText = "Couldn’t update the login item"
-            alert.informativeText = "DoraZoom saved your startup preference and will try again next launch. macOS reported: \(error.localizedDescription)"
-            alert.addButton(withTitle: "OK")
+            alert.messageText = localized("settings.general.login_item_error.title", "Couldn’t update the login item")
+            alert.informativeText = AppLocalization.format(
+                "settings.general.login_item_error.message",
+                defaultValue: "DoraZoom saved your startup preference and will try again next launch. macOS reported: %@",
+                error.localizedDescription
+            )
+            alert.addButton(withTitle: localized("common.ok", "OK"))
             alert.runModal()
         }
     }
@@ -519,7 +550,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeZoomTab() -> NSView {
         let help = makeLabel(
-            "After toggling DoraZoom you can zoom in and out with the mouse wheel or Option+Up and Option+Down, and pan by moving the mouse. Exit zoom mode with Escape or by pressing the right mouse button.",
+            localized(
+                "settings.zoom.description",
+                "After activating DoraZoom, zoom with the mouse wheel or Option+Up and Option+Down, then pan by moving the mouse. Exit zoom mode with Escape or the right mouse button."
+            ),
             wraps: true
         )
 
@@ -528,9 +562,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         hotKeyButton.setButtonType(.momentaryPushIn)
         hotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.hotKeyButton = hotKeyButton
-        let hotKeyRow = makeRow([makeLabel("Zoom Toggle:"), hotKeyButton])
+        let hotKeyRow = makeRow([makeLabel(localized("settings.zoom.shortcut", "Zoom shortcut:")), hotKeyButton])
 
-        let magHelp = makeLabel("Specify the initial level of magnification when zooming in:", wraps: true)
+        let magHelp = makeLabel(localized("settings.zoom.initial_magnification.help", "Choose the initial magnification level:"), wraps: true)
 
         let magPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         magPopup.translatesAutoresizingMaskIntoConstraints = false
@@ -543,10 +577,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         magPopup.selectItem(at: selectedIndex)
         magPopup.target = self
         magPopup.action = #selector(zoomLevelChanged(_:))
-        let magRow = makeRow([makeLabel("Initial magnification:"), magPopup])
+        let magRow = makeRow([makeLabel(localized("settings.zoom.initial_magnification", "Initial magnification:")), magPopup])
 
-        let animateCheck = makeCheckbox("Animate zoom in and zoom out:", action: #selector(animateZoomChanged(_:)), state: settings.animateZoom)
-        let smoothCheck = makeCheckbox("Smooth zoomed image:", action: #selector(smoothImageChanged(_:)), state: settings.smoothImage)
+        let animateCheck = makeCheckbox(localized("settings.zoom.animate", "Animate zooming"), action: #selector(animateZoomChanged(_:)), state: settings.animateZoom)
+        let smoothCheck = makeCheckbox(localized("settings.zoom.smooth_image", "Smooth the zoomed image"), action: #selector(smoothImageChanged(_:)), state: settings.smoothImage)
 
         return makeColumn([help, hotKeyRow, magHelp, magRow, makeCheckboxColumn([animateCheck, smoothCheck])])
     }
@@ -555,7 +589,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeLiveZoomTab() -> NSView {
         let liveHelp = makeLabel(
-            "Live zoom magnifies the live screen so motion and updates stay visible while zoomed. Use the same zoom and pan controls.",
+            localized(
+                "settings.live_zoom.description",
+                "Live Zoom magnifies the live screen, so motion and updates remain visible. Use the same zoom and pan controls."
+            ),
             wraps: true
         )
 
@@ -564,7 +601,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         liveHotKeyButton.setButtonType(.momentaryPushIn)
         liveHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.liveHotKeyButton = liveHotKeyButton
-        let liveHotKeyRow = makeRow([makeLabel("LiveZoom Toggle:"), liveHotKeyButton])
+        let liveHotKeyRow = makeRow([makeLabel(localized("settings.live_zoom.shortcut", "Live Zoom shortcut:")), liveHotKeyButton])
 
         return makeColumn([liveHelp, liveHotKeyRow])
     }
@@ -633,7 +670,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         recordingTarget = target
         activeHotKeyButton = sender
         hotkeyCaptureSession.begin()
-        sender.title = "Type shortcut… (Esc cancels)"
+        sender.title = localized("settings.shortcuts.recording_prompt", "Type shortcut… (Esc cancels)")
         hotKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             guard let self else { return event }
             return self.captureHotKey(event)
@@ -862,7 +899,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private func snipOcrHotKeyDisplayString() -> String {
-        guard settings.snipOcrHotKeyCode != 0 else { return "None" }
+        guard settings.snipOcrHotKeyCode != 0 else { return localized("common.none", "None") }
         return Self.describe(keyCode: settings.snipOcrHotKeyCode, modifiers: NSEvent.ModifierFlags(rawValue: settings.snipOcrHotKeyModifiers))
     }
 
@@ -871,7 +908,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private func demoTypeHotKeyDisplayString() -> String {
-        guard settings.demoTypeHotKeyCode != 0 else { return "None" }
+        guard settings.demoTypeHotKeyCode != 0 else { return localized("common.none", "None") }
         return Self.describe(keyCode: settings.demoTypeHotKeyCode, modifiers: NSEvent.ModifierFlags(rawValue: settings.demoTypeHotKeyModifiers))
     }
 
@@ -883,41 +920,56 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeDrawTab() -> NSView {
         let help = makeLabel(
-            "Once zoomed, enter drawing mode by pressing the left mouse button; exit drawing mode by pressing the right mouse button. Undo with Command-Z or Ctrl+Z and erase all drawing by pressing E.",
+            localized(
+                "settings.draw.description",
+                "While zoomed, press the left mouse button to start drawing and the right mouse button to stop. Undo with Command-Z or Control-Z, and press E to erase all drawing."
+            ),
             wraps: true
         )
 
-        let penSection = makeSectionLabel("Pen Control")
+        let penSection = makeSectionLabel(localized("settings.draw.pen.title", "Pen Control"))
         let penHelp = makeLabel(
-            "Change the pen width with the mouse wheel, the [ and ] keys, or Shift with the up and down arrow keys.",
+            localized(
+                "settings.draw.pen.description",
+                "Change pen width with the mouse wheel, the [ and ] keys, or Shift with the Up and Down Arrow keys."
+            ),
             wraps: true
         )
 
-        let colorsSection = makeSectionLabel("Colors")
+        let colorsSection = makeSectionLabel(localized("settings.draw.colors.title", "Colors"))
         let colorsHelp = makeLabel(
             DrawingShortcutGuide.colors,
             wraps: true
         )
 
-        let highlightSection = makeSectionLabel("Highlight")
+        let highlightSection = makeSectionLabel(localized("settings.draw.highlight.title", "Highlight"))
         let highlightHelp = makeLabel(
-            "Hold Shift with a color key, for example Shift+R, to draw with a translucent highlighter of that color. Press the color key again without Shift to return to a solid pen.",
+            localized(
+                "settings.draw.highlight.description",
+                "Hold Shift with a color key, such as Shift+R, to draw with a translucent highlighter. Press the color key again without Shift to return to a solid pen."
+            ),
             wraps: true
         )
 
-        let privacySection = makeSectionLabel("隐私工具")
+        let privacySection = makeSectionLabel(localized("settings.draw.privacy_tools.title", "Privacy Tools"))
         let privacyHelp = makeLabel(
-            "按 M 切换到模糊笔，按 X 切换到实色遮挡，按 N 添加自动递增的编号标记。它们只在当前圈画会话中保留，并在复制或录制时合成到最终像素；提交前可用 ⌘Z 或 ⌃Z 撤销。",
+            localized(
+                "settings.draw.privacy_tools.description",
+                "Press M for the blur pen, X for a solid redaction, or N to add an automatically numbered marker. These remain only in the current drawing session and are composited into copied or recorded pixels. Undo with Command-Z or Control-Z before sharing."
+            ),
             wraps: true
         )
 
-        let shapesSection = makeSectionLabel("Shapes")
+        let shapesSection = makeSectionLabel(localized("settings.draw.shapes.title", "Shapes"))
         let shapesHelp = makeLabel(
-            "Hold Shift for a line, Control for a rectangle, Tab for an ellipse, or Shift+Control for an arrow while dragging.",
+            localized(
+                "settings.draw.shapes.description",
+                "While dragging, hold Shift for a line, Control for a rectangle, Tab for an ellipse, or Shift+Control for an arrow."
+            ),
             wraps: true
         )
 
-        let screenSection = makeSectionLabel("Screen")
+        let screenSection = makeSectionLabel(localized("settings.draw.screen.title", "Screen"))
         let screenHelp = makeLabel(
             DrawingShortcutGuide.canvas,
             wraps: true
@@ -928,7 +980,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         drawHotKeyButton.setButtonType(.momentaryPushIn)
         drawHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.drawHotKeyButton = drawHotKeyButton
-        let drawHotKeyRow = makeRow([makeLabel("Draw w/out Zoom:"), drawHotKeyButton])
+        let drawHotKeyRow = makeRow([makeLabel(localized("settings.draw.shortcut", "Draw without zoom:")), drawHotKeyButton])
 
         return makeColumn([
             help,
@@ -952,7 +1004,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeTypeTab() -> NSView {
         let help = makeLabel(
-            DrawingShortcutGuide.text + " 文字颜色使用当前画笔颜色。",
+            DrawingShortcutGuide.text + " " + localized("settings.type.color_note", "Text uses the current pen color."),
             wraps: true
         )
 
@@ -960,10 +1012,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         fontSampleLabel = sample
         updateFontSample()
 
-        let fontButton = NSButton(title: "Select Font…", target: self, action: #selector(selectFont(_:)))
+        let fontButton = NSButton(title: localized("settings.type.select_font", "Select Font…"), target: self, action: #selector(selectFont(_:)))
         fontButton.bezelStyle = .rounded
 
-        let fontRow = makeRow([makeLabel("Typing font:"), fontButton])
+        let fontRow = makeRow([makeLabel(localized("settings.type.font", "Typing font:")), fontButton])
 
         return makeColumn([help, fontRow, sample])
     }
@@ -972,7 +1024,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeBreakTab() -> NSView {
         let help = makeLabel(
-            "Press the break timer shortcut to show a full-screen countdown. Use the arrow keys or mouse wheel to adjust time, color keys to change timer color, and Escape or right-click to exit.",
+            localized(
+                "settings.break_timer.description",
+                "Press the break timer shortcut to show a full-screen countdown. Use the Arrow keys or mouse wheel to adjust the time, color keys to change the timer color, and Escape or right-click to exit."
+            ),
             wraps: true
         )
 
@@ -994,13 +1049,23 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         updateBreakDurationLabel()
         let durationControls = makeRow([durationStepper, durationLabel])
 
-        let expiredCheck = makeCheckbox("Show Time Elapsed After Expiration:", action: #selector(breakShowExpiredChanged(_:)), state: settings.breakShowExpiredTime)
+        let expiredCheck = makeCheckbox(localized("settings.break_timer.show_elapsed", "Show elapsed time after expiration"), action: #selector(breakShowExpiredChanged(_:)), state: settings.breakShowExpiredTime)
 
         let textColorPopup = makeColorPopup(selected: settings.breakTextColorRGB, action: #selector(breakTextColorChanged(_:)))
         let backgroundColorPopup = makeColorPopup(selected: settings.breakBackgroundColorRGB, action: #selector(breakBackgroundColorChanged(_:)))
 
         let positionPopup = makeIndexedPopup(
-            titles: ["Top-left", "Top", "Top-right", "Left", "Center", "Right", "Bottom-left", "Bottom", "Bottom-right"],
+            titles: [
+                localized("position.top_left", "Top Left"),
+                localized("position.top", "Top"),
+                localized("position.top_right", "Top Right"),
+                localized("position.left", "Left"),
+                localized("position.center", "Center"),
+                localized("position.right", "Right"),
+                localized("position.bottom_left", "Bottom Left"),
+                localized("position.bottom", "Bottom"),
+                localized("position.bottom_right", "Bottom Right")
+            ],
             selected: settings.breakTimerPosition,
             action: #selector(breakPositionChanged(_:))
         )
@@ -1015,14 +1080,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         opacityPopup.target = self
         opacityPopup.action = #selector(breakOpacityChanged(_:))
 
-        let soundCheck = makeCheckbox("Play Sound on Expiration:", action: #selector(breakPlaySoundChanged(_:)), state: settings.breakPlaySound)
+        let soundCheck = makeCheckbox(localized("settings.break_timer.play_sound", "Play a sound on expiration"), action: #selector(breakPlaySoundChanged(_:)), state: settings.breakPlaySound)
         let soundField = makePathField(settings.breakSoundFile)
         breakSoundFileField = soundField
-        let soundBrowse = NSButton(title: "Browse…", target: self, action: #selector(chooseBreakSoundFile(_:)))
+        let soundBrowse = NSButton(title: localized("common.browse", "Browse…"), target: self, action: #selector(chooseBreakSoundFile(_:)))
         soundBrowse.bezelStyle = .rounded
 
         let backgroundModePopup = makeIndexedPopup(
-            titles: ["No image", "Faded desktop", "Image file"],
+            titles: [
+                localized("settings.break_timer.backdrop.none", "No Image"),
+                localized("settings.break_timer.backdrop.faded_desktop", "Faded Desktop"),
+                localized("settings.break_timer.backdrop.image_file", "Image File")
+            ],
             selected: settings.breakBackgroundMode,
             action: #selector(breakBackgroundModeChanged(_:))
         )
@@ -1030,22 +1099,22 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         backgroundModePopup.widthAnchor.constraint(equalToConstant: 150).isActive = true
         let backgroundField = makePathField(settings.breakBackgroundFile)
         breakBackgroundFileField = backgroundField
-        let backgroundBrowse = NSButton(title: "Browse…", target: self, action: #selector(chooseBreakBackgroundFile(_:)))
+        let backgroundBrowse = NSButton(title: localized("common.browse", "Browse…"), target: self, action: #selector(chooseBreakBackgroundFile(_:)))
         backgroundBrowse.bezelStyle = .rounded
         breakBackgroundBrowseButton = backgroundBrowse
-        let stretchCheck = makeCheckbox("Scale to screen:", action: #selector(breakBackgroundStretchChanged(_:)), state: settings.breakBackgroundStretch)
+        let stretchCheck = makeCheckbox(localized("settings.break_timer.scale_to_screen", "Scale to screen"), action: #selector(breakBackgroundStretchChanged(_:)), state: settings.breakBackgroundStretch)
         breakBackgroundStretchCheckbox = stretchCheck
 
         // A single grid keeps every label/control pair in aligned columns:
         // column 0 = right-aligned labels, column 1 = primary control,
         // column 2 = secondary label, column 3 = secondary control.
         let grid = makeFormGrid([
-            [makeLabel("Start Timer:"), hotKeyButton, makeLabel("Duration:"), durationControls],
-            [makeLabel("Timer color:"), textColorPopup, makeLabel("Background:"), backgroundColorPopup],
-            [makeLabel("Position:"), positionPopup, makeLabel("Opacity:"), opacityPopup],
-            [makeLabel("Backdrop:"), backgroundModePopup, stretchCheck],
-            [makeLabel("Image file:"), backgroundField, backgroundBrowse],
-            [makeLabel("Sound:"), soundField, soundBrowse]
+            [makeLabel(localized("settings.break_timer.shortcut", "Start timer:")), hotKeyButton, makeLabel(localized("settings.break_timer.duration", "Duration:")), durationControls],
+            [makeLabel(localized("settings.break_timer.timer_color", "Timer color:")), textColorPopup, makeLabel(localized("settings.break_timer.background_color", "Background:")), backgroundColorPopup],
+            [makeLabel(localized("settings.break_timer.position", "Position:")), positionPopup, makeLabel(localized("settings.break_timer.opacity", "Opacity:")), opacityPopup],
+            [makeLabel(localized("settings.break_timer.backdrop", "Backdrop:")), backgroundModePopup, stretchCheck],
+            [makeLabel(localized("settings.break_timer.image_file", "Image file:")), backgroundField, backgroundBrowse],
+            [makeLabel(localized("settings.break_timer.sound", "Sound:")), soundField, soundBrowse]
         ])
 
         updateBreakBackgroundControlsEnabled()
@@ -1057,11 +1126,21 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private func updateBreakDurationLabel() {
-        breakDurationLabel?.stringValue = "\(settings.breakDurationMinutes) minutes"
+        let key = settings.breakDurationMinutes == 1
+            ? "settings.break_timer.minute"
+            : "settings.break_timer.minutes"
+        let defaultValue = settings.breakDurationMinutes == 1
+            ? "%d minute"
+            : "%d minutes"
+        breakDurationLabel?.stringValue = AppLocalization.format(
+            key,
+            defaultValue: defaultValue,
+            settings.breakDurationMinutes
+        )
     }
 
     private func makePathField(_ path: String) -> NSTextField {
-        let field = NSTextField(labelWithString: path.isEmpty ? "No file selected" : path)
+        let field = NSTextField(labelWithString: path.isEmpty ? localized("common.no_file_selected", "No file selected") : path)
         field.translatesAutoresizingMaskIntoConstraints = false
         field.lineBreakMode = .byTruncatingMiddle
         field.widthAnchor.constraint(equalToConstant: 220).isActive = true
@@ -1072,7 +1151,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         let popup = NSPopUpButton(frame: .zero, pullsDown: false)
         popup.translatesAutoresizingMaskIntoConstraints = false
         for option in Self.breakColorOptions {
-            popup.addItem(withTitle: option.name)
+            popup.addItem(withTitle: localized(option.key, option.defaultName))
             popup.lastItem?.representedObject = Int(option.rgb)
         }
         let selectedIndex = Self.breakColorOptions.firstIndex { $0.rgb == selected } ?? 0
@@ -1130,7 +1209,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.audio]
-        panel.title = "DoraZoom: Specify Sound File"
+        panel.title = localized("settings.break_timer.sound_picker.title", "DoraZoom: Choose Sound File")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         settings.breakSoundFile = url.path
         breakSoundFileField?.stringValue = url.path
@@ -1148,7 +1227,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.image]
-        panel.title = "DoraZoom: Specify Background File"
+        panel.title = localized("settings.break_timer.background_picker.title", "DoraZoom: Choose Background Image")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         settings.breakBackgroundFile = url.path
         breakBackgroundFileField?.stringValue = url.path
@@ -1160,22 +1239,24 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         persist()
     }
 
-    private static let breakColorOptions: [(name: String, rgb: UInt32)] = [
-        ("Red", 0xFF0000),
-        ("Green", 0x00FF00),
-        ("Blue", 0x0000FF),
-        ("Orange", 0xFFA500),
-        ("Yellow", 0xFFFF00),
-        ("Pink", 0xFF69B4),
-        ("White", 0xFFFFFF),
-        ("Black", 0x000000)
+    private static let breakColorOptions: [(key: String, defaultName: String, rgb: UInt32)] = [
+        ("color.red", "Red", 0xFF0000),
+        ("color.green", "Green", 0x00FF00),
+        ("color.blue", "Blue", 0x0000FF),
+        ("color.orange", "Orange", 0xFFA500),
+        ("color.yellow", "Yellow", 0xFFFF00),
+        ("color.pink", "Pink", 0xFF69B4),
+        ("color.white", "White", 0xFFFFFF),
+        ("color.black", "Black", 0x000000)
     ]
 
     // MARK: - Snip tab
 
     private func makeSnipTab() -> NSView {
         let help = makeLabel(
-            """
+            localized(
+                "settings.snip.description",
+                """
             While zoomed, press Command+S to save the entire viewport to a file or Command+C to copy it to the clipboard.
 
             To capture part of the screen at any time, press the snip shortcut and drag a rectangle. Releasing the drag copies the selected region to the clipboard. Hold Shift with the shortcut to save the region to a file instead. Press Escape to cancel.
@@ -1183,7 +1264,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             The OCR shortcut works the same way, but recognizes the text in the selected region and copies that text to the clipboard.
 
             Saved images are PNG files named with the current date and time.
-            """,
+            """
+            ),
             wraps: true
         )
 
@@ -1192,23 +1274,23 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         snipHotKeyButton.setButtonType(.momentaryPushIn)
         snipHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.snipHotKeyButton = snipHotKeyButton
-        let snipHotKeyRow = makeRow([makeLabel("Snip Toggle:"), snipHotKeyButton])
+        let snipHotKeyRow = makeRow([makeLabel(localized("settings.snip.shortcut", "Snip shortcut:")), snipHotKeyButton])
 
         let snipOcrHotKeyButton = NSButton(title: snipOcrHotKeyDisplayString(), target: self, action: #selector(toggleSnipOcrHotKeyRecording(_:)))
         snipOcrHotKeyButton.bezelStyle = .rounded
         snipOcrHotKeyButton.setButtonType(.momentaryPushIn)
         snipOcrHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.snipOcrHotKeyButton = snipOcrHotKeyButton
-        let snipOcrHotKeyRow = makeRow([makeLabel("Text Toggle:"), snipOcrHotKeyButton])
+        let snipOcrHotKeyRow = makeRow([makeLabel(localized("settings.snip.ocr_shortcut", "OCR shortcut:")), snipOcrHotKeyButton])
 
         let copyOnSaveCheck = makeCheckbox(
-            "Also copy to clipboard when saving to a file:",
+            localized("settings.snip.copy_when_saving", "Also copy to the clipboard when saving a file"),
             action: #selector(copySnipToClipboardOnSaveChanged(_:)),
             state: settings.copySnipToClipboardOnSave
         )
 
         let saveToDirectoryCheck = makeCheckbox(
-            "Save to a folder instead of asking each time:",
+            localized("settings.snip.save_to_folder", "Save to a folder instead of asking each time"),
             action: #selector(saveSnipToDirectoryChanged(_:)),
             state: settings.saveSnipToDirectory
         )
@@ -1218,10 +1300,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         directoryField.lineBreakMode = .byTruncatingMiddle
         directoryField.widthAnchor.constraint(equalToConstant: 380).isActive = true
         snipSaveDirectoryField = directoryField
-        let directoryBrowse = NSButton(title: "Browse…", target: self, action: #selector(chooseSnipSaveDirectory(_:)))
+        let directoryBrowse = NSButton(title: localized("common.browse", "Browse…"), target: self, action: #selector(chooseSnipSaveDirectory(_:)))
         directoryBrowse.bezelStyle = .rounded
         snipSaveDirectoryBrowseButton = directoryBrowse
-        let directoryRow = makeIndentedColumn([makeRow([makeLabel("Folder:"), directoryField, directoryBrowse])])
+        let directoryRow = makeIndentedColumn([makeRow([makeLabel(localized("settings.snip.folder", "Folder:")), directoryField, directoryBrowse])])
 
         updateSnipSaveDirectoryControlsEnabled()
 
@@ -1257,8 +1339,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        panel.prompt = "Choose"
-        panel.title = "DoraZoom: Choose Snip Folder"
+        panel.prompt = localized("common.choose", "Choose")
+        panel.title = localized("settings.snip.folder_picker.title", "DoraZoom: Choose Snip Folder")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         settings.snipSaveDirectory = url.path
         snipSaveDirectoryField?.stringValue = url.path
@@ -1269,11 +1351,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeRecordTab() -> NSView {
         let help = makeLabel(
-            """
+            localized(
+                "settings.record.description",
+                """
             Press the record shortcut to record the whole screen to a MOV file; hold Shift with the shortcut to drag a rectangle and record just that region. Press the shortcut again to stop, then choose where to save the recording.
 
             Enable system audio to capture what you hear, and choose a microphone to also record your voice. Microphone recording requires the bundled app and microphone permission.
-            """,
+            """
+            ),
             wraps: true
         )
 
@@ -1282,24 +1367,24 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         recordHotKeyButton.setButtonType(.momentaryPushIn)
         recordHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.recordHotKeyButton = recordHotKeyButton
-        let recordHotKeyRow = makeRow([makeLabel("Record Toggle:"), recordHotKeyButton])
+        let recordHotKeyRow = makeRow([makeLabel(localized("settings.record.shortcut", "Record shortcut:")), recordHotKeyButton])
 
-        let systemAudioCheck = makeCheckbox("Capture system audio:", action: #selector(recordSystemAudioChanged(_:)), state: settings.recordSystemAudio)
+        let systemAudioCheck = makeCheckbox(localized("settings.record.system_audio", "Capture system audio"), action: #selector(recordSystemAudioChanged(_:)), state: settings.recordSystemAudio)
 
-        let micCheck = makeCheckbox("Capture audio input:", action: #selector(recordMicrophoneChanged(_:)), state: settings.recordMicrophone)
+        let micCheck = makeCheckbox(localized("settings.record.microphone", "Capture microphone audio"), action: #selector(recordMicrophoneChanged(_:)), state: settings.recordMicrophone)
 
         let clickCheck = makeCheckbox(
-            "显示鼠标点击",
+            localized("settings.record.mouse_clicks", "Show mouse clicks"),
             action: #selector(recordMouseClicksChanged(_:)),
             state: settings.recordMouseClicks
         )
         let shortcutCheck = makeCheckbox(
-            "显示快捷键（不记录普通文字）",
+            localized("settings.record.shortcut_keys", "Show shortcuts (never ordinary typing)"),
             action: #selector(recordShortcutKeysChanged(_:)),
             state: settings.recordShortcutKeys
         )
 
-        let windNoiseCheck = makeCheckbox("Noise cancellation:", action: #selector(recordNoiseCancellationChanged(_:)), state: settings.recordNoiseCancellation)
+        let windNoiseCheck = makeCheckbox(localized("settings.record.noise_cancellation", "Noise cancellation"), action: #selector(recordNoiseCancellationChanged(_:)), state: settings.recordNoiseCancellation)
         noiseCancellationCheckbox = windNoiseCheck
 
         let micPopup = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -1319,7 +1404,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         micPopup.isEnabled = settings.recordMicrophone
         micPopup.widthAnchor.constraint(equalToConstant: 220).isActive = true
         microphonePopup = micPopup
-        let micDeviceRow = makeRow([makeLabel("Microphone:"), micPopup])
+        let micDeviceRow = makeRow([makeLabel(localized("settings.record.microphone_device", "Microphone:")), micPopup])
         let micOptions = makeIndentedColumn([windNoiseCheck, micDeviceRow])
         updateMicrophoneOptionControls()
 
@@ -1332,22 +1417,31 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private func makeAdvancedRecordingView() -> NSView {
-        let heading = makeSectionLabel("高级录制")
-        let format = makeLabel("日常录制默认使用 MOV / H.264 / AAC；MP4、GIF 和复杂编辑保留在高级路径。", wraps: true)
-        let trimButton = NSButton(title: "打开高级编辑器…", target: self, action: #selector(openTrimEditor(_:)))
+        let heading = makeSectionLabel(localized("settings.advanced_recording.title", "Advanced Recording"))
+        let format = makeLabel(
+            localized(
+                "settings.advanced_recording.description",
+                "Standard recordings use MOV / H.264 / AAC. MP4, GIF, and more complex editing are available in the advanced workflow."
+            ),
+            wraps: true
+        )
+        let trimButton = NSButton(title: localized("settings.advanced_recording.open_editor", "Open Advanced Editor…"), target: self, action: #selector(openTrimEditor(_:)))
         trimButton.bezelStyle = .rounded
-        let trimRow = makeRow([makeLabel("编辑已有视频："), trimButton])
+        let trimRow = makeRow([makeLabel(localized("settings.advanced_recording.edit_video", "Edit an existing video:")), trimButton])
         return makeColumn([heading, format] + makeWebcamRows() + [trimRow], spacing: 10)
     }
 
     private func makeAdvancedCaptureView() -> NSView {
-        let heading = makeSectionLabel("高级截图")
+        let heading = makeSectionLabel(localized("settings.advanced_capture.title", "Advanced Capture"))
         let explanation = makeLabel(
-            "“鼠标所在窗口截图”会直接复制鼠标下最前方的普通窗口，不会创建本地文件。",
+            localized(
+                "settings.advanced_capture.description",
+                "Capture Window Under Pointer copies the frontmost standard window beneath the pointer without creating a local file."
+            ),
             wraps: true
         )
         let shadow = makeCheckbox(
-            "保留窗口阴影",
+            localized("settings.advanced_capture.include_shadow", "Include window shadow"),
             action: #selector(includeWindowShadowChanged(_:)),
             state: settings.includeWindowShadow
         )
@@ -1363,13 +1457,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makePanoramaTab() -> NSView {
         let help = makeLabel(
+            localized(
+                "settings.panorama.description",
+                """
+            Press the panorama shortcut and drag a rectangle over scrollable content (for example, a long web page or document). DoraZoom then captures the region repeatedly while you scroll.
+
+            Scroll smoothly in one direction—vertically or horizontally—and press the shortcut again to finish. The captured frames are aligned and stitched into a single tall or wide image.
+
+            The base shortcut copies the stitched panorama to the clipboard; hold Shift with the shortcut to save it as a PNG file instead.
             """
-            Press the panorama shortcut and drag a rectangle over scrollable content (for example a long web page or document). DoraZoom then captures the region repeatedly while you scroll.
-
-            Scroll smoothly in one direction — vertically or horizontally — and press the shortcut again to finish. The captured frames are aligned and stitched into a single tall (or wide) image.
-
-            The base shortcut copies the stitched panorama to the clipboard; hold Shift with the shortcut to save it to a PNG file instead.
-            """,
+            ),
             wraps: true
         )
 
@@ -1378,7 +1475,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         panoramaHotKeyButton.setButtonType(.momentaryPushIn)
         panoramaHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.panoramaHotKeyButton = panoramaHotKeyButton
-        let panoramaHotKeyRow = makeRow([makeLabel("Panorama Toggle:"), panoramaHotKeyButton])
+        let panoramaHotKeyRow = makeRow([makeLabel(localized("settings.panorama.shortcut", "Panorama shortcut:")), panoramaHotKeyButton])
 
         return makeColumn([help, panoramaHotKeyRow])
     }
@@ -1428,12 +1525,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     private func updateMicrophoneOptionControls() {
         microphonePopup?.isEnabled = settings.recordMicrophone
         let supported = settings.recordMicrophone && AudioDevices.supportsWindNoiseRemoval(deviceID: settings.microphoneDeviceID)
-        noiseCancellationCheckbox?.title = supported ? "Noise cancellation:" : "Noise cancellation (not supported by selected microphone):"
+        noiseCancellationCheckbox?.title = supported
+            ? localized("settings.record.noise_cancellation", "Noise cancellation")
+            : localized("settings.record.noise_cancellation.unsupported", "Noise cancellation (not supported by this microphone)")
         noiseCancellationCheckbox?.isEnabled = supported
         noiseCancellationCheckbox?.state = (settings.recordNoiseCancellation && supported) ? .on : .off
         noiseCancellationCheckbox?.toolTip = supported
-            ? "Uses AVFoundation wind noise removal for the selected microphone."
-            : "Wind noise removal requires macOS 15 and a microphone that supports it."
+            ? localized("settings.record.noise_cancellation.supported_help", "Uses AVFoundation wind noise removal for the selected microphone.")
+            : localized("settings.record.noise_cancellation.unsupported_help", "Wind noise removal requires macOS 15 and a compatible microphone.")
     }
 
     @objc private func openTrimEditor(_ sender: NSButton) {
@@ -1443,7 +1542,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     // MARK: - Webcam controls
 
     private func makeWebcamRows() -> [NSView] {
-        let heading = makeLabel("Webcam overlay:")
+        let heading = makeLabel(localized("settings.webcam.title", "Camera overlay"))
         heading.font = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
 
         let enableCheck = makeCheckbox("", action: #selector(webcamEnabledChanged(_:)), state: settings.webcamEnabled)
@@ -1464,11 +1563,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         let positionPopup = NSPopUpButton(frame: .zero, pullsDown: false)
         positionPopup.translatesAutoresizingMaskIntoConstraints = false
         for item in [
-            ("Top-left", 0),
-            ("Top-right", 1),
-            ("Center", 4),
-            ("Bottom-left", 2),
-            ("Bottom-right", 3)
+            (localized("position.top_left", "Top Left"), 0),
+            (localized("position.top_right", "Top Right"), 1),
+            (localized("position.center", "Center"), 4),
+            (localized("position.bottom_left", "Bottom Left"), 2),
+            (localized("position.bottom_right", "Bottom Right"), 3)
         ] {
             positionPopup.addItem(withTitle: item.0)
             positionPopup.lastItem?.representedObject = item.1
@@ -1481,14 +1580,25 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         webcamPositionPopup = positionPopup
 
         let sizePopup = makeIndexedPopup(
-            titles: ["Small", "Medium", "Large", "X-Large", "Full screen"],
+            titles: [
+                localized("size.small", "Small"),
+                localized("size.medium", "Medium"),
+                localized("size.large", "Large"),
+                localized("size.extra_large", "Extra Large"),
+                localized("size.full_screen", "Full Screen")
+            ],
             selected: settings.webcamSize,
             action: #selector(webcamSizeChanged(_:))
         )
         webcamSizePopup = sizePopup
 
         let shapePopup = makeIndexedPopup(
-            titles: ["Rectangle", "Rounded rectangle", "Rounded square", "Circle"],
+            titles: [
+                localized("shape.rectangle", "Rectangle"),
+                localized("shape.rounded_rectangle", "Rounded Rectangle"),
+                localized("shape.rounded_square", "Rounded Square"),
+                localized("shape.circle", "Circle")
+            ],
             selected: settings.webcamShape,
             action: #selector(webcamShapeChanged(_:))
         )
@@ -1503,8 +1613,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         // A grid keeps the two placement/appearance columns aligned so the
         // Position and Shape labels (and their popups) line up vertically.
         let webcamGrid = makeFormGrid([
-            [makeLabel("Camera:"), devicePopup, makeLabel("Position:"), positionPopup],
-            [makeLabel("Size:"), sizePopup, makeLabel("Shape:"), shapePopup]
+            [makeLabel(localized("settings.webcam.camera", "Camera:")), devicePopup, makeLabel(localized("settings.webcam.position", "Position:")), positionPopup],
+            [makeLabel(localized("settings.webcam.size", "Size:")), sizePopup, makeLabel(localized("settings.webcam.shape", "Shape:")), shapePopup]
         ])
 
         updateWebcamControlsEnabled()
@@ -1572,7 +1682,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         // Render the sample in the actually-selected font so choosing a new font
         // is reflected immediately (it previously always used the system font).
         fontSampleLabel?.font = font
-        fontSampleLabel?.stringValue = "Sample — \(font.displayName ?? font.fontName) \(Int(settings.typingFontSize))pt"
+        fontSampleLabel?.stringValue = AppLocalization.format(
+            "settings.type.sample",
+            defaultValue: "Sample — %@ %d pt",
+            font.displayName ?? font.fontName,
+            Int(settings.typingFontSize)
+        )
     }
 
     /// Font used for the Type tab's live "Sample" preview. Uses the selected
@@ -1605,12 +1720,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     private func makeDemoTypeTab() -> NSView {
         let help = makeLabel(
-            "DemoType has DoraZoom type text specified in the input file when you enter the DemoType toggle. Simply separate snippets with the [end] keyword, or you can insert text from the clipboard if it is prefixed with the [start].",
+            localized(
+                "settings.demo_type.description",
+                "DemoType types text from an input file when you activate its shortcut. Separate snippets with [end], or insert clipboard text after a [start] prefix."
+            ),
             wraps: true
         )
 
         let controlsHelp = makeLabel(
-            """
+            localized(
+                "settings.demo_type.commands_help",
+                """
             - Insert pauses with the [pause:n] keyword where 'n' is seconds.
             - Send text via the clipboard with [paste] and [/paste].
             - Send keystrokes with [enter], [up], [down], [left], and [right].
@@ -1618,7 +1738,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             You can have DoraZoom send text automatically, or select the option to drive input with typing. When driving input, your key releases advance the script. Press Escape to stop.
 
             When you reach the end of the file, DoraZoom reloads the file and starts at the beginning. Enter the hotkey with Shift toggled to step back to the last [end].
-            """,
+            """
+            ),
             wraps: true
         )
 
@@ -1627,20 +1748,29 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         demoTypeHotKeyButton.setButtonType(.momentaryPushIn)
         demoTypeHotKeyButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
         self.demoTypeHotKeyButton = demoTypeHotKeyButton
-        let hotKeyRow = makeRow([makeLabel("DemoType toggle:"), demoTypeHotKeyButton])
+        let hotKeyRow = makeRow([makeLabel(localized("settings.demo_type.shortcut", "DemoType shortcut:")), demoTypeHotKeyButton])
 
         let fileField = makePathField(settings.demoTypeFile)
         demoTypeFileField = fileField
-        let browseButton = NSButton(title: "...", target: self, action: #selector(chooseDemoTypeFile(_:)))
+        let browseButton = NSButton(
+            title: localized("common.browse", "Browse…"),
+            target: self,
+            action: #selector(chooseDemoTypeFile(_:))
+        )
         browseButton.bezelStyle = .rounded
-        let fileRow = makeRow([makeLabel("Input file:"), fileField, browseButton])
+        let fileRow = makeRow([makeLabel(localized("settings.demo_type.input_file", "Input file:")), fileField, browseButton])
 
         let speedSlider = NSSlider(value: Double(min(max(settings.demoTypeSpeed, 10), 100)), minValue: 10, maxValue: 100, target: self, action: #selector(demoTypeSpeedChanged(_:)))
         speedSlider.translatesAutoresizingMaskIntoConstraints = false
         speedSlider.widthAnchor.constraint(equalToConstant: 240).isActive = true
-        let speedRow = makeRow([makeLabel("DemoType typing speed:"), makeLabel("Slow"), speedSlider, makeLabel("Fast")])
+        let speedRow = makeRow([
+            makeLabel(localized("settings.demo_type.typing_speed", "Typing speed:")),
+            makeLabel(localized("settings.demo_type.speed.slow", "Slow")),
+            speedSlider,
+            makeLabel(localized("settings.demo_type.speed.fast", "Fast"))
+        ])
 
-        let userDrivenCheck = makeCheckbox("Drive input with typing:", action: #selector(demoTypeUserDrivenChanged(_:)), state: settings.demoTypeUserDriven)
+        let userDrivenCheck = makeCheckbox(localized("settings.demo_type.drive_with_typing", "Drive input with typing"), action: #selector(demoTypeUserDrivenChanged(_:)), state: settings.demoTypeUserDriven)
 
         return makeColumn([help, controlsHelp, hotKeyRow, fileRow, speedRow, userDrivenCheck], spacing: 8)
     }
@@ -1649,7 +1779,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.title = "DoraZoom: Specify DemoType File"
+        panel.title = localized("settings.demo_type.file_picker.title", "DoraZoom: Choose DemoType File")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         settings.demoTypeFile = url.path
         demoTypeFileField?.stringValue = url.path
@@ -1686,7 +1816,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private static func keyName(forKeyCode code: Int) -> String {
-        keyNames[code] ?? "Key \(code)"
+        keyNames[code] ?? AppLocalization.format(
+            "settings.shortcuts.unknown_key",
+            defaultValue: "Key %d",
+            code
+        )
     }
 
     private static let keyNames: [Int: String] = [

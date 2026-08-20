@@ -63,6 +63,7 @@ final class Phase5RecordingTargetRequestPlanTests: XCTestCase {
             )
         ) { error in
             XCTAssertEqual(error as? RecordingCaptureRequestPlanError, .windowNotFound(404))
+            XCTAssertTrue(error.localizedDescription.contains("404"))
         }
     }
 }

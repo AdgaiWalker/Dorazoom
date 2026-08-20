@@ -12,17 +12,17 @@ final class AppleTransientFeedbackTests: XCTestCase {
                 environment: environment
             ),
             FeedbackPresentationAdapter.plan(for: .completed(.screenshotCopied), environment: environment),
-            FeedbackPresentationAdapter.plan(for: .warning("麦克风没有声音"), environment: environment),
-            FeedbackPresentationAdapter.plan(for: .error("录制无法开始"), environment: environment)
+            FeedbackPresentationAdapter.plan(for: .warning("No microphone audio"), environment: environment),
+            FeedbackPresentationAdapter.plan(for: .error("Recording could not start"), environment: environment)
         ]
 
         XCTAssertEqual(plans.map(\.duration), [0.9, 1.0, 1.2, 1.6, 2.4])
         XCTAssertEqual(plans.map(\.kind), [.mode, .tool, .completion, .warning, .error])
         XCTAssertTrue(plans.allSatisfy { $0.capturePolicy == .excluded })
         XCTAssertTrue(plans.allSatisfy { $0.palette == .hidden })
-        XCTAssertEqual(plans[0].text, "静态缩放")
-        XCTAssertEqual(plans[1].text, "箭头 · 红色 · 5 pt　Esc 退出")
-        XCTAssertEqual(plans[2].text, "已复制 · ⌘V 或 ⌃V 粘贴")
+        XCTAssertEqual(plans[0].text, "Static Zoom")
+        XCTAssertEqual(plans[1].text, "Arrow · Red · 5 pt · Esc to exit")
+        XCTAssertEqual(plans[2].text, "Copied · Paste with ⌘V or ⌃V")
     }
 
     func testAccessibilityEnvironmentProducesIndependentMotionMaterialAndContrastFallbacks() {
@@ -51,6 +51,23 @@ final class AppleTransientFeedbackTests: XCTestCase {
         XCTAssertTrue(plan.usesMonospacedDigits)
     }
 
+    func testFormattedCompletionAndColorNamesUseEnglishDefaults() {
+        let plan = FeedbackPresentationAdapter.plan(
+            for: .completed(.ocrCopied(characterCount: 42)),
+            environment: .default
+        )
+        let singular = FeedbackPresentationAdapter.plan(
+            for: .completed(.ocrCopied(characterCount: 1)),
+            environment: .default
+        )
+
+        XCTAssertEqual(plan.text, "Copied 42 characters")
+        XCTAssertEqual(singular.text, "Copied 1 character")
+        XCTAssertEqual(AnnotationColor.allCases.map(\.displayName), [
+            "Red", "Green", "Blue", "Yellow", "Orange", "Pink", "White", "Black"
+        ])
+    }
+
     @MainActor
     func testExpiredOldHUDLeaseCannotClearNewFeedbackOrPaletteChannel() {
         let feedback = InteractionFeedback()
@@ -69,17 +86,17 @@ final class AppleTransientFeedbackTests: XCTestCase {
         )
 
         adapter.present(.modeEntered(.staticZoom))
-        adapter.present(.warning("麦克风没有声音"))
+        adapter.present(.warning("No microphone audio"))
 
-        XCTAssertEqual(feedback.content(for: .hud), .hud("麦克风没有声音"))
-        XCTAssertEqual(presenter.presentedPlans.map(\.text), ["静态缩放", "麦克风没有声音"])
+        XCTAssertEqual(feedback.content(for: .hud), .hud("No microphone audio"))
+        XCTAssertEqual(presenter.presentedPlans.map(\.text), ["Static Zoom", "No microphone audio"])
         XCTAssertEqual(
             feedback.content(for: .palette),
             .palette(.drawing(tool: .pen, color: .blue, canvas: .transparent))
         )
 
         scheduler.fire(index: 0, includingCancelled: true)
-        XCTAssertEqual(feedback.content(for: .hud), .hud("麦克风没有声音"))
+        XCTAssertEqual(feedback.content(for: .hud), .hud("No microphone audio"))
 
         scheduler.fire(index: 1)
         XCTAssertNil(feedback.content(for: .hud))

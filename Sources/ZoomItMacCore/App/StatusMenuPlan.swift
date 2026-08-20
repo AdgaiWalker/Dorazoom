@@ -99,74 +99,76 @@ struct StatusMenuPlan: Equatable, Sendable {
                 title: statusTitle(status),
                 isEnabled: false
             ),
-            command(.draw, "圈画", shortcut: shortcut(
+            command(.draw, text("status_menu.draw", "Draw"), shortcut: shortcut(
                 keyCode: settings.drawHotKeyCode,
                 rawModifiers: settings.drawHotKeyModifiers
             )),
-            command(.staticZoom, "静态缩放", shortcut: shortcut(
+            command(.staticZoom, text("status_menu.static_zoom", "Static Zoom"), shortcut: shortcut(
                 keyCode: settings.hotKeyCode,
                 rawModifiers: settings.hotKeyModifiers
             )),
-            command(.liveZoom, "实时缩放", shortcut: shortcut(
+            command(.liveZoom, text("status_menu.live_zoom", "Live Zoom"), shortcut: shortcut(
                 keyCode: settings.liveHotKeyCode,
                 rawModifiers: settings.liveHotKeyModifiers
             )),
             StatusMenuItemPlan(
                 id: .screenshot,
-                title: "截图",
+                title: text("status_menu.screenshot", "Screenshot"),
                 children: [
-                    command(.snipRegion, "区域截图", shortcut: shortcut(
+                    command(.snipRegion, text("status_menu.capture_region", "Capture Region"), shortcut: shortcut(
                         keyCode: settings.snipHotKeyCode,
                         rawModifiers: settings.snipHotKeyModifiers
                     )),
-                    command(.snipOCR, "OCR 识别", shortcut: shortcut(
+                    command(.snipOCR, text("status_menu.extract_text_ocr", "Extract Text (OCR)"), shortcut: shortcut(
                         keyCode: settings.snipOcrHotKeyCode,
                         rawModifiers: settings.snipOcrHotKeyModifiers
                     )),
-                    command(.snipPreviousRegion, "重复上一次区域"),
-                    command(.snipWindow, "鼠标所在窗口")
+                    command(.snipPreviousRegion, text("status_menu.capture_previous_region", "Capture Previous Region")),
+                    command(.snipWindow, text("status_menu.capture_window_under_pointer", "Capture Window Under Pointer"))
                 ]
             ),
-            command(.recordScreen, "录制屏幕", shortcut: shortcut(
+            command(.recordScreen, text("status_menu.record_screen", "Record Screen"), shortcut: shortcut(
                 keyCode: settings.recordHotKeyCode,
                 rawModifiers: settings.recordHotKeyModifiers
             )),
-            command(.toggleRecordingPause, "暂停/继续录制"),
+            command(.toggleRecordingPause, text("status_menu.pause_resume_recording", "Pause/Resume Recording")),
             StatusMenuItemPlan(id: .coreSeparator, title: ""),
             StatusMenuItemPlan(
                 id: .moreFeatures,
-                title: "更多功能",
+                title: text("status_menu.more_features", "More Features"),
                 children: [
-                    command(.panorama, "全景截图", shortcut: shortcut(
+                    command(.panorama, text("status_menu.panorama_capture", "Panorama Capture"), shortcut: shortcut(
                         keyCode: settings.panoramaHotKeyCode,
                         rawModifiers: settings.panoramaHotKeyModifiers
                     )),
-                    command(.demoType, "DemoType", shortcut: shortcut(
+                    command(.demoType, text("status_menu.demo_type", "DemoType"), shortcut: shortcut(
                         keyCode: settings.demoTypeHotKeyCode,
                         rawModifiers: settings.demoTypeHotKeyModifiers
                     )),
-                    command(.breakTimer, "休息倒计时", shortcut: shortcut(
+                    command(.breakTimer, text("status_menu.break_timer", "Break Timer"), shortcut: shortcut(
                         keyCode: settings.breakHotKeyCode,
                         rawModifiers: settings.breakHotKeyModifiers
                     )),
-                    command(.advancedEditor, "高级视频编辑器…")
+                    command(.advancedEditor, text("status_menu.advanced_video_editor", "Advanced Video Editor…"))
                 ]
             ),
             StatusMenuItemPlan(id: .managementSeparator, title: ""),
             StatusMenuItemPlan(
                 id: .permissions,
-                title: permissionNeedsAttention ? "权限 · 需要设置" : "权限",
+                title: permissionNeedsAttention
+                    ? text("status_menu.permissions.action_required", "Permissions · Action Required")
+                    : text("status_menu.permissions", "Permissions"),
                 needsAttention: permissionNeedsAttention
             ),
             command(
                 .settings,
-                "设置…",
+                text("status_menu.settings", "Settings…"),
                 shortcut: .init(key: ",", modifiers: [.command])
             ),
             StatusMenuItemPlan(id: .quitSeparator, title: ""),
             command(
                 .quit,
-                "退出 DoraZoom",
+                text("status_menu.quit", "Quit DoraZoom"),
                 shortcut: .init(key: "q", modifiers: [.command])
             )
         ])
@@ -175,12 +177,16 @@ struct StatusMenuPlan: Equatable, Sendable {
     private static func statusTitle(_ status: StatusMenuRuntimeStatus) -> String {
         switch status {
         case .idle:
-            "就绪"
+            text("status_menu.status.ready", "Ready")
         case .active:
-            "圈画中"
+            text("status_menu.status.drawing", "Drawing")
         case .recording:
-            "正在录制"
+            text("status_menu.status.recording", "Recording")
         }
+    }
+
+    private static func text(_ key: String, _ defaultValue: String) -> String {
+        AppLocalization.string(key, defaultValue: defaultValue)
     }
 
     private static func command(

@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "画面収録でマイク音声を有効にした場合にのみ、DoraZoom はマイクの音声を収録します。";
+"NSCameraUsageDescription" = "画面収録でカメラを有効にした場合にのみ、DoraZoom はカメラ映像をピクチャ・イン・ピクチャとして収録します。";

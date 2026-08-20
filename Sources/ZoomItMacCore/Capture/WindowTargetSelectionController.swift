@@ -166,7 +166,10 @@ private final class WindowTargetSelectionView: NSView {
             context.stroke(appKitRect.insetBy(dx: 1.5, dy: 1.5))
         }
 
-        let message = "移动到目标窗口并点击 · Esc 取消"
+        let message = AppLocalization.string(
+            "capture.window_selection.instruction",
+            defaultValue: "Point to a window and click · Esc to cancel"
+        )
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 14, weight: .medium),
             .foregroundColor: NSColor.white,

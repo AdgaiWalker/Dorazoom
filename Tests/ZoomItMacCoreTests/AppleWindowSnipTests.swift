@@ -61,6 +61,7 @@ final class AppleWindowSnipTests: XCTestCase {
         ))
         session.captureFinished(.windowDisappeared)
         XCTAssertEqual(session.state, .idle)
+        XCTAssertTrue(WindowCaptureError.windowDisappeared(2).localizedDescription.contains("2"))
     }
 
     @MainActor

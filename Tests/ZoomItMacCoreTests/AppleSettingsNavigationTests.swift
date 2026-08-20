@@ -14,12 +14,12 @@ final class AppleSettingsNavigationTests: XCTestCase {
             .advanced
         ])
         XCTAssertEqual(plan.sections.map(\.title), [
-            "通用",
-            "快捷键",
-            "截图与圈画",
-            "录制",
-            "权限",
-            "高级"
+            "General",
+            "Shortcuts",
+            "Capture & Draw",
+            "Recording",
+            "Permissions",
+            "Advanced"
         ])
         XCTAssertEqual(plan.platformBoundary, .simulatedOnly)
     }

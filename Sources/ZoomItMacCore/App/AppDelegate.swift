@@ -213,7 +213,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem?.button else { return }
         if recording {
             let config = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
-            let image = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")?
+            let image = NSImage(
+                systemSymbolName: "record.circle.fill",
+                accessibilityDescription: AppLocalization.string(
+                    "accessibility.recording_indicator",
+                    defaultValue: "Recording"
+                )
+            )?
                 .withSymbolConfiguration(config)
             image?.size = NSSize(width: Self.menuBarIconGlyph, height: Self.menuBarIconGlyph)
             button.image = image

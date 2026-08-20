@@ -30,6 +30,33 @@ enum RecordingSpecialKey: String, Equatable, Sendable {
     case rightArrow = "→"
     case downArrow = "↓"
     case upArrow = "↑"
+
+    var localizedLabel: String {
+        switch self {
+        case .tab:
+            AppLocalization.string(
+                "recording.input_overlay.key.tab",
+                defaultValue: "Tab"
+            )
+        case .escape:
+            AppLocalization.string(
+                "recording.input_overlay.key.escape",
+                defaultValue: "Escape"
+            )
+        case .enter:
+            AppLocalization.string(
+                "recording.input_overlay.key.return",
+                defaultValue: "Return"
+            )
+        case .delete:
+            AppLocalization.string(
+                "recording.input_overlay.key.delete",
+                defaultValue: "Delete"
+            )
+        case .leftArrow, .rightArrow, .downArrow, .upArrow:
+            rawValue
+        }
+    }
 }
 
 enum RecordingInputKey: Equatable, Sendable {
@@ -125,7 +152,7 @@ enum RecordingInputOverlayPolicy {
         case .character(let character):
             label += character.uppercased()
         case .special(let key):
-            label += key.rawValue
+            label += key.localizedLabel
         }
         return label
     }

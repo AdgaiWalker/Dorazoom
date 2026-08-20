@@ -1,0 +1,47 @@
+terms:
+  keep_english:
+    - DoraZoom
+    - ZoomIt
+    - DemoType
+    - macOS
+    - Mac
+    - App Store
+    - TestFlight
+    - Control
+    - Command
+    - Option
+    - Shift
+    - OCR
+    - MOV
+    - MP4
+    - GIF
+    - H.264
+    - AAC
+
+  localized:
+    screen annotation:
+      zh-Hans: 屏幕标注
+      zh-Hant: 螢幕標註
+      ja: 画面注釈
+      ko: 화면 주석
+      de: Bildschirmmarkierung
+      fr: annotation à l’écran
+      es-ES: anotación en pantalla
+      es-419: anotación en pantalla
+      pt-BR: anotação na tela
+    attention:
+      zh-Hans: 注意力
+      zh-Hant: 注意力
+      ja: 注目
+      ko: 주의
+      de: Aufmerksamkeit
+      fr: attention
+      es-ES: atención
+      es-419: atención
+      pt-BR: atenção
+
+  do_not_use:
+    - term: ZoomIt
+      note: Upstream project name; retain only when explicitly describing compatibility or lineage. Never use it as DoraZoom's product name.
+    - term: AI
+      note: DoraZoom collaborates with AI tools by sharing visual context; never claim built-in AI, model inference, or cloud integration.

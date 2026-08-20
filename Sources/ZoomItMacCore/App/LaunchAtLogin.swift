@@ -6,7 +6,10 @@ import ServiceManagement
 /// a bare executable the register/unregister calls throw, which the settings UI
 /// surfaces to the user.
 enum LaunchAtLogin {
-    static let unavailableMessage = "Launch at login requires running DoraZoom from DoraZoom.app."
+    static let unavailableMessage = AppLocalization.string(
+        "launch_at_login.unavailable",
+        defaultValue: "Launch at login requires running DoraZoom from DoraZoom.app."
+    )
 
     static var isAvailable: Bool {
         Bundle.main.bundleURL.pathExtension == "app"

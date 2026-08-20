@@ -38,14 +38,14 @@ enum AnnotationColor: String, CaseIterable, Equatable, Sendable {
 
     var displayName: String {
         switch self {
-        case .red: "Red"
-        case .green: "Green"
-        case .blue: "Blue"
-        case .yellow: "Yellow"
-        case .orange: "Orange"
-        case .pink: "Pink"
-        case .white: "White"
-        case .black: "Black"
+        case .red: AppLocalization.string("color.red", defaultValue: "Red")
+        case .green: AppLocalization.string("color.green", defaultValue: "Green")
+        case .blue: AppLocalization.string("color.blue", defaultValue: "Blue")
+        case .yellow: AppLocalization.string("color.yellow", defaultValue: "Yellow")
+        case .orange: AppLocalization.string("color.orange", defaultValue: "Orange")
+        case .pink: AppLocalization.string("color.pink", defaultValue: "Pink")
+        case .white: AppLocalization.string("color.white", defaultValue: "White")
+        case .black: AppLocalization.string("color.black", defaultValue: "Black")
         }
     }
 }

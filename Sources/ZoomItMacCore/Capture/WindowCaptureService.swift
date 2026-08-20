@@ -1,9 +1,25 @@
 import AppKit
 @preconcurrency import ScreenCaptureKit
 
-enum WindowCaptureError: Error, Equatable {
+enum WindowCaptureError: LocalizedError, Equatable {
     case windowDisappeared(UInt32)
     case imageCreationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .windowDisappeared(let windowID):
+            AppLocalization.format(
+                "capture.error.window.disappeared",
+                defaultValue: "Window %u is no longer available.",
+                windowID
+            )
+        case .imageCreationFailed:
+            AppLocalization.string(
+                "capture.error.window.image_creation_failed",
+                defaultValue: "The window image could not be created."
+            )
+        }
+    }
 }
 
 @MainActor

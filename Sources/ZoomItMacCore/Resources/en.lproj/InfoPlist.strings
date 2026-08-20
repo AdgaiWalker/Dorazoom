@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "DoraZoom records your microphone only when you enable microphone audio for a screen recording.";
+"NSCameraUsageDescription" = "DoraZoom records your camera as a picture-in-picture overlay only when you enable it for a screen recording.";

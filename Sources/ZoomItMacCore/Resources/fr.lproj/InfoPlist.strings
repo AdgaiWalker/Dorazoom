@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "DoraZoom enregistre le son du microphone uniquement lorsque vous l’activez pour un enregistrement d’écran.";
+"NSCameraUsageDescription" = "DoraZoom enregistre l’image de votre caméra en incrustation uniquement lorsque vous l’activez pour un enregistrement d’écran.";

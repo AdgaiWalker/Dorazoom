@@ -911,9 +911,21 @@ final class RecordingController {
 
         let settings = settingsStore.load()
         let targetName = switch target {
-        case .fullScreen: "显示器"
-        case .region: "选定区域"
-        case .window: "选定窗口"
+        case .fullScreen:
+            AppLocalization.string(
+                "recording.target.display",
+                defaultValue: "Display"
+            )
+        case .region:
+            AppLocalization.string(
+                "recording.target.selected_region",
+                defaultValue: "Selected Region"
+            )
+        case .window:
+            AppLocalization.string(
+                "recording.target.selected_window",
+                defaultValue: "Selected Window"
+            )
         }
         let preflight = RecordingPreflightPlanner.plan(preflightProvider.input(
             targetName: targetName,
@@ -1365,7 +1377,10 @@ final class RecordingController {
     /// exported and the user picks where to save it.
     func openForTrim() {
         let open = NSOpenPanel()
-        open.title = "Trim Video"
+        open.title = AppLocalization.string(
+            "recording.trim.open_panel.title",
+            defaultValue: "Trim Video"
+        )
         open.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie]
         open.canChooseDirectories = false
         open.allowsMultipleSelection = false

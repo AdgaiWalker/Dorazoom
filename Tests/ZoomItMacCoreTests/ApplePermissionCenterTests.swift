@@ -24,7 +24,7 @@ final class ApplePermissionCenterTests: XCTestCase {
         ])
         XCTAssertEqual(plan.row(for: .screenCapture), .init(
             kind: .screenCapture,
-            purpose: "用于缩放、圈画、截图和录制屏幕内容",
+            purpose: "Used for zoom, drawing, screenshots, and screen recording",
             state: .needsSettings,
             action: .openSystemSettings,
             isOptional: false
@@ -159,7 +159,7 @@ final class ApplePermissionCenterTests: XCTestCase {
         defer { presenter.close() }
 
         XCTAssertTrue(presenter.isVisible)
-        XCTAssertEqual(presenter.window?.title, "DoraZoom 权限")
+        XCTAssertEqual(presenter.window?.title, "DoraZoom Permissions")
         XCTAssertEqual(presenter.window?.level, .normal)
         XCTAssertEqual(presenter.renderedPlan, initial)
         XCTAssertEqual(presenter.renderedRowKinds, initial.rows.map(\.kind))
