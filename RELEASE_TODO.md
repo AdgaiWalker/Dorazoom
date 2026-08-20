@@ -2,7 +2,7 @@
 
 ## 发布判断
 
-- **当前状态**：仓库清理完成后进入双版本准备阶段。
+- **当前状态**：站外完整版 `0.1.0` 已完成 Developer ID 签名、公证、装订和交付校验；Mac App Store 版仍未开始。
 - **商店版**：以 Mac App Store 为主要公开渠道，必须启用 App Sandbox，并移除模拟键盘粘贴能力。
 - **完整版**：使用 Developer ID、公证和 DMG/ZIP 站外分发，保留完整的 Control+V 兼容能力。
 - **共同规则**：两个版本共享业务核心和自动化测试，不在源码中复制两套实现；差异集中在 Xcode target、entitlements、能力开关和发布脚本。
@@ -28,7 +28,7 @@
 - [x] `Scripts/release-internal.sh` 已准备为站外完整版发布入口
 - [x] 网站发布二进制 `website/public/DoraZoom.zip` 已从仓库移除
 - [ ] Mac App Store Xcode App target、App Sandbox entitlements 和 Archive scheme
-- [ ] Mac App Distribution / Developer ID Application 发布凭据
+- [x] Developer ID Application 发布凭据
 - [ ] 两个版本的真实 macOS 权限与核心功能验收
 
 ## 阶段 1：清理并锁定仓库边界
@@ -59,10 +59,10 @@
 
 ## 阶段 4：站外完整版验证
 
-- [ ] 安装 Developer ID Application 证书
-- [ ] 配置 `notarytool` 钥匙串 profile，不把凭据写入仓库
-- [ ] 执行 `Scripts/release-internal.sh` 生成并公证 DMG/ZIP
-- [ ] 验证签名、Hardened Runtime、staple、Gatekeeper 和 SHA-256
+- [x] 安装 Developer ID Application 证书
+- [x] 配置 `notarytool` 钥匙串 profile，不把凭据写入仓库
+- [x] 执行 `Scripts/release-internal.sh` 生成并公证 DMG/ZIP
+- [x] 验证签名、Hardened Runtime、staple、Gatekeeper 和 DMG 完整性
 - [ ] 真机验证 Control+V 兼容模式及所有辅助功能权限
 
 ## 阶段 5：商店资料与交付

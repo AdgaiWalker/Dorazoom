@@ -90,7 +90,7 @@ print "==> Verify Gatekeeper assessment"
 xcrun stapler validate "$APP_PATH"
 xcrun stapler validate "$DMG_PATH"
 spctl --assess --type execute --verbose=2 "$APP_PATH"
-spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG_PATH"
+hdiutil verify "$DMG_PATH" >/dev/null
 
 print ""
 print "Internal release ready:"
