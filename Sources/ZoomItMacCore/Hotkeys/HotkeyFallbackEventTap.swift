@@ -1,3 +1,43 @@
+#if DORAZOOM_APP_STORE
+import AppKit
+
+struct HotkeyFallbackBinding: Equatable, Sendable {
+    var command: AppCommand
+    var keyCode: Int
+    var modifiers: Set<KeyboardModifier>
+}
+
+enum HotkeyFallbackPermissionAction: Equatable, Sendable {
+    case installEventTap
+    case promptForAuthorization
+    case waitForRelaunch
+}
+
+/// The sandboxed store build does not install a global event tap. Carbon
+/// hotkeys remain available when macOS accepts them; this fallback is a
+/// deliberate no-op because it would require Input Monitoring.
+@MainActor
+final class HotkeyFallbackPermissionSession {
+    func action(hasListenAccess: Bool) -> HotkeyFallbackPermissionAction {
+        hasListenAccess ? .installEventTap : .waitForRelaunch
+    }
+}
+
+@MainActor
+final class SystemHotkeyFallbackEventTap {
+    init(
+        bindings: [HotkeyFallbackBinding],
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator?,
+        permissionSession: HotkeyFallbackPermissionSession = HotkeyFallbackPermissionSession(),
+        commandHandler: @escaping (AppCommand) -> Void,
+        installer: AnyObject? = nil
+    ) {}
+
+    func start() -> Bool { false }
+    func stop() {}
+}
+
+#else
 import AppKit
 import PasteTapBridge
 
@@ -206,3 +246,5 @@ func DoraZoomHotkeyFallbackHandleEvent(
         return DZPasteTapDecisionSuppressOriginal
     }
 }
+
+#endif

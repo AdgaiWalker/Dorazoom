@@ -4,8 +4,10 @@ import AppKit
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var appController: AppController?
+#if !DORAZOOM_APP_STORE
     private var pasteCompatibilityEventTap: SystemPasteCompatibilityEventTap?
     private var controlVPasteHotkeyService: ControlVPasteHotkeyService?
+#endif
     private var recordingRecoveryCoordinator: RecordingRecoveryCoordinator?
     private let permissionCenterRestartIntent = PermissionCenterRestartIntent()
     private var permissionPlanProvider: (() -> PermissionCenterPlan)?
@@ -69,6 +71,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             recordingRecoveryStore: recordingRecoveryStore,
             pasteCompatibilityCoordinator: pasteCompatibilityCoordinator
         )
+#if !DORAZOOM_APP_STORE
         let keyboardEventPoster = SystemKeyboardEventPoster()
         let pasteCompatibilityEventTap = SystemPasteCompatibilityEventTap(
             coordinator: pasteCompatibilityCoordinator,
@@ -92,6 +95,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             controlVPasteHotkeyService?.setTextEditingActive(isActive)
         }
         self.controlVPasteHotkeyService = controlVPasteHotkeyService
+#endif
 
         let hotkeyService = HotkeyService(
             settingsStore: settingsStore
@@ -139,9 +143,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         permissionPlanProvider = { permissionAdapter.plan() }
         settingsProvider = { settingsStore.load() }
+#if !DORAZOOM_APP_STORE
         pasteCompatibilityCoordinator.onInputPostingPermissionNeeded = { [weak permissionCenterCoordinator] in
             permissionCenterCoordinator?.show()
         }
+#endif
 
         appController = AppController(
             settingsStore: settingsStore,
@@ -183,8 +189,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationWillTerminate(_ notification: Notification) {
         let shouldRelaunch = permissionCenterRestartIntent.consume()
+#if !DORAZOOM_APP_STORE
         controlVPasteHotkeyService?.stop()
         pasteCompatibilityEventTap?.stop()
+#endif
         DistributedNotificationCenter.default().removeObserver(self)
         SingleInstance.release()
         if shouldRelaunch {

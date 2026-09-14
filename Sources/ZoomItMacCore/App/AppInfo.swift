@@ -11,7 +11,7 @@ public enum AppInfo {
     }
     public static let copyright = AppLocalization.string(
         "app_info.copyright",
-        defaultValue: "Copyright © 2026 Dora"
+        defaultValue: "Copyright © 2026 未然界域科技工作室"
     )
 
     static func resolveVersion(from infoDictionary: [String: Any]?) -> String {

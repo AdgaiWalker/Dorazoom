@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>DoraZoom</string>
+	<key>CFBundleExecutable</key>
+	<string>DoraZoom</string>
+	<key>CFBundleIconFile</key>
+	<string>DoraZoom.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.duola.dorazoom</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DoraZoom</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 未然界域科技工作室</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>DoraZoom records your camera as a picture-in-picture overlay only when you enable it for a screen recording.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DoraZoom records your microphone only when you enable microphone audio for a screen recording.</string>
+</dict>
+</plist>

@@ -68,8 +68,8 @@ DoraZoom 是为 Mac 创作者打造的原生 macOS 注意力引导工具。讲�
 
 DoraZoom 不宣称内置 AI 或云端推理。捕获内容与权限选择始终由你控制。
 
-隐私政策：TBD
-使用条款：TBD
+隐私政策：https://dorazoom.iwalk.pro/privacy/
+使用条款：https://dorazoom.iwalk.pro/terms/
 ```
 
 ### 2.5 关键词
@@ -131,4 +131,4 @@ DoraZoom 不宣称内置 AI 或云端推理。捕获内容与权限选择始终�
 - App 跟随 macOS 的单 App / 系统语言，不增加应用内语言开关。
 - 权限弹窗跟随 macOS 语言，并读取此 locale 的 `InfoPlist.strings`。
 - 使用简体中文冷启动后，验证 App 名称、状态菜单、设置、截图 / OCR、录屏、长截图和 DemoType。
-- **发布阻断项：**提交 App Store 前，必须把两个 `TBD` 替换为审核通过且可公开访问的链接。
+- **发布阻断项：**提交 App Store 前，必须把两个 the public legal pages 替换为审核通过且可公开访问的链接。

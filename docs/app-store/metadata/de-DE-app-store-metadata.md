@@ -68,8 +68,8 @@ ENTWICKELT FÜR
 
 DoraZoom enthält keine integrierte KI und führt keine Cloud-Inferenz aus. Du bestimmst selbst, was du aufnimmst und teilst.
 
-Datenschutzrichtlinie: TBD
-Nutzungsbedingungen: TBD
+Datenschutzrichtlinie: https://dorazoom.iwalk.pro/privacy/
+Nutzungsbedingungen: https://dorazoom.iwalk.pro/terms/
 ```
 
 ### 2.5 Keywords
@@ -122,4 +122,4 @@ Mit dem Projekt-Validator geprüft. Die gemessenen Werte stehen im Implementieru
 - Die App folgt der App- bzw. Systemsprache von macOS; es gibt keinen Sprachschalter in der App.
 - Berechtigungsdialoge folgen der macOS-Sprache und verwenden die lokalisierte `InfoPlist.strings`.
 - App-Name, Statusmenü, Einstellungen, Aufnahme/OCR, Bildschirmaufnahme, Panorama und DemoType bei einem sauberen deutschen Start prüfen.
-- **Release-Blocker:** Beide `TBD`-Rechtslinks vor der App-Store-Einreichung durch freigegebene öffentliche URLs ersetzen.
+- **Release-Blocker:** Beide the public legal pages-Rechtslinks vor der App-Store-Einreichung durch freigegebene öffentliche URLs ersetzen.

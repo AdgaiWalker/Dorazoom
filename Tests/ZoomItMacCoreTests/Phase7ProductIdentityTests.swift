@@ -4,7 +4,7 @@ import XCTest
 final class Phase7ProductIdentityTests: XCTestCase {
     func testAppInfoUsesDoraZoomPersonalEditionIdentity() {
         XCTAssertEqual(AppInfo.productName, "DoraZoom")
-        XCTAssertEqual(AppInfo.copyright, "Copyright © 2026 Dora")
+        XCTAssertEqual(AppInfo.copyright, "Copyright © 2026 未然界域科技工作室")
     }
 
     @MainActor

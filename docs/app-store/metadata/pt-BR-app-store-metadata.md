@@ -68,8 +68,8 @@ FEITO PARA
 
 O DoraZoom não inclui IA integrada nem inferência na nuvem. Você controla o que captura e compartilha.
 
-Política de Privacidade: TBD
-Termos de Uso: TBD
+Política de Privacidade: https://dorazoom.iwalk.pro/privacy/
+Termos de Uso: https://dorazoom.iwalk.pro/terms/
 ```
 
 ### 2.5 Keywords
@@ -122,4 +122,4 @@ Verificado com o validador do projeto. Os valores medidos constam no relatório 
 - O app segue o idioma do app ou do sistema no macOS; não adiciona um seletor de idioma interno.
 - Os diálogos de permissão seguem o idioma do macOS e usam o arquivo `InfoPlist.strings` localizado.
 - Verifique o nome, menu de status, ajustes, captura/OCR, gravação, panorama e DemoType após uma inicialização limpa em português do Brasil.
-- **Bloqueio de lançamento:** substitua os dois links legais `TBD` por URLs públicas aprovadas antes de enviar o app à App Store.
+- **Bloqueio de lançamento:** substitua os dois links legais the public legal pages por URLs públicas aprovadas antes de enviar o app à App Store.

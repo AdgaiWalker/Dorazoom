@@ -1,3 +1,4 @@
+ #if !DORAZOOM_APP_STORE
 import AppKit
 import Carbon.HIToolbox
 
@@ -193,3 +194,5 @@ final class CarbonControlVPasteHotkeyRegistrar: ControlVPasteHotkeyRegistering {
         )
     }
 }
+
+#endif

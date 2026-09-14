@@ -357,8 +357,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
         scroll.drawsBackground = false
+        document.translatesAutoresizingMaskIntoConstraints = false
         scroll.documentView = document
+        let clipView = scroll.contentView
+        NSLayoutConstraint.activate([
+            document.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
+            document.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
+            document.topAnchor.constraint(equalTo: clipView.topAnchor),
+            document.widthAnchor.constraint(equalTo: clipView.widthAnchor)
+        ])
         return scroll
     }
 
@@ -407,11 +416,48 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         copyright.textColor = .secondaryLabelColor
         copyright.alignment = .center
 
-        let stack = NSStackView(views: [title, copyright])
+        let links = NSStackView(views: [
+            makeLinkButton("Privacy", action: #selector(openPrivacyPolicy(_:))),
+            makeLinkButton("Terms", action: #selector(openTerms(_:))),
+            makeLinkButton("Support", action: #selector(openSupport(_:)))
+        ])
+        links.orientation = .horizontal
+        links.alignment = .centerY
+        links.spacing = 12
+
+        let stack = NSStackView(views: [title, copyright, links])
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 2
         return stack
+    }
+
+    private func makeLinkButton(_ title: String, action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: nil, action: nil)
+        button.bezelStyle = .inline
+        button.isBordered = false
+        button.font = NSFont.systemFont(ofSize: 11)
+        button.contentTintColor = .controlAccentColor
+        button.target = self
+        button.action = action
+        return button
+    }
+
+    @objc private func openPrivacyPolicy(_ sender: Any?) {
+        openExternalURL("https://dorazoom.iwalk.pro/privacy/")
+    }
+
+    @objc private func openTerms(_ sender: Any?) {
+        openExternalURL("https://dorazoom.iwalk.pro/terms/")
+    }
+
+    @objc private func openSupport(_ sender: Any?) {
+        openExternalURL("https://dorazoom.iwalk.pro/support/")
+    }
+
+    private func openExternalURL(_ string: String) {
+        guard let url = URL(string: string) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func makeColumn(_ rows: [NSView], spacing: CGFloat = 14) -> NSView {

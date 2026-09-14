@@ -68,8 +68,8 @@ BUILT FOR
 
 DoraZoom does not claim built-in AI or cloud inference. Your capture and permission choices remain under your control.
 
-Privacy Policy: TBD
-Terms of Use: TBD
+Privacy Policy: https://dorazoom.iwalk.pro/privacy/
+Terms of Use: https://dorazoom.iwalk.pro/terms/
 ```
 
 ### 2.5 Keywords
@@ -131,4 +131,4 @@ The keyword field is also 93 UTF-8 bytes.
 - The app follows the macOS per-app/system language; it does not add an in-app language switch.
 - Permission dialogs follow the macOS language and read this locale's `InfoPlist.strings`.
 - Verify the app name, status menu, settings, capture/OCR, recording, panorama, and DemoType on a clean English launch.
-- **Release blocker:** replace both `TBD` legal links with approved public URLs before App Store submission.
+- **Release blocker:** replace both the public legal pages legal links with approved public URLs before App Store submission.

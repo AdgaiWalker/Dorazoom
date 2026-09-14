@@ -1,0 +1,267 @@
+[
+  {
+    "width": 320,
+    "scrollWidth": 320,
+    "canvas": [
+      400,
+      440,
+      258,
+      284
+    ],
+    "contained": true,
+    "buttons": [
+      {
+        "label": "画圈",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "自由画笔",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "画箭头",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "红色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "蓝色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "金色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "撤销上一步",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "清空标注",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "width": 360,
+    "scrollWidth": 360,
+    "canvas": [
+      400,
+      440,
+      298,
+      328
+    ],
+    "contained": true,
+    "buttons": [
+      {
+        "label": "画圈",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "自由画笔",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "画箭头",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "红色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "蓝色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "金色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "撤销上一步",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "清空标注",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "scrollWidth": 390,
+    "canvas": [
+      400,
+      440,
+      328,
+      361
+    ],
+    "contained": true,
+    "buttons": [
+      {
+        "label": "画圈",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "自由画笔",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "画箭头",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "红色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "蓝色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "金色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "撤销上一步",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "清空标注",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "scrollWidth": 768,
+    "canvas": [
+      400,
+      440,
+      393,
+      432
+    ],
+    "contained": true,
+    "buttons": [
+      {
+        "label": "画圈",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "自由画笔",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "画箭头",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "红色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "蓝色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "金色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "撤销上一步",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "清空标注",
+        "width": 44,
+        "height": 44
+      }
+    ]
+  },
+  {
+    "width": 1440,
+    "scrollWidth": 1440,
+    "canvas": [
+      1440,
+      900,
+      776,
+      485
+    ],
+    "contained": true,
+    "buttons": [
+      {
+        "label": "画圈",
+        "width": 35,
+        "height": 35
+      },
+      {
+        "label": "自由画笔",
+        "width": 35,
+        "height": 35
+      },
+      {
+        "label": "画箭头",
+        "width": 35,
+        "height": 35
+      },
+      {
+        "label": "红色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "蓝色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "金色",
+        "width": 44,
+        "height": 44
+      },
+      {
+        "label": "撤销上一步",
+        "width": 35,
+        "height": 35
+      },
+      {
+        "label": "清空标注",
+        "width": 35,
+        "height": 35
+      }
+    ]
+  }
+]

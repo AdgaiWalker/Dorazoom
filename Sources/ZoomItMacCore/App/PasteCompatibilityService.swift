@@ -1,5 +1,59 @@
 import CoreGraphics
 
+#if DORAZOOM_APP_STORE
+
+/// The Mac App Store build intentionally does not synthesize keyboard events.
+/// Screenshots and OCR results are still copied to the clipboard by the shared
+/// capture code; users paste them with the target app's normal shortcut.
+struct KeyboardEventAccess: Equatable, Sendable {
+    var canListen: Bool = false
+    var canPost: Bool = false
+
+    var isComplete: Bool { false }
+    var missingRequirements: Set<KeyboardEventAccessRequirement> { [.listen, .post] }
+}
+
+enum KeyboardEventAccessRequirement: Equatable, Hashable, Sendable {
+    case listen
+    case post
+}
+
+enum PasteCompatibilitySettingStatus: Equatable, Sendable {
+    case ready
+    case waitingForAuthorization(missing: Set<KeyboardEventAccessRequirement>)
+}
+
+enum KeyboardModifier: Equatable, Hashable, Sendable {
+    case control
+    case command
+    case shift
+    case option
+}
+
+protocol InputCompatibilityPermissionRequester: AnyObject {
+    func currentAccess() -> KeyboardEventAccess
+}
+
+final class SystemInputCompatibilityPermissionRequester: InputCompatibilityPermissionRequester {
+    func currentAccess() -> KeyboardEventAccess { KeyboardEventAccess() }
+}
+
+final class PasteCompatibilityCoordinator {
+    var onAccessBecameComplete: (() -> Void)?
+    var onScreenshotCopied: ((Int) -> Void)?
+    var onInputPostingPermissionNeeded: (() -> Void)?
+
+    init(permissionRequester: InputCompatibilityPermissionRequester) {}
+    var settingStatus: PasteCompatibilitySettingStatus {
+        .waitingForAuthorization(missing: [.listen, .post])
+    }
+    func screenshotCopied(changeCount: Int) {}
+    func pasteboardDidChange(changeCount: Int) {}
+    func setTextEditingActive(_ isActive: Bool) {}
+}
+
+#else
+
 struct KeyboardEventAccess: Equatable, Sendable {
     var canListen: Bool
     var canPost: Bool
@@ -149,3 +203,5 @@ final class SystemInputCompatibilityPermissionRequester: InputCompatibilityPermi
     }
 
 }
+
+#endif

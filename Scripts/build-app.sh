@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="${0:A:h:h}"
 CONFIGURATION="${1:-debug}"
 ICON_SOURCE="$ROOT_DIR/Sources/ZoomItMacCore/Resources/DoraZoomColorIcon.png"
-ENTITLEMENTS="$ROOT_DIR/Scripts/ZoomIt.entitlements"
+ENTITLEMENTS="${ZOOMIT_ENTITLEMENTS:-$ROOT_DIR/Scripts/ZoomIt.entitlements}"
 
 # Local builds default to 1.0 when ZOOMIT_VERSION is absent. An explicitly
 # empty value still fails, which prevents a queued official build from silently
@@ -26,6 +26,13 @@ case "${ZOOMIT_REQUIRE_RELEASE_VERSION:-false}" in
         ;;
 esac
 
+BUILD_NUMBER="${ZOOMIT_BUILD_NUMBER:-$VERSION}"
+BUILD_NUMBER_PATTERN='^[0-9]+(\.[0-9]+){0,2}$'
+if [[ ! "$BUILD_NUMBER" =~ $BUILD_NUMBER_PATTERN ]]; then
+    echo "error: ZOOMIT_BUILD_NUMBER must be a numeric build such as 4 or 1.0.1 (got '$BUILD_NUMBER')." >&2
+    exit 2
+fi
+
 # Signing identity controls which "flavor" of the app is produced.
 #   - Ad-hoc (the default, "-"): a development build that uses DoraZoom's .dev
 #     bundle id so its Screen Recording (and other TCC) grant is separate from
@@ -44,6 +51,16 @@ else
     BUNDLE_ID="${ZOOMIT_BUNDLE_ID:-com.duola.dorazoom}"
     DISPLAY_NAME="${ZOOMIT_DISPLAY_NAME:-DoraZoom}"
     SIGN_DESC="$SIGN_IDENTITY"
+fi
+
+# Optional compile-time flavor flags. The Mac App Store build uses
+# DORAZOOM_APP_STORE to compile out event taps and synthetic keyboard events;
+# the default standalone build remains unchanged.
+swift_define_flags=()
+if [[ -n "${ZOOMIT_SWIFT_DEFINES:-}" ]]; then
+    for define in ${=ZOOMIT_SWIFT_DEFINES}; do
+        swift_define_flags+=(-Xswiftc "-D$define")
+    done
 fi
 BUNDLE_ID_PATTERN='^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$'
 if [[ ! "$BUNDLE_ID" =~ $BUNDLE_ID_PATTERN ]]; then
@@ -101,8 +118,8 @@ if (( ${#arch_flags} > 0 )) && ! xcodebuild -version >/dev/null 2>&1; then
     arch_flags=()
 fi
 
-swift build -c "$CONFIGURATION" $arch_flags
-BIN_DIR="$(swift build -c "$CONFIGURATION" $arch_flags --show-bin-path)"
+swift build -c "$CONFIGURATION" $arch_flags $swift_define_flags
+BIN_DIR="$(swift build -c "$CONFIGURATION" $arch_flags $swift_define_flags --show-bin-path)"
 
 rm -rf "$APP_PATH"
 mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
@@ -203,7 +220,7 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key>
     <string>$VERSION</string>
     <key>CFBundleVersion</key>
-    <string>$VERSION</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>

@@ -68,8 +68,8 @@ DoraZoom은 아이디어를 설명하고 작업을 시연하며 시각적으로 
 
 DoraZoom에는 내장 AI나 클라우드 추론 기능이 없습니다. 캡처할 내용과 권한은 언제나 사용자가 선택합니다.
 
-개인정보 처리방침: TBD
-이용 약관: TBD
+개인정보 처리방침: https://dorazoom.iwalk.pro/privacy/
+이용 약관: https://dorazoom.iwalk.pro/terms/
 ```
 
 ### 2.5 Keywords
@@ -131,4 +131,4 @@ DoraZoom을 만나 보세요. 첫 App Store 버전은 시선을 이끄는 확대
 - App은 macOS의 App별/시스템 언어를 따르며 App 내부 언어 전환을 추가하지 않습니다.
 - 권한 대화상자는 macOS 언어를 따르고 이 locale의 `InfoPlist.strings`를 읽습니다.
 - 한국어로 콜드 런치한 뒤 App 이름, 상태 메뉴, 설정, 캡처/OCR, 녹화, 파노라마, DemoType을 확인합니다.
-- **출시 차단 항목:** App Store 제출 전에 두 `TBD`를 승인된 공개 URL로 교체해야 합니다.
+- **출시 차단 항목:** App Store 제출 전에 두 the public legal pages를 승인된 공개 URL로 교체해야 합니다.

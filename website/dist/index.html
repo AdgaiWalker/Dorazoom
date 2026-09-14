@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <title>DoraZoom — 有些想法，圈一下就懂。</title>
+  <meta name="description" content="在 Mac 屏幕上圈画、标注、截图和录制。把想改的地方指给 AI，把想说的重点讲给别人。亲手体验 DoraZoom。">
+  <meta property="og:title" content="DoraZoom — 有些想法，圈一下就懂。">
+  <meta property="og:description" content="圈出重点，画出方向。让别人和 AI 看懂你的想法。">
+  <link rel="icon" href="assets/dorazoom-icon.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a href="#playground" class="skip-link">跳到交互体验</a>
+  <header class="header">
+    <div class="nav-wrap">
+      <a class="brand" href="#" aria-label="DoraZoom 首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 36 36"><path d="M28 8C19 1 5 9 6 21s21 11 25 0C35 8 21 3 11 9"/><path d="m26 26 6 7"/></svg></span>DoraZoom<span class="brand-mac">for Mac</span></a>
+      <nav aria-label="主导航"><a href="#playground">亲手试试</a><a href="#scenes">使用场景</a><a href="#workflow">如何使用</a></nav>
+      <a class="nav-cta" href="#get-started">下载状态 <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-content">
+        <p class="eyebrow"><span class="tiny-cross" aria-hidden="true">✳</span> 给想法，一个更直观的表达方式</p>
+        <h1 id="hero-title">有些想法，<br><span class="circled-word">圈一下<svg viewBox="0 0 390 125" preserveAspectRatio="none" aria-hidden="true"><path d="M352 18C284-4 70 0 25 34-28 40-5 112 105 116 230 125 389 110 380 65 375 40 310 14 218 13"/></svg></span>就懂。</h1>
+        <p class="hero-description">把想改的地方指给 AI，<wbr>把重点讲给别人。<br>在屏幕上圈画、标注，<wbr>让沟通更直观。</p>
+        <div class="hero-actions"><a class="button button-dark" href="#playground">动手圈一下 <span aria-hidden="true">↗</span></a><button class="button button-video" data-video><span class="play-icon" aria-hidden="true">▶</span> 看看它怎么用 <span class="duration">33 秒</span></button></div>
+        <p class="hero-note">适用于 macOS 14 及以上</p><p class="release-note">Mac 应用尚未开放下载，目前可体验网页演示。<a href="#get-started">查看下载状态</a></p>
+      </div>
+      <div class="demo-wrap" id="playground">
+        <div class="demo-intro"><span class="section-index">01 / TRY IT YOURSELF</span><span>少说几句，亲手画一下 <span aria-hidden="true">↘</span></span></div>
+        <div class="demo-window">
+          <div class="window-chrome"><div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div><span>DoraZoom Playground</span><span class="live-label">浏览器交互体验</span></div>
+          <div class="demo-body">
+            <div class="drawing-pane">
+              <div class="canvas-title"><span>你的页面，你来指方向。</span><span class="canvas-instruction" id="canvas-instruction">拖动画一个圈</span></div>
+              <p class="example-note" id="example-note">虚构网页，仅用于圈画演示；以下价格不代表 DoraZoom 定价。</p><p class="canvas-view-note" id="canvas-view-note" hidden>已放大中间卡片 · 导出包含完整画面与所有标注</p>
+              <div class="canvas-container"><canvas id="drawing-canvas" width="1440" height="900" tabindex="0" aria-describedby="example-note canvas-view-note" aria-label="圈画体验区。可用鼠标或手指拖动标注，也可按 Enter 标注示例按钮。">你的浏览器不支持画布，可观看下方产品演示。</canvas><div class="canvas-hint" id="canvas-hint"><span aria-hidden="true">↖</span> 试着圈出你想改的地方</div></div>
+              <div class="toolbar" role="toolbar" aria-label="圈画工具">
+                <div class="tool-group">
+                  <button class="tool active" data-tool="ellipse" aria-label="画圈" aria-pressed="true" title="画圈 (1)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="7" transform="rotate(-12 12 12)"/></svg></button>
+                  <button class="tool" data-tool="pen" aria-label="自由画笔" aria-pressed="false" title="画笔 (2)"><svg viewBox="0 0 24 24"><path d="m5 15 10-10 4 4L9 19l-5 1 1-5ZM13 7l4 4"/></svg></button>
+                  <button class="tool" data-tool="arrow" aria-label="画箭头" aria-pressed="false" title="箭头 (3)"><svg viewBox="0 0 24 24"><path d="M5 19 19 5M7 5h12v12"/></svg></button>
+                </div>
+                <span class="tool-divider"></span>
+                <div class="color-group" role="group" aria-label="画笔颜色"><button class="color active" data-color="#f04438" style="--swatch:#f04438" aria-label="红色" aria-pressed="true"></button><button class="color" data-color="#4665df" style="--swatch:#4665df" aria-label="蓝色" aria-pressed="false"></button><button class="color" data-color="#c7860a" style="--swatch:#c7860a" aria-label="金色" aria-pressed="false"></button></div>
+                <span class="tool-divider"></span>
+                <div class="history-group" role="group" aria-label="标注历史"><button class="tool" id="undo" aria-label="撤销上一步" title="撤销"><svg viewBox="0 0 24 24"><path d="m8 5-5 5 5 5M3 10h10a6 6 0 0 1 0 12" transform="translate(0 -2)"/></svg></button>
+                <button class="tool" id="clear" aria-label="清空标注" title="清空"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v6M14 10v6"/></svg></button></div>
+              </div>
+              <div class="canvas-footer"><span><kbd>1</kbd> 圈画 <kbd>2</kbd> 画笔 <kbd>3</kbd> 箭头</span><button id="add-example">帮我圈一下</button><span id="annotation-count">1 处标注</span></div>
+            </div>
+            <aside class="prompt-pane" aria-labelledby="prompt-title">
+              <span class="prompt-eyebrow"><span aria-hidden="true">✦</span> SHOW. DON'T EXPLAIN.</span>
+              <h2 id="prompt-title">“这里”，<br>现在说清楚了。</h2>
+              <p>一个圈，一句补充。<br>把上下文一起交给 AI。</p>
+              <label for="prompt-text">补充你的想法</label>
+              <textarea id="prompt-text" rows="3" maxlength="500" placeholder="比如：把圈出的按钮做大一点。">把圈出的按钮做大一点，其他保持不变。</textarea>
+              <div class="attachment" id="attachment"><div class="attachment-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 16l5-5 4 4 3-3 4 4"/><circle cx="15" cy="8" r="1"/></svg><span>圈好后，生成你的标注图</span></div><img id="attachment-image" alt="你刚刚生成的标注截图" hidden></div>
+              <button class="button button-dark generate-button" id="generate">生成标注截图 <span aria-hidden="true">↗</span></button>
+              <div class="export-actions" id="export-actions" hidden><button id="copy-image">复制图片</button><button id="save-image">保存图片</button><button id="copy-prompt">复制文字</button></div>
+              <p class="demo-disclaimer">这是圈画体验。生成后，粘贴到你使用的 AI 工具中继续。</p>
+            </aside>
+          </div>
+        </div>
+        <div class="demo-caption"><span>从「左边那个按钮」到「就是这里」。</span><span>屏幕上的想法，都有了落点。</span></div>
+      </div>
+    </section>
+    <section class="statement section-shell reveal">
+      <span class="section-index">LESS EXPLAINING. MORE UNDERSTANDING.</span>
+      <h2>你已经知道想说什么。<br><span>现在，让对方也看见。</span></h2>
+      <div class="pain-row"><p><span class="pain-number">01</span> 想让 AI 改这里，<br><strong>却写了半屏描述。</strong></p><p><span class="pain-number">02</span> 发出了一张截图，<br><strong>对方还是没找到重点。</strong></p><p><span class="pain-number">03</span> 讲解已经到下一步，<br><strong>大家还在找上一步。</strong></p></div>
+    </section>
+    <section class="scenes-section" id="scenes">
+      <div class="section-shell">
+        <div class="section-heading reveal"><div><span class="section-index">02 / MADE FOR YOUR EVERYDAY</span><h2>一个小动作。<br>接住每一种表达。</h2></div><p>和 AI 协作，向团队反馈，给别人讲解。<br>重点在哪里，就画在哪里。</p></div>
+        <div class="scene-tabs" role="tablist" aria-label="使用场景"><button id="tab-ai" class="scene-tab active" role="tab" aria-selected="true" aria-controls="scene-panel" data-scene="ai"><span>01</span> 与 AI 一起创造</button><button id="tab-teach" class="scene-tab" role="tab" aria-selected="false" aria-controls="scene-panel" tabindex="-1" data-scene="teach"><span>02</span> 让讲解跟得上</button><button id="tab-record" class="scene-tab" role="tab" aria-selected="false" aria-controls="scene-panel" tabindex="-1" data-scene="record"><span>03</span> 把过程讲清楚</button></div>
+        <div class="scene-panel" id="scene-panel" role="tabpanel" aria-labelledby="tab-ai" tabindex="0"><div class="scene-copy"><span class="scene-tag" id="scene-tag">VIBE CODING</span><h3 id="scene-title">你的想法，<br>不必翻译成长提示词。</h3><p id="scene-description">圈出想修改的组件，标好方向，截下画面。把「改这里」连同上下文，一起粘贴给 AI。</p><ul id="scene-points"><li>圈出具体元素，减少位置描述</li><li>截图到剪贴板，接上现有工作流</li><li>由你使用的 AI 工具完成后续修改</li></ul><button class="text-link" id="scene-watch">观看这段演示 <span aria-hidden="true">↗</span></button></div><div class="scene-media"><img id="scene-image" src="assets/ai-result.png" alt="圈选按钮、粘贴到 AI 对话并展示页面结果的示意画面" width="1920" height="1080" loading="lazy"><button class="media-play" id="scene-play" aria-label="播放当前场景演示">▶</button><span class="media-caption" id="scene-caption">圈出意图 → 截图传达 → AI 接着完成</span></div></div>
+      </div>
+    </section>
+    <section class="workflow section-shell" id="workflow">
+      <div class="section-heading reveal"><div><span class="section-index">03 / STAY IN YOUR FLOW</span><h2>跟上思路。<br>只要三个动作。</h2></div><p>在 Mac 上，随手唤起 DoraZoom。<br>你熟悉的工作方式，多了一支顺手的笔。</p></div>
+      <div class="steps"><article class="step reveal"><div class="step-visual shortcut-visual"><kbd>⌃</kbd><span>+</span><kbd>2</kbd></div><div class="step-label"><span>01</span> 唤起</div><h3>念头来了，就开始。</h3><p>按下 Control + 2，进入屏幕圈画。<br>不用先打开另一个编辑窗口。</p></article><article class="step reveal"><div class="step-visual mark-visual"><span>就是这里</span><svg viewBox="0 0 240 100" aria-hidden="true"><path d="M203 18C169-2 30 8 22 37 4 101 244 92 223 39 210 17 143 6 72 18"/></svg></div><div class="step-label"><span>02</span> 圈画</div><h3>把重点，直接指出来。</h3><p>用圈、箭头和文字标明意图。<br>需要讲细节时，还可以放大画面。</p></article><article class="step reveal"><div class="step-visual transfer-visual"><div><span>截图</span><kbd>⌃ 6</kbd></div><div><span>粘贴</span><kbd>⌘ V</kbd></div></div><div class="step-label"><span>03</span> 传达</div><h3>带着上下文，交出去。</h3><p>按 Control + 6，选取区域并截图。<br>再按 Command + V，粘贴给同事或 AI。</p></article></div>
+      <div class="capabilities"><span>顺手，还不止圈画</span><div><span>屏幕缩放</span><span>文字标注</span><span>白板 / 黑板</span><span>OCR 取字</span><span>屏幕录制</span><span>滚动长截图</span></div></div>
+    </section>
+    <section class="closing" id="get-started" aria-labelledby="release-title"><div class="section-shell closing-inner"><div class="closing-brand" aria-hidden="true">DoraZoom</div><span class="section-index">A LITTLE MARK. A CLEARER IDEA.</span><h2 id="release-title">Mac 应用，<br><span>即将与你见面。</span></h2><p class="release-description">正式下载尚未开放。先体验圈画，保存官网地址，方便回来查看下载状态。</p><div class="closing-actions"><button id="save-site" class="button button-light">保存官网地址 <span aria-hidden="true">↗</span></button><a href="#playground" class="button closing-video">继续体验圈画 <span aria-hidden="true">↗</span></a></div><p>适用于 macOS 14 及以上 · 下载开放后将在此提供入口</p></div></section>
+    <section class="faq section-shell"><div><span class="section-index">A FEW MORE THINGS</span><h2>你可能还想知道。</h2></div><div class="faq-list"><details><summary>DoraZoom 会直接帮我修改代码吗？<span aria-hidden="true">+</span></summary><p>DoraZoom 负责屏幕圈画、标注和截图，帮你把需求表达清楚。将标注图粘贴到支持图片输入的 AI 工具后，由该工具继续完成代码或页面修改。</p></details><details><summary>可以在哪些地方使用？<span aria-hidden="true">+</span></summary><p>DoraZoom 是 macOS 屏幕工具，可用于网页、应用界面、文档和演示内容。截图可以粘贴到支持图片的聊天、协作和 AI 工具中；具体接收方式取决于目标应用。</p></details><details><summary>网页上的圈画会上传吗？<span aria-hidden="true">+</span></summary><p>这个网页体验在你的浏览器内处理标注和生成图片，不会上传圈画内容或补充文字。复制或保存后，由你决定把它们交给谁。</p></details><details><summary>现在可以下载 Mac 应用吗？<span aria-hidden="true">+</span></summary><p>暂时还不能下载。当前提供网页圈画体验和产品演示；Mac 应用正式下载开放后，会在本页提供入口。你可以点击「保存官网地址」，保存一个可直接打开官网的快捷方式。</p></details></div></section>
+  </main>
+  <footer class="footer section-shell"><a class="brand" href="#">DoraZoom<span class="brand-mac">让想法被看见。</span></a><span>© 2026 未然界域科技工作室 · DoraZoom</span><span class="footer-links"><a href="privacy/">隐私政策</a><a href="terms/">使用条款</a><a href="support/">技术支持</a></span><a href="#">回到顶部 ↑</a></footer>
+  <dialog id="video-dialog" aria-labelledby="video-title"><div class="video-dialog-header"><span id="video-title">DoraZoom · 看见同一个重点</span><button id="close-video" aria-label="关闭视频">✕</button></div><video id="promo-video" controls playsinline preload="none" poster="assets/ai-result.png"><source src="assets/dorazoom-promo.mp4" type="video/mp4">你的浏览器不支持播放，请<a href="assets/dorazoom-promo.mp4">下载视频</a>观看。</video><p>产品流程示意 · AI 生成结果由外部 AI 工具完成</p></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

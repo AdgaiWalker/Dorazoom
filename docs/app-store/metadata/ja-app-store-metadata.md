@@ -68,8 +68,8 @@ DoraZoom は、Mac クリエイターの説明と共同作業を支えるネイ�
 
 DoraZoom は AI 内蔵やクラウド推論をうたう製品ではありません。取り込む内容と権限は、常にユーザーが選択できます。
 
-プライバシーポリシー：TBD
-利用規約：TBD
+プライバシーポリシー：https://dorazoom.iwalk.pro/privacy/
+利用規約：https://dorazoom.iwalk.pro/terms/
 ```
 
 ### 2.5 Keywords
@@ -131,4 +131,4 @@ DoraZoom へようこそ。初回 App Store リリースでは、視線を導く
 - App は macOS の App ごと／システムの言語に従い、App 内の言語切り替えは追加しません。
 - 権限ダイアログは macOS の言語に従い、この locale の `InfoPlist.strings` を読み込みます。
 - 日本語でコールド起動し、App 名、ステータスメニュー、設定、取り込み／OCR、収録、パノラマ、DemoType を確認します。
-- **リリースを妨げる項目：**App Store への提出前に、2 つの `TBD` を承認済みの公開 URL に置き換える必要があります。
+- **リリースを妨げる項目：**App Store への提出前に、2 つの the public legal pages を承認済みの公開 URL に置き換える必要があります。
