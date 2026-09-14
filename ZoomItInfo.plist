@@ -2,6 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+        <string>zh-Hant</string>
+        <string>ja</string>
+        <string>ko</string>
+        <string>de</string>
+        <string>fr</string>
+        <string>es-ES</string>
+        <string>es-419</string>
+        <string>pt-BR</string>
+    </array>
     <key>CFBundleIdentifier</key>
     <string>com.duola.dorazoom.dev</string>
     <key>CFBundleName</key>
@@ -9,8 +24,8 @@
     <key>CFBundleDisplayName</key>
     <string>DoraZoom</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>DoraZoom records your microphone when you enable microphone capture for screen recordings.</string>
+    <string>DoraZoom records your microphone only when you enable microphone audio for a screen recording.</string>
     <key>NSCameraUsageDescription</key>
-    <string>DoraZoom shows your webcam as a picture-in-picture overlay when you enable it for screen recordings.</string>
+    <string>DoraZoom records your camera as a picture-in-picture overlay only when you enable it for a screen recording.</string>
 </dict>
 </plist>

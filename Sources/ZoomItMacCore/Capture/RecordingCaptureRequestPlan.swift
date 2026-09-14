@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 enum RecordingCaptureRequestFilter: Equatable, Sendable {
     case display(displayID: UInt32, excludingWindowIDs: [UInt32])
@@ -22,12 +23,48 @@ struct RecordingCaptureRequestPlan: Equatable, Sendable {
     var showsCursor: Bool
 }
 
-enum RecordingCaptureRequestPlanError: Error, Equatable {
+enum RecordingCaptureRequestPlanError: LocalizedError, Equatable {
     case displayNotFound(UInt32)
     case noDisplayAvailable
     case windowNotFound(UInt32)
     case windowDisplayNotFound(windowID: UInt32, displayID: UInt32)
     case invalidRegion(CGRect)
+
+    var errorDescription: String? {
+        switch self {
+        case .displayNotFound(let displayID):
+            AppLocalization.format(
+                "recording.error.plan.display_not_found",
+                defaultValue: "Display %u is no longer available.",
+                displayID
+            )
+        case .noDisplayAvailable:
+            AppLocalization.string(
+                "recording.error.plan.no_display_available",
+                defaultValue: "No display is available for recording."
+            )
+        case .windowNotFound(let windowID):
+            AppLocalization.format(
+                "recording.error.plan.window_not_found",
+                defaultValue: "Window %u is no longer available for recording.",
+                windowID
+            )
+        case .windowDisplayNotFound(let windowID, let displayID):
+            AppLocalization.format(
+                "recording.error.plan.window_display_not_found",
+                defaultValue: "Window %u belongs to display %u, which is no longer available.",
+                windowID,
+                displayID
+            )
+        case .invalidRegion(let region):
+            AppLocalization.format(
+                "recording.error.plan.invalid_region",
+                defaultValue: "The selected recording region is invalid (%.0f × %.0f).",
+                Double(region.width),
+                Double(region.height)
+            )
+        }
+    }
 }
 
 enum RecordingCaptureRequestPlanner {

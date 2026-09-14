@@ -144,3 +144,4 @@ Scripts/release-internal.sh
 - [GOAL.md](/Users/happy/Desktop/zoomit/GOAL.md)：阶段目标、边界和剩余工作。
 - [VALIDATION.md](/Users/happy/Desktop/zoomit/VALIDATION.md)：自动化与交付门禁证据。
 - [ACCEPTANCE.md](/Users/happy/Desktop/zoomit/ACCEPTANCE.md)：Phase 7 本地模拟验收记录。
+- [docs/operations/README.md](/Users/happy/Desktop/zoomit/docs/operations/README.md)：发布、运营、设计审查和阶段执行计划。

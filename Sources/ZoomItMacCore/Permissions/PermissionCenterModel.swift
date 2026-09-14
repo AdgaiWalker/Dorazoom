@@ -76,35 +76,50 @@ enum PermissionCenterModel {
             rows: [
                 row(
                     kind: .screenCapture,
-                    purpose: "用于缩放、圈画、截图和录制屏幕内容",
+                    purpose: AppLocalization.string(
+                        "permission_center.purpose.screen_capture",
+                        defaultValue: "Used for zoom, drawing, screenshots, and screen recording"
+                    ),
                     grant: input.screenCapture,
                     isOptional: false,
                     isEnabled: true
                 ),
                 row(
                     kind: .inputPosting,
-                    purpose: "用于把截图后的 ⌃V 转换为原生 ⌘V",
+                    purpose: AppLocalization.string(
+                        "permission_center.purpose.input_posting",
+                        defaultValue: "Used to convert ⌃V after a screenshot to native ⌘V"
+                    ),
                     grant: input.inputPosting,
                     isOptional: !input.controlVPasteEnabled,
                     isEnabled: input.controlVPasteEnabled
                 ),
                 row(
                     kind: .inputListeningFallback,
-                    purpose: "用于显示录制中的点击/快捷键，或监听备用热键",
+                    purpose: AppLocalization.string(
+                        "permission_center.purpose.input_listening",
+                        defaultValue: "Used to show clicks and shortcuts in recordings, or listen for fallback hotkeys"
+                    ),
                     grant: input.inputListeningFallback,
                     isOptional: true,
                     isEnabled: input.inputListeningFallbackNeeded
                 ),
                 row(
                     kind: .microphone,
-                    purpose: "用于录制你的声音",
+                    purpose: AppLocalization.string(
+                        "permission_center.purpose.microphone",
+                        defaultValue: "Used to record your voice"
+                    ),
                     grant: input.microphone,
                     isOptional: true,
                     isEnabled: input.microphoneEnabled
                 ),
                 row(
                     kind: .camera,
-                    purpose: "用于录制摄像头画中画",
+                    purpose: AppLocalization.string(
+                        "permission_center.purpose.camera",
+                        defaultValue: "Used to record camera picture-in-picture"
+                    ),
                     grant: input.camera,
                     isOptional: true,
                     isEnabled: input.cameraEnabled

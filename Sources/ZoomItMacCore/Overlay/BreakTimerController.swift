@@ -12,9 +12,16 @@ enum BreakTimerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noDisplay:
-            "The active display could not be found."
+            AppLocalization.string(
+                "break.error.no_display",
+                defaultValue: "The active display could not be found."
+            )
         case .backgroundImageUnavailable(let path):
-            "The break timer background image could not be loaded: \(path)"
+            AppLocalization.format(
+                "break.error.background_image_unavailable",
+                defaultValue: "The break timer background image could not be loaded: %@",
+                path
+            )
         }
     }
 }

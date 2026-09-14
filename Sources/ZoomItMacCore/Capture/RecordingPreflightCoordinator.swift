@@ -111,7 +111,10 @@ final class RecordingPreflightWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "录制前检查"
+        window.title = AppLocalization.string(
+            "recording.preflight.window.title",
+            defaultValue: "Recording Check"
+        )
         window.level = .normal
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -129,9 +132,21 @@ final class RecordingPreflightWindowController: NSObject, NSWindowDelegate {
 
     private func makeContent(_ plan: RecordingPreflightPlan) -> NSView {
         let titleText = switch plan.decision {
-        case .ready: "已就绪"
-        case .requiresConfirmation: "请确认警告"
-        case .blocked: "暂时无法开始"
+        case .ready:
+            AppLocalization.string(
+                "recording.preflight.decision.ready",
+                defaultValue: "Ready to Record"
+            )
+        case .requiresConfirmation:
+            AppLocalization.string(
+                "recording.preflight.decision.confirm_warnings",
+                defaultValue: "Review the Warnings"
+            )
+        case .blocked:
+            AppLocalization.string(
+                "recording.preflight.decision.blocked",
+                defaultValue: "Recording Cannot Start"
+            )
         }
         let title = NSTextField(labelWithString: titleText)
         title.font = .systemFont(ofSize: 18, weight: .semibold)
@@ -144,19 +159,48 @@ final class RecordingPreflightWindowController: NSObject, NSWindowDelegate {
             case .blocked: "×"
             }
             let name = switch row.kind {
-            case .target: "目标"
-            case .disk: "磁盘"
-            case .systemAudio: "系统声音"
-            case .microphone: "麦克风"
-            case .camera: "摄像头"
+            case .target:
+                AppLocalization.string(
+                    "recording.preflight.row.target",
+                    defaultValue: "Target"
+                )
+            case .disk:
+                AppLocalization.string(
+                    "recording.preflight.row.disk",
+                    defaultValue: "Disk"
+                )
+            case .systemAudio:
+                AppLocalization.string(
+                    "recording.preflight.row.system_audio",
+                    defaultValue: "System Audio"
+                )
+            case .microphone:
+                AppLocalization.string(
+                    "recording.preflight.row.microphone",
+                    defaultValue: "Microphone"
+                )
+            case .camera:
+                AppLocalization.string(
+                    "recording.preflight.row.camera",
+                    defaultValue: "Camera"
+                )
             }
 
             if row.kind == .systemAudio || row.kind == .microphone {
                 let enabled = row.kind == .systemAudio
                     ? audioSelection.systemAudio
                     : audioSelection.microphone
+                let checkboxTitle = row.kind == .systemAudio
+                    ? AppLocalization.string(
+                        "recording.preflight.checkbox.system_audio",
+                        defaultValue: "Record system audio"
+                    )
+                    : AppLocalization.string(
+                        "recording.preflight.checkbox.microphone",
+                        defaultValue: "Record microphone"
+                    )
                 let checkbox = NSButton(
-                    checkboxWithTitle: "录制\(name)",
+                    checkboxWithTitle: checkboxTitle,
                     target: self,
                     action: row.kind == .systemAudio
                         ? #selector(systemAudioChanged(_:))
@@ -165,7 +209,12 @@ final class RecordingPreflightWindowController: NSObject, NSWindowDelegate {
                 checkbox.state = enabled ? .on : .off
                 checkbox.font = .systemFont(ofSize: 13)
 
-                let detail = NSTextField(labelWithString: "\(symbol) \(row.detail)")
+                let detail = NSTextField(labelWithString: AppLocalization.format(
+                    "recording.preflight.row.audio_detail",
+                    defaultValue: "%@ %@",
+                    symbol,
+                    row.detail
+                ))
                 detail.font = .systemFont(ofSize: 12)
                 detail.textColor = .secondaryLabelColor
 
@@ -175,17 +224,38 @@ final class RecordingPreflightWindowController: NSObject, NSWindowDelegate {
                 return rowStack
             }
 
-            let label = NSTextField(labelWithString: "\(symbol)  \(name)：\(row.detail)")
+            let label = NSTextField(labelWithString: AppLocalization.format(
+                "recording.preflight.row.summary",
+                defaultValue: "%@  %@: %@",
+                symbol,
+                name,
+                row.detail
+            ))
             label.font = .systemFont(ofSize: 13)
             return label
         }
 
-        let cancel = NSButton(title: "取消", target: self, action: #selector(cancelPressed))
+        let cancel = NSButton(
+            title: AppLocalization.string(
+                "common.cancel",
+                defaultValue: "Cancel"
+            ),
+            target: self,
+            action: #selector(cancelPressed)
+        )
         cancel.bezelStyle = .rounded
         var buttons = [cancel]
         if plan.decision != .blocked {
             let proceed = NSButton(
-                title: plan.decision == .ready ? "开始录制" : "仍然开始",
+                title: plan.decision == .ready
+                    ? AppLocalization.string(
+                        "recording.preflight.action.start",
+                        defaultValue: "Start Recording"
+                    )
+                    : AppLocalization.string(
+                        "recording.preflight.action.start_anyway",
+                        defaultValue: "Start Anyway"
+                    ),
                 target: self,
                 action: #selector(proceedPressed)
             )

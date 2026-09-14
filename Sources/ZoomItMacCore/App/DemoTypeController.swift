@@ -11,10 +11,26 @@ final class DemoTypeController {
 
         var errorDescription: String? {
             switch self {
-            case .noFileSpecified: return "No DemoType file specified"
-            case .fileTooLarge: return "Unsupported DemoType file size"
-            case .unrecognizedContent: return "Unrecognized DemoType file content"
-            case .loadingFailed: return "Error loading DemoType file"
+            case .noFileSpecified:
+                return AppLocalization.string(
+                    "demo_type.error.no_file_specified",
+                    defaultValue: "No DemoType file specified"
+                )
+            case .fileTooLarge:
+                return AppLocalization.string(
+                    "demo_type.error.unsupported_file_size",
+                    defaultValue: "Unsupported DemoType file size"
+                )
+            case .unrecognizedContent:
+                return AppLocalization.string(
+                    "demo_type.error.unrecognized_content",
+                    defaultValue: "Unrecognized DemoType file content"
+                )
+            case .loadingFailed:
+                return AppLocalization.string(
+                    "demo_type.error.loading_failed",
+                    defaultValue: "Error loading DemoType file"
+                )
             }
         }
     }

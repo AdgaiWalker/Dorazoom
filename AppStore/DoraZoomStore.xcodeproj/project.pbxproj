@@ -1,0 +1,259 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* main.swift */; };
+		100000000000000000000003 /* DoraZoomColorIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* DoraZoomColorIcon.png */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		100000000000000000000002 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Sources/ZoomItMacApp/main.swift; sourceTree = SOURCE_ROOT; };
+		100000000000000000000004 /* DoraZoomColorIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ../Sources/ZoomItMacCore/Resources/DoraZoomColorIcon.png; sourceTree = SOURCE_ROOT; };
+		100000000000000000000005 /* DoraZoom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DoraZoom.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		100000000000000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		100000000000000000000007 = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000008 /* Sources */,
+				100000000000000000000009 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		100000000000000000000008 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000002 /* main.swift */,
+				100000000000000000000004 /* DoraZoomColorIcon.png */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		100000000000000000000009 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000005 /* DoraZoom.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		10000000000000000000000A /* DoraZoomStore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000013 /* Build configuration list for PBXNativeTarget */;
+			buildPhases = (
+				10000000000000000000000B /* Sources */,
+				100000000000000000000006 /* Frameworks */,
+				10000000000000000000000C /* Resources */,
+				100000000000000000000018 /* Generate app icon */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DoraZoomStore;
+			packageProductDependencies = (
+				100000000000000000000015 /* ZoomItMacCore */,
+			);
+			productName = DoraZoom;
+			productReference = 100000000000000000000005 /* DoraZoom.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		10000000000000000000000D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					10000000000000000000000A = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = 100000000000000000000012 /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 100000000000000000000007;
+			packageReferences = (
+				100000000000000000000014 /* XCLocalSwiftPackageReference "zoomit" */,
+			);
+			productRefGroup = 100000000000000000000009 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				10000000000000000000000A /* DoraZoomStore */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		10000000000000000000000C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000003 /* DoraZoomColorIcon.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		100000000000000000000018 /* Generate app icon */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Sources/ZoomItMacCore/Resources/DoraZoomColorIcon.png",
+			);
+			name = "Generate app icon";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/Contents/Resources/DoraZoom.icns",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/zsh;
+			shellScript = "set -e\nsource=\"$SRCROOT/../Sources/ZoomItMacCore/Resources/DoraZoomColorIcon.png\"\niconset=\"$DERIVED_FILE_DIR/DoraZoom.iconset\"\nrm -rf \"$iconset\"\nmkdir -p \"$iconset\"\nsips -z 16 16 \"$source\" --out \"$iconset/icon_16x16.png\" >/dev/null\nsips -z 32 32 \"$source\" --out \"$iconset/icon_16x16@2x.png\" >/dev/null\nsips -z 32 32 \"$source\" --out \"$iconset/icon_32x32.png\" >/dev/null\nsips -z 64 64 \"$source\" --out \"$iconset/icon_32x32@2x.png\" >/dev/null\nsips -z 128 128 \"$source\" --out \"$iconset/icon_128x128.png\" >/dev/null\nsips -z 256 256 \"$source\" --out \"$iconset/icon_128x128@2x.png\" >/dev/null\nsips -z 256 256 \"$source\" --out \"$iconset/icon_256x256.png\" >/dev/null\nsips -z 512 512 \"$source\" --out \"$iconset/icon_256x256@2x.png\" >/dev/null\nsips -z 512 512 \"$source\" --out \"$iconset/icon_512x512.png\" >/dev/null\nsips -z 1024 1024 \"$source\" --out \"$iconset/icon_512x512@2x.png\" >/dev/null\nmkdir -p \"$TARGET_BUILD_DIR/$WRAPPER_NAME/Contents/Resources\"\niconutil -c icns \"$iconset\" -o \"$TARGET_BUILD_DIR/$WRAPPER_NAME/Contents/Resources/DoraZoom.icns\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		10000000000000000000000B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000001 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		100000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		100000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		100000000000000000000016 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../Scripts/ZoomItStore.entitlements;
+				CODE_SIGN_IDENTITY = "3rd Party Mac Developer Application: cong ni (26GG8J688T)";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 26GG8J688T;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.duola.dorazoom;
+				PRODUCT_NAME = DoraZoom;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DORAZOOM_APP_STORE";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		100000000000000000000017 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../Scripts/ZoomItStore.entitlements;
+				CODE_SIGN_IDENTITY = "3rd Party Mac Developer Application: cong ni (26GG8J688T)";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = 26GG8J688T;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.duola.dorazoom;
+				PRODUCT_NAME = DoraZoom;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DORAZOOM_APP_STORE";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		100000000000000000000012 /* Build configuration list for PBXProject */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000010 /* Debug */,
+				100000000000000000000011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		100000000000000000000013 /* Build configuration list for PBXNativeTarget */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000016 /* Debug */,
+				100000000000000000000017 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		100000000000000000000014 /* XCLocalSwiftPackageReference "zoomit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		100000000000000000000015 /* ZoomItMacCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 100000000000000000000014 /* XCLocalSwiftPackageReference "zoomit" */;
+			productName = ZoomItMacCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 10000000000000000000000D /* Project object */;
+}

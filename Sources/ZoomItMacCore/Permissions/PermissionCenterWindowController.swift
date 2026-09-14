@@ -47,7 +47,10 @@ final class PermissionCenterWindowController: NSObject, PermissionCenterPresenti
             backing: .buffered,
             defer: false
         )
-        window.title = "DoraZoom 权限"
+        window.title = AppLocalization.string(
+            "permission_center.window_title",
+            defaultValue: "DoraZoom Permissions"
+        )
         window.level = .normal
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 560, height: 360)
@@ -60,10 +63,16 @@ final class PermissionCenterWindowController: NSObject, PermissionCenterPresenti
     private func render(_ plan: PermissionCenterPlan, in window: NSWindow) {
         renderedPlan = plan
 
-        let title = NSTextField(labelWithString: "权限")
+        let title = NSTextField(labelWithString: AppLocalization.string(
+            "permission_center.title",
+            defaultValue: "Permissions"
+        ))
         title.font = .systemFont(ofSize: 22, weight: .semibold)
 
-        let explanation = NSTextField(labelWithString: "DoraZoom 只在使用对应功能时申请权限。返回 DoraZoom 后，当前页面会自动刷新。")
+        let explanation = NSTextField(labelWithString: AppLocalization.string(
+            "permission_center.explanation",
+            defaultValue: "DoraZoom requests access only when you use the related feature. This page refreshes automatically when you return to DoraZoom."
+        ))
         explanation.font = .systemFont(ofSize: 13)
         explanation.textColor = .secondaryLabelColor
         explanation.maximumNumberOfLines = 0
@@ -164,11 +173,16 @@ final class PermissionCenterWindowController: NSObject, PermissionCenterPresenti
 
     private func title(for kind: PermissionCenterKind) -> String {
         switch kind {
-        case .screenCapture: "屏幕录制"
-        case .inputPosting: "辅助功能"
-        case .inputListeningFallback: "输入监控（备用）"
-        case .microphone: "麦克风"
-        case .camera: "摄像头"
+        case .screenCapture:
+            AppLocalization.string("permission_center.kind.screen_recording", defaultValue: "Screen Recording")
+        case .inputPosting:
+            AppLocalization.string("permission_center.kind.accessibility", defaultValue: "Accessibility")
+        case .inputListeningFallback:
+            AppLocalization.string("permission_center.kind.input_monitoring_fallback", defaultValue: "Input Monitoring (Fallback)")
+        case .microphone:
+            AppLocalization.string("permission_center.kind.microphone", defaultValue: "Microphone")
+        case .camera:
+            AppLocalization.string("permission_center.kind.camera", defaultValue: "Camera")
         }
     }
 
@@ -184,11 +198,16 @@ final class PermissionCenterWindowController: NSObject, PermissionCenterPresenti
 
     private func statusText(for state: PermissionCenterRowState) -> String {
         switch state {
-        case .ready: "已就绪"
-        case .notRequested: "尚未请求"
-        case .optionalNotRequested: "未启用，可选"
-        case .needsSettings: "需要在系统设置中处理"
-        case .restartRequired: "已授权，重新启动后生效"
+        case .ready:
+            AppLocalization.string("permission_center.status.ready", defaultValue: "Ready")
+        case .notRequested:
+            AppLocalization.string("permission_center.status.not_requested", defaultValue: "Not Requested")
+        case .optionalNotRequested:
+            AppLocalization.string("permission_center.status.optional_not_enabled", defaultValue: "Optional · Not Enabled")
+        case .needsSettings:
+            AppLocalization.string("permission_center.status.needs_settings", defaultValue: "Open System Settings to Continue")
+        case .restartRequired:
+            AppLocalization.string("permission_center.status.restart_required", defaultValue: "Granted · Restart Required")
         }
     }
 
@@ -205,9 +224,12 @@ final class PermissionCenterWindowController: NSObject, PermissionCenterPresenti
     private func actionTitle(for action: PermissionCenterAction) -> String {
         switch action {
         case .none: ""
-        case .requestPermission: "请求权限"
-        case .openSystemSettings: "打开系统设置"
-        case .restartApp: "重新启动 DoraZoom"
+        case .requestPermission:
+            AppLocalization.string("permission_center.action.request", defaultValue: "Request Permission")
+        case .openSystemSettings:
+            AppLocalization.string("permission_center.action.open_system_settings", defaultValue: "Open System Settings")
+        case .restartApp:
+            AppLocalization.string("permission_center.action.restart_app", defaultValue: "Restart DoraZoom")
         }
     }
 }

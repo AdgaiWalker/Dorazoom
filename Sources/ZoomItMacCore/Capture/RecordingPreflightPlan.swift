@@ -113,17 +113,38 @@ enum RecordingPreflightPlanner {
             rows.append(.init(kind: .target, status: .ready, detail: input.targetName))
         } else {
             issues.append(.targetUnavailable)
-            rows.append(.init(kind: .target, status: .blocked, detail: "录制目标已不可用"))
+            rows.append(.init(
+                kind: .target,
+                status: .blocked,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.target_unavailable",
+                    defaultValue: "The recording target is no longer available"
+                )
+            ))
         }
 
         if input.availableDiskBytes >= input.requiredDiskBytes {
-            rows.append(.init(kind: .disk, status: .ready, detail: "空间充足"))
+            rows.append(.init(
+                kind: .disk,
+                status: .ready,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.disk_ready",
+                    defaultValue: "Enough space is available"
+                )
+            ))
         } else {
             issues.append(.insufficientDisk(
                 requiredBytes: input.requiredDiskBytes,
                 availableBytes: input.availableDiskBytes
             ))
-            rows.append(.init(kind: .disk, status: .blocked, detail: "可用空间不足"))
+            rows.append(.init(
+                kind: .disk,
+                status: .blocked,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.disk_insufficient",
+                    defaultValue: "Not enough space is available"
+                )
+            ))
         }
 
         rows.append(sourceRow(
@@ -165,28 +186,78 @@ enum RecordingPreflightPlanner {
         issues: inout [RecordingPreflightIssue]
     ) -> RecordingPreflightRow {
         guard case let .enabled(permission, availability, level) = source else {
-            return .init(kind: kind, status: .disabled, detail: "未启用")
+            return .init(
+                kind: kind,
+                status: .disabled,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.disabled",
+                    defaultValue: "Not enabled"
+                )
+            )
         }
         guard permission == .allowed else {
             issues.append(permissionIssue(for: kind))
-            return .init(kind: kind, status: .blocked, detail: "需要权限")
+            return .init(
+                kind: kind,
+                status: .blocked,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.permission_required",
+                    defaultValue: "Permission is required"
+                )
+            )
         }
         guard availability == .available else {
             issues.append(unavailableIssue(for: kind))
-            return .init(kind: kind, status: .blocked, detail: "输入不可用")
+            return .init(
+                kind: kind,
+                status: .blocked,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.input_unavailable",
+                    defaultValue: "The input is unavailable"
+                )
+            )
         }
         switch level {
         case .silent:
             if let issue = silentIssue(for: kind) {
                 issues.append(issue)
             }
-            return .init(kind: kind, status: .warning, detail: "未检测到声音")
+            return .init(
+                kind: kind,
+                status: .warning,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.silent",
+                    defaultValue: "No sound detected"
+                )
+            )
         case .unknown:
-            return .init(kind: kind, status: .warning, detail: "无法确认当前电平")
+            return .init(
+                kind: kind,
+                status: .warning,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.level_unknown",
+                    defaultValue: "The current level could not be confirmed"
+                )
+            )
         case .audible(let level):
-            return .init(kind: kind, status: .ready, detail: "电平 \(Int(level * 100))%")
+            return .init(
+                kind: kind,
+                status: .ready,
+                detail: AppLocalization.format(
+                    "recording.preflight.detail.level_percent",
+                    defaultValue: "Level %d%%",
+                    Int(level * 100)
+                )
+            )
         case .notApplicable:
-            return .init(kind: kind, status: .ready, detail: "已就绪")
+            return .init(
+                kind: kind,
+                status: .ready,
+                detail: AppLocalization.string(
+                    "recording.preflight.detail.ready",
+                    defaultValue: "Ready"
+                )
+            )
         }
     }
 

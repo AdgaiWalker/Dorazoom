@@ -131,14 +131,26 @@ protocol ScreenRecordingPermissionPrompting: AnyObject {
 final class SystemScreenRecordingPermissionPrompter: ScreenRecordingPermissionPrompting {
     func promptForScreenRecordingAccess() -> ScreenRecordingPermissionPromptChoice {
         let alert = NSAlert()
-        alert.messageText = "DoraZoom 需要屏幕录制权限"
-        alert.informativeText = """
-        Zoom、绘画、截图、录制和全景截图都需要 macOS 允许 DoraZoom 读取屏幕内容。
+        alert.messageText = AppLocalization.string(
+            "screen_recording_permission.title",
+            defaultValue: "DoraZoom Needs Screen Recording Access"
+        )
+        alert.informativeText = AppLocalization.string(
+            "screen_recording_permission.message",
+            defaultValue: """
+            Zoom, drawing, screenshots, screen recording, and panorama capture require macOS to let DoraZoom read screen content.
 
-        授权后 macOS 可能会要求 DoraZoom 退出；DoraZoom 会自动重新打开。然后再按 Control+1、Control+2 或 Control+6 测试。
-        """
-        alert.addButton(withTitle: "继续授权")
-        alert.addButton(withTitle: "稍后")
+            After you grant access, macOS may ask DoraZoom to quit. DoraZoom will reopen automatically. Then try Control+1, Control+2, or Control+6 again.
+            """
+        )
+        alert.addButton(withTitle: AppLocalization.string(
+            "permission_prompt.continue",
+            defaultValue: "Continue"
+        ))
+        alert.addButton(withTitle: AppLocalization.string(
+            "permission_prompt.not_now",
+            defaultValue: "Not Now"
+        ))
         return alert.runModal() == .alertFirstButtonReturn ? .continueToSystemPrompt : .cancel
     }
 }

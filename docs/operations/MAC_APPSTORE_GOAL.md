@@ -2,8 +2,8 @@
 
 ## Go / No-Go
 
-- **Judgment**: Go after decisions
-- **Reason**: 当前仓库只有非沙盒 SwiftPM 站外版；Mac App Store 需要独立的沙盒构建、签名身份、App Store Connect app record 和 Archive 上传链路，必须先验证这些前置条件。
+- **Judgment**: Go after signing prerequisites
+- **Reason**: 商店版 target、沙盒边界、App Store Connect record 和商店文案已准备；当前剩余阻塞是本机缺少 Installer 分发证书和 provisioning profile，无法生成可上传 Archive。
 
 ## Target Outcome
 
@@ -16,10 +16,10 @@
 - **Non-goals**:
   - 不把当前 Developer ID 站外版伪装成商店版。
   - 不在商店版保留 `CGEventPost(Command+V)` 模拟粘贴能力。
-  - 不在本阶段提交 App Review 或公开发布。
+  - 在账号侧确认前不提交 App Review 或公开发布。
 - **Deferred work**:
   - 真实 Mac 上全部屏幕录制、Input Monitoring、麦克风、摄像头和升级/卸载验收。
-  - 商店资料完善、隐私答案、截图和审核说明。
+  - 由最终签名商店版生成截图并完成审核说明。
 - **Verification rule**: 以本地商店版 Archive 签名/entitlement 检查和 App Store Connect/TestFlight 处理状态为准。
 - **Evidence source**: Xcode archive、`codesign`/`spctl` 输出、App Store Connect app record 和 TestFlight build 状态。
 - **Pass criteria**: 商店版 Archive 使用 Mac App Distribution，包含 App Sandbox，Bundle ID 稳定且成功上传；App Store Connect 处理状态为可测试。
@@ -28,11 +28,12 @@
 
 ## Current State
 
-- SwiftPM macOS 项目，Bundle ID `com.duola.dorazoom`，最低 macOS 14，219 项测试已通过。
+- SwiftPM macOS 项目，Bundle ID `com.duola.dorazoom`，最低 macOS 14，228 项测试已通过。
 - 已有站外版 `Developer ID Application` 签名、公证 DMG/ZIP 和 `notarytool` 凭据。
-- 当前 `Scripts/ZoomIt.entitlements` 明确不包含 App Sandbox；现有代码调用 `CGEventPost`，与商店版目标冲突。
-- 仓库没有 `.xcodeproj`、`.xcworkspace` 或正式 Mac App Store Archive scheme。
-- App Store Connect 团队和 API 访问已配置，但尚未确认 DoraZoom 的 Mac App Store app record、SKU 和商店版 Bundle ID 是否已创建。
+- 已有 `AppStore/DoraZoomStore.xcodeproj`、商店版 entitlements 和 Archive scheme；Release build 4 已本地编译。
+- 商店版构建产物未发现 `CGEventPost`、`CGEventTapCreate` 或 `PasteTapBridge` 字符串；签名验证仍待真实 Archive。
+- App Store Connect 已确认 DoraZoom macOS record：Apple ID `6803335624`、Bundle ID `com.duola.dorazoom`、SKU `dorazoom-macos-2026`、版本 1.0 处于准备提交。
+- 本机仅有 `3rd Party Mac Developer Application: cong ni (26GG8J688T)`，缺少对应 Installer 身份；本机也没有 provisioning profile 目录。
 
 ## Priority Rationale
 
@@ -59,7 +60,7 @@
   - 只读检查优先，不创建重复 app record。
   - 发现 Bundle ID 或团队权限冲突时暂停并报告。
 - **Todos**:
-  - [ ] 检查 App Store Connect 是否已有 DoraZoom macOS app record。
+  - [x] 检查 App Store Connect 是否已有 DoraZoom macOS app record。
     - **Surface**: App Store Connect UI
     - **Proof**: 记录 app ID、Bundle ID、平台和当前状态
     - **Depends on**: 已登录 App Store Connect
@@ -79,15 +80,15 @@
   - 商店版禁止 `CGEventPost` 模拟粘贴；使用能力开关或替代提示。
   - 每次修改必须有测试或静态检查证据。
 - **Todos**:
-  - [ ] 创建正式 Xcode macOS App target、scheme、Info.plist 和 AppIcon。
+  - [x] 创建正式 Xcode macOS App target、scheme、Info.plist 和 AppIcon。
     - **Surface**: Xcode project/build files
     - **Proof**: `xcodebuild -list` 能看到 Archive scheme
     - **Depends on**: Phase 1
-  - [ ] 添加最小 App Sandbox entitlement 和商店版签名配置。
+  - [x] 添加最小 App Sandbox entitlement 和商店版签名配置。
     - **Surface**: entitlements/build settings
     - **Proof**: `codesign -d --entitlements -` 仅包含已验证能力
     - **Depends on**: target 已存在
-  - [ ] 隔离或关闭商店版模拟粘贴实现。
+  - [x] 隔离或关闭商店版模拟粘贴实现。
     - **Surface**: Swift/C bridge/feature flag
     - **Proof**: 商店版产物不含 `CGEventPost` 路径；测试通过
     - **Depends on**: target 已存在
@@ -119,10 +120,10 @@
 
 ## Dry-Run Findings
 
-- 当前没有 Xcode project，因此不能直接 Archive；必须先建立商店版 target 或生成受控的 Xcode project。
-- 当前 entitlement 明确禁止 App Sandbox，不能直接复用站外版产物。
-- 当前代码包含 `CGEventPost`，商店版需要能力隔离或降级设计。
-- App Store Connect app record、SKU、Mac App Distribution 身份和 profile 尚未被本地证据确认。
+- 商店版 Xcode project、Archive scheme 和最小沙盒 entitlement 已建立。
+- Release build 4 可编译，Bundle ID、版本、最低系统版本和商店版权主体均符合目标。
+- 商店版二进制静态检查未发现模拟粘贴路径。
+- 本机缺少 `3rd Party Mac Developer Installer` 身份与 provisioning profile；因此签名 Archive、Transporter 上传和 TestFlight 仍未完成。
 
 ## Final Validation
 
@@ -134,4 +135,4 @@
 
 ## First Execution Step
 
-只读检查 App Store Connect 中是否已有 DoraZoom macOS app record，并核对 Bundle ID 与团队权限；确认后再创建或改造商店版 target。
+补齐 Apple Developer 的 Mac App Distribution/Installer 证书与 App Store provisioning profile 后，串行执行签名 Archive；随后在 App Store Connect 临门操作前向用户确认上传、定价和提交审核。

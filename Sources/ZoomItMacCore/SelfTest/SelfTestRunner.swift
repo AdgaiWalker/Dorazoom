@@ -88,8 +88,11 @@ public enum SelfTestRunner {
             "Expected the settings version to fall back to CFBundleVersion"
         )
         try expect(
-            AppInfo.resolveVersion(from: nil) == "Development",
-            "Expected an unbundled development build to identify itself as Development"
+            AppInfo.resolveVersion(from: nil) == AppLocalization.string(
+                "app_info.version.development",
+                defaultValue: "Development"
+            ),
+            "Expected an unbundled development build to use the localized development label"
         )
     }
 

@@ -4,3 +4,16 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 .DS_Store
+
+# Local tools and generated build state
+.agents/
+
+# Website deployment metadata and local credentials
+website/.env.local
+website/.vercel/
+website/.openai/
+website/.git/
+
+# Promo dependencies and rendered output
+promo/node_modules/
+promo/out/

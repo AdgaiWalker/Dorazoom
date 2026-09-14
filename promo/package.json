@@ -1,0 +1,31 @@
+{
+  "name": "dorazoom-promo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "dev:journey": "remotion studio src/index.ts --no-open",
+    "render": "remotion render src/index.ts DoraZoomPromo out/promo.mp4",
+    "render:journey": "remotion render src/index.ts DoraZoom3DJourney out/dorazoom-3d-journey.mp4",
+    "render:silent": "remotion render src/index.ts DoraZoomPromo out/promo-silent.mp4 --props='{\"bgm\":false}'",
+    "still": "remotion still src/index.ts DoraZoomPromo",
+    "still:journey": "remotion still src/index.ts DoraZoom3DJourney out/dorazoom-3d-journey.png --frame=1140"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.7.0",
+    "@remotion/cli": "4.0.484",
+    "@remotion/three": "4.0.484",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "remotion": "4.0.484",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "@types/three": "^0.185.4",
+    "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}

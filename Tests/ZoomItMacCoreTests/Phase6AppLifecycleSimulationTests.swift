@@ -70,10 +70,10 @@ final class Phase6AppLifecycleSimulationTests: XCTestCase {
             .quitSeparator,
             .quit
         ])
-        XCTAssertEqual(idle.menu.item(.status)?.title, "就绪")
-        XCTAssertEqual(drawing.menu.item(.status)?.title, "圈画中")
-        XCTAssertEqual(recording.menu.item(.status)?.title, "正在录制")
-        XCTAssertEqual(idle.menu.item(.permissions)?.title, "权限")
+        XCTAssertEqual(idle.menu.item(.status)?.title, "Ready")
+        XCTAssertEqual(drawing.menu.item(.status)?.title, "Drawing")
+        XCTAssertEqual(recording.menu.item(.status)?.title, "Recording")
+        XCTAssertEqual(idle.menu.item(.permissions)?.title, "Permissions")
         XCTAssertEqual(idle.menu.item(.moreFeatures)?.children.map(\.id), [
             .panorama,
             .demoType,
@@ -110,7 +110,7 @@ final class Phase6AppLifecycleSimulationTests: XCTestCase {
             settings: .defaults
         )
 
-        XCTAssertEqual(plan.item(.permissions)?.title, "权限 · 需要设置")
+        XCTAssertEqual(plan.item(.permissions)?.title, "Permissions · Action Required")
         XCTAssertTrue(plan.item(.permissions)?.needsAttention == true)
         XCTAssertFalse(plan.item(.moreFeatures)?.needsAttention == true)
     }

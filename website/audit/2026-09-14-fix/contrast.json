@@ -1,0 +1,32 @@
+[
+  {
+    "selector": ".prompt-pane label",
+    "color": "rgb(98, 105, 117)",
+    "bg": "rgb(255, 255, 255)",
+    "contrast": 5.530922394785149
+  },
+  {
+    "selector": ".canvas-instruction",
+    "color": "rgb(98, 105, 117)",
+    "bg": "rgb(244, 245, 247)",
+    "contrast": 5.0701866848274735
+  },
+  {
+    "selector": ".demo-disclaimer",
+    "color": "rgb(98, 105, 117)",
+    "bg": "rgb(255, 255, 255)",
+    "contrast": 5.530922394785149
+  },
+  {
+    "selector": ".closing-inner>p",
+    "color": "rgb(184, 189, 200)",
+    "bg": "rgb(32, 33, 36)",
+    "contrast": 8.548645837496887
+  },
+  {
+    "selector": ".scene-tab:not(.active)",
+    "color": "rgb(98, 105, 117)",
+    "bg": "rgb(247, 248, 250)",
+    "contrast": 5.2049186489370545
+  }
+]

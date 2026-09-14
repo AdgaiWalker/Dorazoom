@@ -107,22 +107,37 @@ final class RecordingRecoveryCoordinator {
             backing: .buffered,
             defer: false
         )
-        window.title = "恢复未完成录制"
+        window.title = AppLocalization.string(
+            "recording.recovery.window.title",
+            defaultValue: "Recover an Unfinished Recording"
+        )
         window.level = .normal
         window.isReleasedWhenClosed = false
 
         let message = NSTextField(labelWithString: isFinalized
-            ? "DoraZoom 找到一个已完成但尚未导出的录制。"
-            : "DoraZoom 找到一个可尝试恢复的分片 MOV。可恢复到上一个已写入分片。")
+            ? AppLocalization.string(
+                "recording.recovery.message.finalized",
+                defaultValue: "DoraZoom found a completed recording that has not been exported."
+            )
+            : AppLocalization.string(
+                "recording.recovery.message.fragmented",
+                defaultValue: "DoraZoom found a fragmented MOV that may be recoverable through its last written fragment."
+            ))
         message.maximumNumberOfLines = 3
         let recover = NSButton(
-            title: "恢复到…",
+            title: AppLocalization.string(
+                "recording.recovery.action.recover_to",
+                defaultValue: "Recover To…"
+            ),
             target: self,
             action: #selector(recoverPressed)
         )
         recover.bezelStyle = .rounded
         let discard = NSButton(
-            title: "丢弃",
+            title: AppLocalization.string(
+                "recording.recovery.action.discard",
+                defaultValue: "Discard"
+            ),
             target: self,
             action: #selector(discardPressed)
         )
@@ -155,7 +170,10 @@ final class RecordingRecoveryCoordinator {
 
     private func recover(_ manifest: RecordingRecoveryManifest) {
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "DoraZoom 恢复.mov"
+        panel.nameFieldStringValue = AppLocalization.string(
+            "recording.recovery.suggested_filename",
+            defaultValue: "DoraZoom Recovered.mov"
+        )
         panel.allowedContentTypes = [.quickTimeMovie]
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         let source = URL(fileURLWithPath: manifest.temporaryPath)

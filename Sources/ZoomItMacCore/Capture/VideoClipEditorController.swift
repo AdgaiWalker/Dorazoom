@@ -26,9 +26,21 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
 
         var title: String {
             switch self {
-            case .fadeBlack: "Fade to Black"
-            case .none: "No Transition"
-            case .fadeWhite: "Fade to White"
+            case .fadeBlack:
+                AppLocalization.string(
+                    "recording.editor.transition.fade_to_black",
+                    defaultValue: "Fade to Black"
+                )
+            case .none:
+                AppLocalization.string(
+                    "recording.editor.transition.none",
+                    defaultValue: "No Transition"
+                )
+            case .fadeWhite:
+                AppLocalization.string(
+                    "recording.editor.transition.fade_to_white",
+                    defaultValue: "Fade to White"
+                )
             }
         }
     }
@@ -169,8 +181,14 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         )
         win.editorController = self
         win.title = presentationMode == .lightweight
-            ? "DoraZoom：录制结果"
-            : "DoraZoom：高级编辑"
+            ? AppLocalization.string(
+                "recording.editor.window.result_title",
+                defaultValue: "DoraZoom: Recording Result"
+            )
+            : AppLocalization.string(
+                "recording.editor.window.advanced_title",
+                defaultValue: "DoraZoom: Advanced Editor"
+            )
         win.delegate = self
         win.center()
         win.isReleasedWhenClosed = false
@@ -208,7 +226,10 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
 
         volumeButton = transportButton("speaker.wave.2.fill", #selector(toggleMute))
         volumeButton.contentTintColor = .secondaryLabelColor
-        volumeButton.toolTip = "Mute"
+        volumeButton.toolTip = AppLocalization.string(
+            "recording.editor.audio.mute",
+            defaultValue: "Mute"
+        )
         volumeSlider = NSSlider(
             value: Double(playbackVolume),
             minValue: 0,
@@ -235,13 +256,30 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         transport.addSubview(volume)
         content.addSubview(transport)
 
-        let cancel = NSButton(title: "取消", target: self, action: #selector(cancel))
+        let cancel = NSButton(
+            title: AppLocalization.string(
+                "common.cancel",
+                defaultValue: "Cancel"
+            ),
+            target: self,
+            action: #selector(cancel)
+        )
         cancel.bezelStyle = .rounded
-        let save = NSButton(title: "导出…", target: self, action: #selector(save))
+        let save = NSButton(
+            title: AppLocalization.string(
+                "recording.editor.action.export",
+                defaultValue: "Export…"
+            ),
+            target: self,
+            action: #selector(save)
+        )
         save.bezelStyle = .rounded
         save.keyEquivalent = "\r"
         let reveal = NSButton(
-            title: "在访达中打开文件",
+            title: AppLocalization.string(
+                "recording.editor.action.reveal_in_finder",
+                defaultValue: "Show in Finder"
+            ),
             target: self,
             action: #selector(revealOriginalInFinder)
         )
@@ -252,23 +290,46 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
             deleteButton = nil
             transitionPopup = nil
             let advanced = NSButton(
-                title: "高级编辑…",
+                title: AppLocalization.string(
+                    "recording.editor.action.advanced_editing",
+                    defaultValue: "Advanced Editing…"
+                ),
                 target: self,
                 action: #selector(showAdvancedEditor)
             )
             advanced.bezelStyle = .rounded
             bottomViews = [reveal, advanced, NSView(), cancel, save]
         } else {
-            let append = NSButton(title: "拼接…", target: self, action: #selector(appendClip))
+            let append = NSButton(
+                title: AppLocalization.string(
+                    "recording.editor.action.append",
+                    defaultValue: "Append…"
+                ),
+                target: self,
+                action: #selector(appendClip)
+            )
             append.bezelStyle = .rounded
-            deleteButton = NSButton(title: "删除片段", target: self, action: #selector(commitPendingDelete))
+            deleteButton = NSButton(
+                title: AppLocalization.string(
+                    "recording.editor.action.delete_range",
+                    defaultValue: "Delete Range"
+                ),
+                target: self,
+                action: #selector(commitPendingDelete)
+            )
             deleteButton.bezelStyle = .rounded
             deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
             deleteButton.imagePosition = .imageLeading
             deleteButton.contentTintColor = .systemRed
-            deleteButton.toolTip = "删除时间线选区（Delete），使用 Command-Z 撤销。"
+            deleteButton.toolTip = AppLocalization.string(
+                "recording.editor.action.delete_range_help",
+                defaultValue: "Delete the selected timeline range (Delete). Use Command-Z to undo."
+            )
             deleteButton.isEnabled = false
-            let transitionLabel = NSTextField(labelWithString: "转场：")
+            let transitionLabel = NSTextField(labelWithString: AppLocalization.string(
+                "recording.editor.transition.label",
+                defaultValue: "Transition:"
+            ))
             transitionLabel.textColor = .secondaryLabelColor
             transitionPopup = NSPopUpButton()
             transitionPopup.addItems(withTitles: Transition.allCases.map(\.title))
@@ -440,8 +501,17 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         let effectiveVolume = volumeSlider?.floatValue ?? 0
         let muted = isMuted || effectiveVolume <= 0
         let symbol = muted ? "speaker.slash.fill" : (effectiveVolume < 0.5 ? "speaker.wave.1.fill" : "speaker.wave.2.fill")
-        volumeButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: muted ? "Unmute" : "Mute")
-        volumeButton.toolTip = muted ? "Unmute" : "Mute"
+        let actionTitle = muted
+            ? AppLocalization.string(
+                "recording.editor.audio.unmute",
+                defaultValue: "Unmute"
+            )
+            : AppLocalization.string(
+                "recording.editor.audio.mute",
+                defaultValue: "Mute"
+            )
+        volumeButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: actionTitle)
+        volumeButton.toolTip = actionTitle
         volumeButton.contentTintColor = muted ? .secondaryLabelColor : .labelColor
         volumeSlider?.isEnabled = !muted
     }
@@ -517,7 +587,10 @@ final class VideoClipEditorController: NSObject, NSWindowDelegate, VideoTimeline
         pause()
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie]
-        panel.title = "Select Video to Append"
+        panel.title = AppLocalization.string(
+            "recording.editor.append.open_panel.title",
+            defaultValue: "Select a Video to Append"
+        )
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let asset = AVURLAsset(url: url)
         Task { @MainActor [weak self] in

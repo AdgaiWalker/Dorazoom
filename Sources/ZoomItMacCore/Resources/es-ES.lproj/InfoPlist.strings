@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "DoraZoom graba el audio del micrófono solo cuando lo activas para una grabación de pantalla.";
+"NSCameraUsageDescription" = "DoraZoom graba la imagen de la cámara como imagen dentro de imagen solo cuando la activas para una grabación de pantalla.";

@@ -1,0 +1,100 @@
+platform: macos-swift
+
+app:
+  name: DoraZoom
+  bundle_id: com.duola.dorazoom
+  tone: concise
+  category: Graphics & Design
+  tagline: Guide attention. Explain clearly.
+  brand_terms:
+    - DoraZoom
+    - ZoomIt
+    - DemoType
+    - macOS
+    - Mac
+    - App Store
+    - TestFlight
+
+ios:
+  # The upstream skill currently names this section `ios`; DoraZoom applies
+  # the same String Catalog conventions to a native macOS AppKit target.
+  string_catalog: Sources/ZoomItMacCore/Resources/Localizable.xcstrings
+  language_enum: ""
+  language_settings_view: ""
+  language_tests: Tests/ZoomItMacCoreTests/LocalizationTests.swift
+  xcodeproj: ""
+  info_plist_strings_dir: Sources/ZoomItMacCore/Resources
+  info_plist_keys:
+    - NSCameraUsageDescription
+    - NSMicrophoneUsageDescription
+  source_dir: Sources/ZoomItMacCore
+  # The App Store Xcode target/scheme is a separate release-engineering gate.
+  # This SwiftPM localization work deliberately does not pretend it exists.
+  scheme: ""
+  localization_strategy: system_only
+  has_in_app_language_switch: false
+  localization_helper: Sources/ZoomItMacCore/Core/AppLocalization.swift
+  user_defaults_keys: []
+  language_settings_order: follow_system_first
+  user_defaults_language_key: app_language
+
+store:
+  apple:
+    app_store_connect_language: English (U.S.)
+    privacy_policy_url: TBD
+    terms_url: TBD
+    metadata_reference: docs/app-store/metadata/en-US-app-store-metadata.md
+    aso_seed_terms:
+      - screen annotation
+      - zoom
+      - draw
+      - screenshot
+      - screen recording
+      - presentation
+      - creator
+      - collaboration
+      - AI
+    description_sections:
+      value_proposition: true
+      core_features: 6
+      target_audience: 3
+      legal_links: true
+    screenshots:
+      count: 6
+      themes:
+        - Guide attention on any screen
+        - Draw and explain without switching apps
+        - Capture context for people and AI
+        - Record tutorials with live emphasis
+        - Protect sensitive details before sharing
+        - Work in your language
+      multilingual_slide_index: 6
+
+deliverables:
+  metadata_dir: docs/app-store/metadata
+  translations_dir: .l10n/translations
+
+audit:
+  sources:
+    - string_catalog
+    - info_plist_strings
+    - hardcoded_swift
+    - persisted_localized_strings
+    - dynamic_display_strings
+    - language_tests
+    - xcode_known_regions
+
+verification:
+  test_command: swift test
+
+existing_locales:
+  - en
+  - zh-Hans
+  - zh-Hant
+  - ja
+  - ko
+  - de
+  - fr
+  - es-ES
+  - es-419
+  - pt-BR

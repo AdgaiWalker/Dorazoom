@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "O DoraZoom grava o áudio do microfone somente quando você o ativa para uma gravação de tela.";
+"NSCameraUsageDescription" = "O DoraZoom grava a imagem da sua câmera em imagem sobre imagem somente quando você ativa a câmera para uma gravação de tela.";

@@ -51,37 +51,37 @@ enum SettingsNavigationModel {
         sections: [
             SettingsNavigationSection(
                 id: .general,
-                title: "通用",
+                title: text("settings_navigation.general", "General"),
                 symbolName: "gearshape",
                 destinations: [.launchAtLogin, .zoomBehavior]
             ),
             SettingsNavigationSection(
                 id: .shortcuts,
-                title: "快捷键",
+                title: text("settings_navigation.shortcuts", "Shortcuts"),
                 symbolName: "keyboard",
                 destinations: [.coreHotkeys]
             ),
             SettingsNavigationSection(
                 id: .captureAndDraw,
-                title: "截图与圈画",
+                title: text("settings_navigation.capture_and_draw", "Capture & Draw"),
                 symbolName: "pencil.and.outline",
                 destinations: [.snip, .drawing, .text]
             ),
             SettingsNavigationSection(
                 id: .recording,
-                title: "录制",
+                title: text("settings_navigation.recording", "Recording"),
                 symbolName: "record.circle",
                 destinations: [.recordingCore]
             ),
             SettingsNavigationSection(
                 id: .permissions,
-                title: "权限",
+                title: text("settings_navigation.permissions", "Permissions"),
                 symbolName: "checkmark.shield",
                 destinations: [.permissionCenter]
             ),
             SettingsNavigationSection(
                 id: .advanced,
-                title: "高级",
+                title: text("settings_navigation.advanced", "Advanced"),
                 symbolName: "slider.horizontal.3",
                 destinations: [
                     .demoType,
@@ -95,4 +95,8 @@ enum SettingsNavigationModel {
         ],
         platformBoundary: .simulatedOnly
     )
+
+    private static func text(_ key: String, _ defaultValue: String) -> String {
+        AppLocalization.string(key, defaultValue: defaultValue)
+    }
 }

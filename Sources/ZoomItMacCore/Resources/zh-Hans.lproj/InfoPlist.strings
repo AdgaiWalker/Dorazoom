@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "当你为屏幕录制启用麦克风声音时，DoraZoom 会录制麦克风音频。";
+"NSCameraUsageDescription" = "只有当你为屏幕录制启用摄像头时，DoraZoom 才会将摄像头画面录制为画中画。";

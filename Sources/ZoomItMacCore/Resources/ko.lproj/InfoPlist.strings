@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "화면 녹화에서 마이크 오디오를 켠 경우에만 DoraZoom이 마이크 소리를 녹음합니다.";
+"NSCameraUsageDescription" = "화면 녹화에서 카메라를 켠 경우에만 DoraZoom이 카메라 영상을 화면 속 화면으로 녹화합니다.";

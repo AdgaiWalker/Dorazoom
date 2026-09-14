@@ -27,11 +27,20 @@ enum ScreenCaptureError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .displayNotFound:
-            "The active display could not be captured."
+            AppLocalization.string(
+                "capture.error.screen.display_not_found",
+                defaultValue: "The active display could not be captured."
+            )
         case .imageCreationFailed:
-            "The display image could not be created."
+            AppLocalization.string(
+                "capture.error.screen.image_creation_failed",
+                defaultValue: "The display image could not be created."
+            )
         case .recordingFailed:
-            "The screen recording could not be saved."
+            AppLocalization.string(
+                "capture.error.screen.recording_failed",
+                defaultValue: "The screen recording could not be saved."
+            )
         }
     }
 }

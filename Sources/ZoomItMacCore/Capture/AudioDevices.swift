@@ -12,7 +12,10 @@ struct CaptureDeviceInfo: Equatable {
 enum AudioDevices {
     /// The list of selectable inputs, always led by a "Default" entry (empty id).
     static func availableMicrophones() -> [CaptureDeviceInfo] {
-        var devices: [CaptureDeviceInfo] = [CaptureDeviceInfo(id: "", name: "Default")]
+        var devices: [CaptureDeviceInfo] = [CaptureDeviceInfo(
+            id: "",
+            name: AppLocalization.string("capture_device.default", defaultValue: "Default")
+        )]
         let discovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: deviceTypes,
             mediaType: .audio,
@@ -61,7 +64,10 @@ enum AudioDevices {
 enum VideoDevices {
     /// The list of selectable cameras, always led by a "Default" entry.
     static func availableCameras() -> [CaptureDeviceInfo] {
-        var devices: [CaptureDeviceInfo] = [CaptureDeviceInfo(id: "", name: "Default")]
+        var devices: [CaptureDeviceInfo] = [CaptureDeviceInfo(
+            id: "",
+            name: AppLocalization.string("capture_device.default", defaultValue: "Default")
+        )]
         let discovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: deviceTypes,
             mediaType: .video,

@@ -244,7 +244,10 @@ final class PanoramaController {
             if captureCancelled {
                 isCapturing = false
                 onStateChange?(false)
-                showCompletion(message: "Panorama cancelled")
+                showCompletion(message: AppLocalization.string(
+                    "panorama.capture.cancelled",
+                    defaultValue: "Panorama cancelled"
+                ))
                 return
             }
 
@@ -261,7 +264,10 @@ final class PanoramaController {
             borderWindow?.orderOut(nil)
             borderWindow = nil
             onStateChange?(false)
-            updateBanner("DoraZoom panorama stitching...")
+            updateBanner(AppLocalization.string(
+                "panorama.stitching.progress",
+                defaultValue: "DoraZoom is stitching the panorama…"
+            ))
 
             // Optional: dump raw frames for offline algorithm debugging when
             // ZOOMIT_PANORAMA_DUMP is set. Each file is width,height-prefixed
@@ -289,12 +295,27 @@ final class PanoramaController {
     }
 
     private func captureText(frameCount: Int) -> String {
-        let frameWord = frameCount == 1 ? "frame" : "frames"
-        return "Panorama: scroll the content, then press the shortcut again to finish — \(frameCount) \(frameWord)"
+        if frameCount == 1 {
+            return AppLocalization.format(
+                "panorama.capture.instruction.one_frame",
+                defaultValue: "Panorama: scroll the content, then press the shortcut again to finish — %d frame",
+                frameCount
+            )
+        }
+        return AppLocalization.format(
+            "panorama.capture.instruction.many_frames",
+            defaultValue: "Panorama: scroll the content, then press the shortcut again to finish — %d frames",
+            frameCount
+        )
     }
 
     private func finishCapture(frames: [PanoramaStitcher.Frame], save: Bool) async -> String {
-        guard !frames.isEmpty else { return "Panorama cancelled — nothing captured" }
+        guard !frames.isEmpty else {
+            return AppLocalization.string(
+                "panorama.capture.cancelled_empty",
+                defaultValue: "Panorama cancelled — nothing was captured"
+            )
+        }
 
         // Swap the capture banner for a determinate progress dialog so the user
         // can see that stitching is underway (it can take a while on long runs).
@@ -324,22 +345,34 @@ final class PanoramaController {
         hideStitchingProgress()
 
         if wasCancelled {
-            return "Panorama stitching cancelled"
+            return AppLocalization.string(
+                "panorama.stitching.cancelled",
+                defaultValue: "Panorama stitching cancelled"
+            )
         }
 
         guard let stitched, let cgImage = Self.makeCGImage(from: stitched) else {
             NSSound.beep()
-            return "Panorama failed to stitch"
+            return AppLocalization.string(
+                "panorama.stitching.failed",
+                defaultValue: "The panorama could not be stitched"
+            )
         }
 
         if save {
             ImageExporter.saveImage(cgImage, settings: settingsStore.load()) { [weak self] in
                 self?.onWillShowSaveDialog?()
             }
-            return "Panorama ready to save"
+            return AppLocalization.string(
+                "panorama.output.ready_to_save",
+                defaultValue: "Panorama ready to save"
+            )
         } else {
             ImageExporter.copyToPasteboard(cgImage)
-            return "Panorama copied to clipboard"
+            return AppLocalization.string(
+                "panorama.output.copied_to_clipboard",
+                defaultValue: "Panorama copied to the clipboard"
+            )
         }
     }
 
@@ -469,7 +502,10 @@ final class PanoramaController {
         guard let display = captureDisplay else { return }
         let window = makeProgressWindow(onCancel: onCancel)
 
-        let label = NSTextField(labelWithString: "DoraZoom panorama stitching...")
+        let label = NSTextField(labelWithString: AppLocalization.string(
+            "panorama.stitching.progress",
+            defaultValue: "DoraZoom is stitching the panorama…"
+        ))
         label.font = .systemFont(ofSize: 14, weight: .medium)
         label.textColor = .white
         label.sizeToFit()

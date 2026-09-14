@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="${0:A:h:h}"
 CONFIGURATION="${1:-debug}"
 ICON_SOURCE="$ROOT_DIR/Sources/ZoomItMacCore/Resources/DoraZoomColorIcon.png"
-ENTITLEMENTS="$ROOT_DIR/Scripts/ZoomIt.entitlements"
+ENTITLEMENTS="${ZOOMIT_ENTITLEMENTS:-$ROOT_DIR/Scripts/ZoomIt.entitlements}"
 
 # Local builds default to 1.0 when ZOOMIT_VERSION is absent. An explicitly
 # empty value still fails, which prevents a queued official build from silently
@@ -26,6 +26,13 @@ case "${ZOOMIT_REQUIRE_RELEASE_VERSION:-false}" in
         ;;
 esac
 
+BUILD_NUMBER="${ZOOMIT_BUILD_NUMBER:-$VERSION}"
+BUILD_NUMBER_PATTERN='^[0-9]+(\.[0-9]+){0,2}$'
+if [[ ! "$BUILD_NUMBER" =~ $BUILD_NUMBER_PATTERN ]]; then
+    echo "error: ZOOMIT_BUILD_NUMBER must be a numeric build such as 4 or 1.0.1 (got '$BUILD_NUMBER')." >&2
+    exit 2
+fi
+
 # Signing identity controls which "flavor" of the app is produced.
 #   - Ad-hoc (the default, "-"): a development build that uses DoraZoom's .dev
 #     bundle id so its Screen Recording (and other TCC) grant is separate from
@@ -44,6 +51,16 @@ else
     BUNDLE_ID="${ZOOMIT_BUNDLE_ID:-com.duola.dorazoom}"
     DISPLAY_NAME="${ZOOMIT_DISPLAY_NAME:-DoraZoom}"
     SIGN_DESC="$SIGN_IDENTITY"
+fi
+
+# Optional compile-time flavor flags. The Mac App Store build uses
+# DORAZOOM_APP_STORE to compile out event taps and synthetic keyboard events;
+# the default standalone build remains unchanged.
+swift_define_flags=()
+if [[ -n "${ZOOMIT_SWIFT_DEFINES:-}" ]]; then
+    for define in ${=ZOOMIT_SWIFT_DEFINES}; do
+        swift_define_flags+=(-Xswiftc "-D$define")
+    done
 fi
 BUNDLE_ID_PATTERN='^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$'
 if [[ ! "$BUNDLE_ID" =~ $BUNDLE_ID_PATTERN ]]; then
@@ -101,8 +118,8 @@ if (( ${#arch_flags} > 0 )) && ! xcodebuild -version >/dev/null 2>&1; then
     arch_flags=()
 fi
 
-swift build -c "$CONFIGURATION" $arch_flags
-BIN_DIR="$(swift build -c "$CONFIGURATION" $arch_flags --show-bin-path)"
+swift build -c "$CONFIGURATION" $arch_flags $swift_define_flags
+BIN_DIR="$(swift build -c "$CONFIGURATION" $arch_flags $swift_define_flags --show-bin-path)"
 
 rm -rf "$APP_PATH"
 mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
@@ -128,6 +145,26 @@ if [[ -d "$RESOURCE_BUNDLE/Contents/Resources" ]]; then
 else
     cp -R "$RESOURCE_BUNDLE/." "$APP_PATH/Contents/Resources/"
 fi
+
+# SwiftPM's command-line resource copier lowercases the region/script portion
+# of some `.lproj` directory names. Restore canonical BCP-47 casing in the
+# assembled app so Bundle and App Store localization discovery agree on every
+# filesystem, including case-sensitive APFS volumes.
+for localized_dir in "$APP_PATH/Contents/Resources"/*.lproj(N); do
+    localized_name="${localized_dir:t}"
+    canonical_name=""
+    case "$localized_name" in
+        zh-hans.lproj) canonical_name="zh-Hans.lproj" ;;
+        zh-hant.lproj) canonical_name="zh-Hant.lproj" ;;
+        es-es.lproj) canonical_name="es-ES.lproj" ;;
+        pt-br.lproj) canonical_name="pt-BR.lproj" ;;
+    esac
+    if [[ -n "$canonical_name" ]]; then
+        temporary_name="$APP_PATH/Contents/Resources/.canonical-$canonical_name"
+        mv "$localized_dir" "$temporary_name"
+        mv "$temporary_name" "$APP_PATH/Contents/Resources/$canonical_name"
+    fi
+done
 rm -f "$APP_PATH/Contents/Resources/ZoomItIcon.png" "$APP_PATH/Contents/Resources/ZoomItColorIcon.png"
 
 if [[ -f "$ICON_SOURCE" ]] && command -v sips >/dev/null && command -v iconutil >/dev/null; then
@@ -153,6 +190,19 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+        <string>zh-Hant</string>
+        <string>ja</string>
+        <string>ko</string>
+        <string>de</string>
+        <string>fr</string>
+        <string>es-ES</string>
+        <string>es-419</string>
+        <string>pt-BR</string>
+    </array>
     <key>CFBundleDisplayName</key>
     <string>$DISPLAY_NAME</string>
     <key>CFBundleExecutable</key>
@@ -170,15 +220,15 @@ cat > "$APP_PATH/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key>
     <string>$VERSION</string>
     <key>CFBundleVersion</key>
-    <string>$VERSION</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>DoraZoom shows your webcam as a picture-in-picture overlay when you enable it for screen recordings.</string>
+    <string>DoraZoom records your camera as a picture-in-picture overlay only when you enable it for a screen recording.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>DoraZoom records your microphone when you enable microphone capture for screen recordings.</string>
+    <string>DoraZoom records your microphone only when you enable microphone audio for a screen recording.</string>
 </dict>
 </plist>
 PLIST

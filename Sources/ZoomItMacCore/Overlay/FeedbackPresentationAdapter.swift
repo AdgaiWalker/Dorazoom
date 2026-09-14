@@ -160,11 +160,20 @@ final class FeedbackPresentationAdapter {
             let canvasText: String
             switch canvas {
             case .transparent: canvasText = ""
-            case .whiteboard: canvasText = "白板 · "
-            case .blackboard: canvasText = "黑板 · "
+            case .whiteboard:
+                canvasText = text("feedback.canvas.whiteboard_prefix", "Whiteboard · ")
+            case .blackboard:
+                canvasText = text("feedback.canvas.blackboard_prefix", "Blackboard · ")
             }
             return (
-                "\(canvasText)\(toolText(tool)) · \(colorText(color)) · \(widthText) pt　Esc 退出",
+                AppLocalization.format(
+                    "feedback.tool.summary",
+                    defaultValue: "%1$@%2$@ · %3$@ · %4$lld pt · Esc to exit",
+                    canvasText,
+                    toolText(tool),
+                    color.displayName,
+                    Int64(widthText)
+                ),
                 .tool,
                 1.0,
                 true
@@ -172,11 +181,36 @@ final class FeedbackPresentationAdapter {
         case let .completed(completion):
             switch completion {
             case .screenshotCopied:
-                return ("已复制 · ⌘V 或 ⌃V 粘贴", .completion, 1.2, false)
+                return (
+                    text("feedback.completed.screenshot_copied", "Copied · Paste with ⌘V or ⌃V"),
+                    .completion,
+                    1.2,
+                    false
+                )
             case let .ocrCopied(characterCount):
-                return ("已复制 \(characterCount) 个字符", .completion, 1.2, true)
+                let key = characterCount == 1
+                    ? "feedback.completed.ocr_copied.one"
+                    : "feedback.completed.ocr_copied"
+                let defaultValue = characterCount == 1
+                    ? "Copied %lld character"
+                    : "Copied %lld characters"
+                return (
+                    AppLocalization.format(
+                        key,
+                        defaultValue: defaultValue,
+                        Int64(characterCount)
+                    ),
+                    .completion,
+                    1.2,
+                    true
+                )
             case .recordingSaved:
-                return ("录制已保存", .completion, 1.2, false)
+                return (
+                    text("feedback.completed.recording_saved", "Recording saved"),
+                    .completion,
+                    1.2,
+                    false
+                )
             }
         case let .warning(message):
             return (message, .warning, 1.6, false)
@@ -187,46 +221,53 @@ final class FeedbackPresentationAdapter {
 
     nonisolated private static func modeText(_ state: InteractionState) -> String {
         switch state {
-        case .idle: "就绪"
-        case .staticZoom: "静态缩放"
-        case .liveZoom: "实时缩放"
-        case let .drawing(live): live ? "实时圈画" : "圈画"
-        case let .typing(rightAligned): rightAligned ? "右对齐文字" : "文字"
-        case .regionSelection(.screenshotToClipboard): "区域截图 · 复制到剪贴板"
-        case .regionSelection(.screenshotToFile): "区域截图 · 保存文件"
-        case .regionSelection(.ocrToClipboard): "OCR 识别"
-        case .regionSelection(.recording): "选择录制区域"
-        case .panorama: "全景截图"
-        case .demoType: "DemoType"
-        case .timer: "休息倒计时"
+        case .idle:
+            text("feedback.mode.ready", "Ready")
+        case .staticZoom:
+            text("feedback.mode.static_zoom", "Static Zoom")
+        case .liveZoom:
+            text("feedback.mode.live_zoom", "Live Zoom")
+        case let .drawing(live):
+            live
+                ? text("feedback.mode.live_drawing", "Live Drawing")
+                : text("feedback.mode.drawing", "Drawing")
+        case let .typing(rightAligned):
+            rightAligned
+                ? text("feedback.mode.right_aligned_text", "Right-Aligned Text")
+                : text("feedback.mode.text", "Text")
+        case .regionSelection(.screenshotToClipboard):
+            text("feedback.mode.capture_region_to_clipboard", "Capture Region · Copy to Clipboard")
+        case .regionSelection(.screenshotToFile):
+            text("feedback.mode.capture_region_to_file", "Capture Region · Save to File")
+        case .regionSelection(.ocrToClipboard):
+            text("feedback.mode.extract_text_ocr", "Extract Text (OCR)")
+        case .regionSelection(.recording):
+            text("feedback.mode.select_recording_region", "Select Recording Region")
+        case .panorama:
+            text("feedback.mode.panorama_capture", "Panorama Capture")
+        case .demoType:
+            text("feedback.mode.demo_type", "DemoType")
+        case .timer:
+            text("feedback.mode.break_timer", "Break Timer")
         }
     }
 
     nonisolated private static func toolText(_ tool: AnnotationTool) -> String {
         switch tool {
-        case .pen: "画笔"
-        case .line: "直线"
-        case .rectangle: "矩形"
-        case .ellipse: "椭圆"
-        case .arrow: "箭头"
-        case .text: "文字"
-        case .highlighter: "高亮"
-        case .blur: "模糊"
-        case .redact: "遮挡"
-        case .numberedCallout: "编号标记"
+        case .pen: text("annotation_tool.pen", "Pen")
+        case .line: text("annotation_tool.line", "Line")
+        case .rectangle: text("annotation_tool.rectangle", "Rectangle")
+        case .ellipse: text("annotation_tool.ellipse", "Ellipse")
+        case .arrow: text("annotation_tool.arrow", "Arrow")
+        case .text: text("annotation_tool.text", "Text")
+        case .highlighter: text("annotation_tool.highlighter", "Highlighter")
+        case .blur: text("annotation_tool.blur", "Blur")
+        case .redact: text("annotation_tool.redact", "Redact")
+        case .numberedCallout: text("annotation_tool.numbered_callout", "Numbered Callout")
         }
     }
 
-    nonisolated private static func colorText(_ color: AnnotationColor) -> String {
-        switch color {
-        case .red: "红色"
-        case .green: "绿色"
-        case .blue: "蓝色"
-        case .yellow: "黄色"
-        case .orange: "橙色"
-        case .pink: "粉色"
-        case .white: "白色"
-        case .black: "黑色"
-        }
+    nonisolated private static func text(_ key: String, _ defaultValue: String) -> String {
+        AppLocalization.string(key, defaultValue: defaultValue)
     }
 }

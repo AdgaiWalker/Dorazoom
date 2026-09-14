@@ -1,3 +1,43 @@
+#if DORAZOOM_APP_STORE
+import AppKit
+
+struct HotkeyFallbackBinding: Equatable, Sendable {
+    var command: AppCommand
+    var keyCode: Int
+    var modifiers: Set<KeyboardModifier>
+}
+
+enum HotkeyFallbackPermissionAction: Equatable, Sendable {
+    case installEventTap
+    case promptForAuthorization
+    case waitForRelaunch
+}
+
+/// The sandboxed store build does not install a global event tap. Carbon
+/// hotkeys remain available when macOS accepts them; this fallback is a
+/// deliberate no-op because it would require Input Monitoring.
+@MainActor
+final class HotkeyFallbackPermissionSession {
+    func action(hasListenAccess: Bool) -> HotkeyFallbackPermissionAction {
+        hasListenAccess ? .installEventTap : .waitForRelaunch
+    }
+}
+
+@MainActor
+final class SystemHotkeyFallbackEventTap {
+    init(
+        bindings: [HotkeyFallbackBinding],
+        permissionRelaunchCoordinator: PermissionRelaunchCoordinator?,
+        permissionSession: HotkeyFallbackPermissionSession = HotkeyFallbackPermissionSession(),
+        commandHandler: @escaping (AppCommand) -> Void,
+        installer: AnyObject? = nil
+    ) {}
+
+    func start() -> Bool { false }
+    func stop() {}
+}
+
+#else
 import AppKit
 import PasteTapBridge
 
@@ -112,14 +152,26 @@ final class SystemHotkeyFallbackEventTap {
         }
 
         let alert = NSAlert()
-        alert.messageText = "启用 DoraZoom 快捷键"
-        alert.informativeText = """
-        macOS 已占用部分 Control+数字快捷键。DoraZoom 需要监听键盘事件，才能把这些快捷键按 ZoomIt 习惯兜底触发。
+        alert.messageText = AppLocalization.string(
+            "hotkey_fallback.permission.title",
+            defaultValue: "Enable DoraZoom Shortcuts"
+        )
+        alert.informativeText = AppLocalization.string(
+            "hotkey_fallback.permission.message",
+            defaultValue: """
+            macOS reserves some Control+number shortcuts. DoraZoom needs permission to monitor keyboard input so it can use fallback shortcuts that match ZoomIt.
 
-        如果系统设置里已经勾选 DoraZoom，但快捷键仍未生效，请完整退出并重新打开 DoraZoom。本次运行期间不会重复提醒。
-        """
-        alert.addButton(withTitle: "继续授权")
-        alert.addButton(withTitle: "稍后")
+            If DoraZoom is already enabled in System Settings but the shortcuts still do not work, quit and reopen DoraZoom. You will not be asked again during this session.
+            """
+        )
+        alert.addButton(withTitle: AppLocalization.string(
+            "permission_prompt.continue",
+            defaultValue: "Continue"
+        ))
+        alert.addButton(withTitle: AppLocalization.string(
+            "permission_prompt.not_now",
+            defaultValue: "Not Now"
+        ))
         guard alert.runModal() == .alertFirstButtonReturn else { return false }
 
         permissionRelaunchCoordinator?.notePermissionFlowMayRequireRelaunch()
@@ -194,3 +246,5 @@ func DoraZoomHotkeyFallbackHandleEvent(
         return DZPasteTapDecisionSuppressOriginal
     }
 }
+
+#endif
