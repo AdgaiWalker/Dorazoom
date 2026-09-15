@@ -60,7 +60,7 @@ HERRAMIENTAS PRINCIPALES
 • Captura una región o ventana al portapapeles o a un archivo y extrae texto visible con OCR.
 • Graba una pantalla, región o ventana con micrófono, audio del sistema, cámara superpuesta y pausa/reanudación opcionales.
 • Crea panorámicas con desplazamiento para páginas y conversaciones que no caben en una sola pantalla.
-• Usa DemoType, pizarrones blancos y negros y un temporizador de descanso para dar estructura a una explicación en vivo.
+• Usa pizarrones blancos y negros y un temporizador de descanso para dar estructura a una explicación en vivo.
 
 HECHO PARA
 • Creadores de tutoriales, docentes, presentadores y streamers.
@@ -82,7 +82,7 @@ dibujar,captura,grabación,presentación,pizarrón,ocr,panorama,tutorial,creador
 ### 2.6 What's New
 
 ```text
-Te damos la bienvenida a DoraZoom. Esta primera versión para App Store ofrece a creadores de Mac zoom y dibujo para dirigir la atención, capturas y OCR, grabación de pantalla, panorámicas, DemoType y herramientas de desenfoque y ocultamiento.
+Te damos la bienvenida a DoraZoom. Esta primera versión para App Store ofrece a creadores de Mac zoom y dibujo para dirigir la atención, capturas y OCR, grabación de pantalla, panorámicas y herramientas de desenfoque y ocultamiento.
 ```
 
 ## 3. Textos para capturas promocionales
@@ -117,10 +117,11 @@ Comprobado con el validador del proyecto. Los valores medidos figuran en el info
 |---|---|
 | `Sources/ZoomItMacCore/Resources/es-419.lproj/InfoPlist.strings` | Motivos de acceso al micrófono y la cámara localizados |
 | `docs/app-store/metadata/es-MX-app-store-metadata.md` | Metadatos de la tienda y seis textos para capturas |
+| `docs/app-store/metadata/es-MX-app-store-metadata.md` | Se elimina la referencia a DemoType: la versión de la tienda compila la función fuera del binario. Las capturas 02 (atajos) y 06 (avanzado) aún la muestran y deben rehacerse con la nueva interfaz. |
 
 ## 6. Comprobaciones de ejecución y publicación
 
 - La app sigue el idioma de la app o del sistema en macOS; no incluye un selector de idioma interno.
 - Los diálogos de permisos siguen el idioma de macOS y usan el archivo `InfoPlist.strings` localizado.
-- Verifica el nombre, menú de estado, ajustes, captura/OCR, grabación, panorámicas y DemoType tras un inicio limpio en español latinoamericano.
+- Verifica el nombre, menú de estado, ajustes, captura/OCR, grabación y panorámicas tras un inicio limpio en español latinoamericano.
 - **Bloqueo de publicación:** reemplaza los dos enlaces legales the public legal pages por URL públicas aprobadas antes de enviar la app a App Store.

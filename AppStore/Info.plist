@@ -4,6 +4,19 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+		<string>ja</string>
+		<string>ko</string>
+		<string>de</string>
+		<string>fr</string>
+		<string>es-ES</string>
+		<string>es-419</string>
+		<string>pt-BR</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>DoraZoom</string>
 	<key>CFBundleExecutable</key>

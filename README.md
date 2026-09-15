@@ -6,6 +6,8 @@ DoraZoom 是哆啦个人版的 macOS 屏幕讲解工具，目标是尽量还原 
 
 ## 当前交付状态
 
+DoraZoom `1.0.0`（build 6）已上传并提交 Mac App Store 审核。当前设置为审核通过后手动发布；正式上架时间以 Apple 审核结果为准。对应的 GitHub 正式版本为 [v1.0.0](https://github.com/AdgaiWalker/Dorazoom/releases/tag/v1.0.0)。
+
 - Phase 1–6 的自动化证明已完成。
 - 最新全量回归为 219 项本地模拟 XCTest；功能覆盖表 `gaps == []`。
 - 自动化测试全部走模拟层/测试替身：不碰真实 TCC、全局键盘、真实屏幕、麦克风、摄像头、真实剪贴板、真实目标 App 或真实用户输出文件；这里的“模拟器”指 DoraZoom 进程内模拟边界，不是 iOS Simulator。

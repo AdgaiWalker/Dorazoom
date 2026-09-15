@@ -4,6 +4,7 @@
 
 - [Mac App Store 上线目标](./MAC_APPSTORE_GOAL.md)
 - [发布待办](./RELEASE_TODO.md)
+- [低摩擦体验技术方案](./LOW_FRICTION_PLAN.md)
 - [网站与设计审查记录](./design-qa.md)
 - [阶段执行计划](./plan.md)
 

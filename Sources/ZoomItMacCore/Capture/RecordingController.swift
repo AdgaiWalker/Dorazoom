@@ -753,7 +753,7 @@ final class RecordingController {
     private let permissionService: PermissionService
     private let settingsStore: SettingsStore
     private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
-    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
+    private let screenRecordingPermissionArbiter: PermissionFlowArbiter
     private let preflightProvider: RecordingPreflightProviding
     private let preflightWindowController: RecordingPreflightWindowController
     private let recoverySession: RecordingRecoverySession
@@ -790,7 +790,7 @@ final class RecordingController {
         permissionService: PermissionService,
         settingsStore: SettingsStore,
         permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
-        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
+        screenRecordingPermissionArbiter: PermissionFlowArbiter = PermissionFlowArbiter(),
         preflightProvider: RecordingPreflightProviding,
         preflightWindowController: RecordingPreflightWindowController,
         recoveryStore: RecordingRecoveryStoring
@@ -800,7 +800,7 @@ final class RecordingController {
         self.permissionService = permissionService
         self.settingsStore = settingsStore
         self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
-        self.screenRecordingPermissionSession = screenRecordingPermissionSession
+        self.screenRecordingPermissionArbiter = screenRecordingPermissionArbiter
         self.preflightProvider = preflightProvider
         self.preflightWindowController = preflightWindowController
         self.recoverySession = RecordingRecoverySession(store: recoveryStore)
@@ -869,7 +869,7 @@ final class RecordingController {
         guard ScreenRecordingPrompt.ensureGranted(
             permissionService,
             permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-            permissionSession: screenRecordingPermissionSession
+            permissionArbiter: screenRecordingPermissionArbiter
         ) else {
             return
         }

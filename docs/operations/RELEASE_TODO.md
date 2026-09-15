@@ -2,8 +2,8 @@
 
 ## 发布判断
 
-- **当前状态**：站外完整版 `0.1.0` 已完成 Developer ID 签名、公证、装订和交付校验；Mac App Store 版已完成 target、商店资料草稿和官网法律页面，等待可上传的分发证书/profile 与真实 Mac 验收。
-- **商店版**：以 Mac App Store 为主要公开渠道，必须启用 App Sandbox，并移除模拟键盘粘贴能力。
+- **当前状态**：DoraZoom `1.0.0`（build 6）已完成商店版归档、签名、上传和 App Store Connect 送审；官网与 GitHub 正式版本资料正在同步。Apple 审核通过后仍需手动发布。
+- **商店版**：以 Mac App Store 为主要公开渠道，必须启用 App Sandbox，并保留截图后的 Control+V 兼容能力；DemoType 不进入首发包。
 - **完整版**：使用 Developer ID、公证和 DMG/ZIP 站外分发，保留完整的 Control+V 兼容能力。
 - **共同规则**：两个版本共享业务核心和自动化测试，不在源码中复制两套实现；差异集中在 Xcode target、entitlements、能力开关和发布脚本。
 
@@ -15,7 +15,7 @@
 | 构建入口 | `AppStore/DoraZoomStore.xcodeproj` / `Scripts/build-app-store.sh` | `Scripts/release-internal.sh` |
 | 签名 | Mac App Distribution，由 Xcode Archive 管理 | Developer ID Application |
 | 安全能力 | App Sandbox 必须开启 | Hardened Runtime；不强制沙盒 |
-| Control+V 模拟粘贴 | 禁用 `CGEventPost(Command+V)`；只复制并提示手动粘贴 | 保留完整兼容模式 |
+| Control+V 模拟粘贴 | 截图后临时启用，仅将精确的 `Ctrl+V` 转为原生 `Cmd+V`；未授权时提示用户 | 保留完整兼容模式 |
 | 权限 | 屏幕录制、Input Monitoring、麦克风、摄像头逐项沙盒验证 | 按现有权限流程验收 |
 | 产物 | Xcode Archive 上传，不提交仓库 | 公证后的 DMG/ZIP，不提交仓库 |
 | 验收 | TestFlight + App Review 检查 | Gatekeeper + 真机安装检查 |
@@ -72,7 +72,7 @@
 - [x] App Store Connect app record 已存在；Archive 上传待分发证书/profile
 - [ ] 通过 TestFlight 完成至少一轮外部环境验收
 - [ ] 填写 Review Notes，解释屏幕录制、Input Monitoring、麦克风和摄像头用途
-- [ ] 提交审核；将审核反馈和修复证据记录在本文件或 `ACCEPTANCE.md`
+- [x] 提交审核；当前 App Store Connect 状态为“正在等待审核”，将审核反馈和修复证据记录在本文件或 `ACCEPTANCE.md`
 
 ## 共同发布门禁
 
@@ -85,4 +85,4 @@
 
 ## 当前下一步
 
-当前下一步：补齐 `Mac App Distribution`/Installer 证书和 `com.duola.dorazoom` 的 App Store provisioning profile，生成签名 Archive；随后从该产物完成真实 Mac 验收、截图、TestFlight 和 App Store Connect 临门操作。
+当前下一步：等待 Apple 审核结果；审核通过后核对价格与销售范围，手动发布 Mac App Store 版本，并把官网“审核中”状态更新为正式上架入口。

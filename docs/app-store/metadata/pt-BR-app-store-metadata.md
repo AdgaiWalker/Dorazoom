@@ -59,7 +59,7 @@ FERRAMENTAS PRINCIPAIS
 • Capture uma região ou janela para a área de transferência ou um arquivo e extraia o texto visível com OCR.
 • Grave uma tela, região ou janela com microfone, áudio do sistema, câmera em imagem sobre imagem e pausa/retomada opcionais.
 • Crie capturas panorâmicas com rolagem para páginas e conversas que não cabem em uma tela.
-• Use DemoType, os modos quadro branco e quadro preto e um temporizador de pausa para dar estrutura a explicações ao vivo.
+• Use os modos quadro branco e quadro preto e um temporizador de pausa para dar estrutura a explicações ao vivo.
 
 FEITO PARA
 • Criadores de tutoriais, educadores, apresentadores e streamers.
@@ -81,7 +81,7 @@ desenho,captura,gravação,apresentação,quadro,ocr,panorama,tutorial,criador,c
 ### 2.6 What's New
 
 ```text
-Boas-vindas ao DoraZoom. Esta primeira versão na App Store traz aos criadores no Mac zoom e desenho para guiar a atenção, capturas e OCR, gravação de tela, capturas panorâmicas, DemoType e ferramentas de desfoque e tarja.
+Boas-vindas ao DoraZoom. Esta primeira versão na App Store traz aos criadores no Mac zoom e desenho para guiar a atenção, capturas e OCR, gravação de tela, capturas panorâmicas e ferramentas de desfoque e tarja.
 ```
 
 ## 3. Textos para capturas promocionais
@@ -116,10 +116,11 @@ Verificado com o validador do projeto. Os valores medidos constam no relatório 
 |---|---|
 | `Sources/ZoomItMacCore/Resources/pt-BR.lproj/InfoPlist.strings` | Motivos localizados de acesso ao microfone e à câmera |
 | `docs/app-store/metadata/pt-BR-app-store-metadata.md` | Metadados da loja e seis textos para capturas |
+| `docs/app-store/metadata/pt-BR-app-store-metadata.md` | Referência a DemoType removida: a versão da loja compila o recurso fora do binário. As capturas 02 (atalhos) e 06 (avançado) ainda o exibem e precisam ser refeitas com a nova interface. |
 
 ## 6. Verificações de execução e lançamento
 
 - O app segue o idioma do app ou do sistema no macOS; não adiciona um seletor de idioma interno.
 - Os diálogos de permissão seguem o idioma do macOS e usam o arquivo `InfoPlist.strings` localizado.
-- Verifique o nome, menu de status, ajustes, captura/OCR, gravação, panorama e DemoType após uma inicialização limpa em português do Brasil.
+- Verifique o nome, menu de status, ajustes, captura/OCR, gravação e panorama após uma inicialização limpa em português do Brasil.
 - **Bloqueio de lançamento:** substitua os dois links legais the public legal pages por URLs públicas aprovadas antes de enviar o app à App Store.

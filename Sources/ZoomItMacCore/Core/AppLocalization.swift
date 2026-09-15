@@ -26,58 +26,42 @@ enum AppLocalization {
         defaultValue: String,
         localeIdentifier: String? = nil
     ) -> String {
-        if let localeIdentifier {
+        // Negotiate once for the app, then explicitly look up that language in
+        // every resource bundle. A nested SwiftPM bundle otherwise falls back
+        // to English before the app's preferred language is considered.
+        let localeIdentifier = localeIdentifier ?? resolvedLocaleIdentifier
+        for bundle in resourceBundles {
+            if let localized = localizedString(
+                key,
+                defaultValue: defaultValue,
+                localeIdentifier: localeIdentifier,
+                in: bundle
+            ) {
+                return localized
+            }
+        }
+
+        if let catalogValue = rawCatalogString(
+            key,
+            localeIdentifier: localeIdentifier
+        ) {
+            return catalogValue
+        }
+
+        if localeIdentifier != "en" {
             for bundle in resourceBundles {
-                if let localized = localizedString(
+                if let english = localizedString(
                     key,
                     defaultValue: defaultValue,
-                    localeIdentifier: localeIdentifier,
+                    localeIdentifier: "en",
                     in: bundle
                 ) {
-                    return localized
-                }
-            }
-
-            if let catalogValue = rawCatalogString(
-                key,
-                localeIdentifier: localeIdentifier
-            ) {
-                return catalogValue
-            }
-
-            if localeIdentifier != "en" {
-                for bundle in resourceBundles {
-                    if let english = localizedString(
-                        key,
-                        defaultValue: defaultValue,
-                        localeIdentifier: "en",
-                        in: bundle
-                    ) {
-                        return english
-                    }
-                }
-                if let english = rawCatalogString(key, localeIdentifier: "en") {
                     return english
                 }
             }
-            return defaultValue
-        }
-
-        for bundle in resourceBundles {
-            let value = bundle.localizedString(
-                forKey: key,
-                value: missingValue,
-                table: nil
-            )
-            if value != missingValue {
-                return value
+            if let english = rawCatalogString(key, localeIdentifier: "en") {
+                return english
             }
-        }
-        if let catalogValue = rawCatalogString(
-            key,
-            localeIdentifier: resolvedLocaleIdentifier
-        ) {
-            return catalogValue
         }
         return defaultValue
     }

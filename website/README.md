@@ -10,7 +10,7 @@ Run `python3 -m http.server 4277 --bind 127.0.0.1 --directory dist` from this di
 
 - The canvas supports ellipse, freehand, and arrow tools, three colors, undo, clear, mouse, pen, and touch input. Narrow drawing panes show a close-up of the center card; annotations keep full-scene coordinates and PNG exports always contain the full 1440×900 scene.
 - Narrow toolbars use two rows with 44×44px targets. The explicit example notice sits outside the canvas.
-- The release section clearly states that the Mac download is not open yet. “保存官网地址” downloads an Internet Shortcut pointing to the verified production domain.
+- The release section identifies DoraZoom 1.0.0 (build 6) as submitted to Mac App Store review and links to the formal GitHub release. It does not promise a public Mac download before Apple approval.
 - Focus the canvas and use 1/2/3 to select tools, Enter to mark the example button, and Command/Control + Z to undo.
 - Generate a PNG, copy the image or accompanying text, or save the image. Exports always include current committed annotations; when image clipboard access is unavailable, saving remains available.
 - Scene tabs support mouse, touch, and arrow-key navigation. Video dialogs start at the corresponding scene and support Escape to close.
@@ -21,7 +21,7 @@ Run `python3 -m http.server 4277 --bind 127.0.0.1 --directory dist` from this di
 
 Product images and the 33-second video were copied from the existing local DoraZoom promo project. The interactive pricing page is an illustrative drawing surface, not DoraZoom pricing. All annotations and text stay in the browser. The page does not call an AI service or automatically change code.
 
-The repository does not establish a public, signed release URL, so the page explicitly states that the official download is forthcoming. Replace that message and its corresponding FAQ when an approved distribution link becomes available. No development app bundles are distributed here.
+The page links to the public GitHub `v1.0.0` release and states that the Mac App Store build is under review. Replace the review-state copy and add the approved Mac App Store link after Apple approves and the account holder manually publishes the version. No development app bundles are distributed here.
 
 ## Hosting
 

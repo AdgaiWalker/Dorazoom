@@ -77,6 +77,7 @@ final class PermissionCenterSystemAdapter {
     func plan() -> PermissionCenterPlan {
         let settings = settingsProvider()
         let inputAccess = platformAccess.currentInputAccess()
+        let controlVPasteEnabled = true
         return PermissionCenterModel.plan(for: PermissionCenterInput(
             screenCapture: grantState(
                 kind: .screenCapture,
@@ -89,7 +90,7 @@ final class PermissionCenterSystemAdapter {
             ),
             microphone: mediaGrantState(kind: .microphone, status: platformAccess.microphoneStatus()),
             camera: mediaGrantState(kind: .camera, status: platformAccess.cameraStatus()),
-            controlVPasteEnabled: true,
+            controlVPasteEnabled: controlVPasteEnabled,
             inputListeningFallbackNeeded: inputListeningFallbackNeeded(),
             microphoneEnabled: settings.recordMicrophone,
             cameraEnabled: settings.webcamEnabled

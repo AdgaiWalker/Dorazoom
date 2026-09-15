@@ -4,10 +4,8 @@ import AppKit
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var appController: AppController?
-#if !DORAZOOM_APP_STORE
     private var pasteCompatibilityEventTap: SystemPasteCompatibilityEventTap?
     private var controlVPasteHotkeyService: ControlVPasteHotkeyService?
-#endif
     private var recordingRecoveryCoordinator: RecordingRecoveryCoordinator?
     private let permissionCenterRestartIntent = PermissionCenterRestartIntent()
     private var permissionPlanProvider: (() -> PermissionCenterPlan)?
@@ -27,6 +25,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         DoraZoomAppIcon.apply()
 
         let settingsStore = UserDefaultsSettingsStore()
+        let fileAccessService = FileAccessService()
         let savedSettings = settingsStore.load()
         if settingsStore.hasLaunchAtLoginPreference {
             LaunchAtLogin.applySavedPreference(savedSettings.launchAtLogin)
@@ -71,7 +70,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             recordingRecoveryStore: recordingRecoveryStore,
             pasteCompatibilityCoordinator: pasteCompatibilityCoordinator
         )
-#if !DORAZOOM_APP_STORE
         let keyboardEventPoster = SystemKeyboardEventPoster()
         let pasteCompatibilityEventTap = SystemPasteCompatibilityEventTap(
             coordinator: pasteCompatibilityCoordinator,
@@ -95,7 +93,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             controlVPasteHotkeyService?.setTextEditingActive(isActive)
         }
         self.controlVPasteHotkeyService = controlVPasteHotkeyService
-#endif
 
         let hotkeyService = HotkeyService(
             settingsStore: settingsStore
@@ -123,10 +120,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             restarter: permissionCenterRestartIntent,
             settingsProvider: { settingsStore.load() },
             inputListeningFallbackNeeded: {
-                let settings = settingsStore.load()
-                return hotkeyService.requiresInputListeningFallback
-                    || settings.recordMouseClicks
-                    || settings.recordShortcutKeys
+                PermissionCapabilityDemandModel.demands(
+                    settings: settingsStore.load(),
+                    hotkeyFallbackNeeded: hotkeyService.requiresInputListeningFallback
+                ).needsInputListening
             },
             onStateChanged: { [weak self] in
                 permissionCenterCoordinator?.applicationBecameActive()
@@ -143,14 +140,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         permissionPlanProvider = { permissionAdapter.plan() }
         settingsProvider = { settingsStore.load() }
-#if !DORAZOOM_APP_STORE
         pasteCompatibilityCoordinator.onInputPostingPermissionNeeded = { [weak permissionCenterCoordinator] in
             permissionCenterCoordinator?.show()
         }
-#endif
 
         appController = AppController(
             settingsStore: settingsStore,
+            fileAccess: fileAccessService,
             permissionService: permissionService,
             hotkeyService: hotkeyService,
             modeCoordinator: modeCoordinator,
@@ -160,8 +156,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         DistributedNotificationCenter.default().addObserver(
             self,
-            selector: #selector(showSettingsFromOtherInstance(_:)),
-            name: SingleInstance.showSettingsNotification,
+            selector: #selector(showPrimaryEntryFromOtherInstance(_:)),
+            name: SingleInstance.showPrimaryEntryNotification,
             object: nil
         )
 
@@ -189,10 +185,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationWillTerminate(_ notification: Notification) {
         let shouldRelaunch = permissionCenterRestartIntent.consume()
-#if !DORAZOOM_APP_STORE
         controlVPasteHotkeyService?.stop()
         pasteCompatibilityEventTap?.stop()
-#endif
         DistributedNotificationCenter.default().removeObserver(self)
         SingleInstance.release()
         if shouldRelaunch {
@@ -212,8 +206,38 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration)
     }
 
-    @objc private func showSettingsFromOtherInstance(_ notification: Notification) {
-        appController?.showSettings()
+    /// Double-clicking the app while it is already running. Without this the
+    /// app is `.accessory`, has no window to raise, and appears to do nothing.
+    public func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        presentReopenIntent(isUserInitiated: true)
+        // The app has no document window for AppKit to reopen; presenting the
+        // entry ourselves is the whole response.
+        return false
+    }
+
+    @objc private func showPrimaryEntryFromOtherInstance(_ notification: Notification) {
+        presentReopenIntent(isUserInitiated: true)
+    }
+
+    /// Every "open the app again" path lands here: a Finder/Dock relaunch, and
+    /// the cross-instance notification from a second copy that lost the lock.
+    private func presentReopenIntent(isUserInitiated: Bool) {
+        switch AppReopenPolicy.intent(
+            isUserInitiated: isUserInitiated,
+            isRecording: statusMenuRuntimeStatus == .recording
+        ) {
+        case .stayInMenuBar:
+            break
+
+        case .showPrimaryEntry, .showRecordingStatus:
+            NSApp.activate(ignoringOtherApps: true)
+            // The operation panel lands in P1; until then the status menu is the
+            // primary entry, and it already carries the recording status row.
+            statusItem?.button?.performClick(nil)
+        }
     }
 
     /// Swaps the menu-bar icon for a red record indicator while recording.
@@ -331,7 +355,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         case .panorama:
             #selector(AppController.startPanorama)
         case .demoType:
+#if DORAZOOM_APP_STORE
+            // DemoType has no route in App Store builds, so it maps to no
+            // action. The menu plan also stops emitting this identifier there.
+            nil
+#else
             #selector(AppController.startDemoType)
+#endif
         case .breakTimer:
             #selector(AppController.toggleBreakTimer)
         case .advancedEditor:

@@ -105,6 +105,8 @@
   "settings.snip.copy_when_saving": "Also copy to the clipboard when saving a file",
   "settings.snip.description": "While zoomed, press Command+S to save the entire viewport to a file or Command+C to copy it to the clipboard.\n\nTo capture part of the screen at any time, press the snip shortcut and drag a rectangle. Releasing the drag copies the selected region to the clipboard. Hold Shift with the shortcut to save the region to a file instead. Press Escape to cancel.\n\nThe OCR shortcut works the same way, but recognizes the text in the selected region and copies that text to the clipboard.\n\nSaved images are PNG files named with the current date and time.",
   "settings.snip.folder": "Folder:",
+  "settings.snip.folder_grant_failed.message": "DoraZoom could not record a lasting permission for this folder, so saving into it may stop working after DoraZoom restarts. Choose a folder inside your home folder, or let DoraZoom ask where to save each time.",
+  "settings.snip.folder_grant_failed.title": "DoraZoom could not remember this folder",
   "settings.snip.folder_picker.title": "DoraZoom: Choose Snip Folder",
   "settings.snip.ocr_shortcut": "OCR shortcut:",
   "settings.snip.save_to_folder": "Save to a folder instead of asking each time",

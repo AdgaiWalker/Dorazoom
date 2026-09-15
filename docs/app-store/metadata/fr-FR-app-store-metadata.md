@@ -59,7 +59,7 @@ OUTILS PRINCIPAUX
 • Capturez une zone ou une fenêtre dans le presse-papiers ou un fichier, puis extrayez le texte visible avec l’OCR.
 • Enregistrez un écran, une zone ou une fenêtre avec, au choix, le micro, le son du système, la caméra en incrustation et la pause/reprise.
 • Créez des panoramas défilants pour les pages et conversations trop longues pour un seul écran.
-• Utilisez DemoType, les modes tableau blanc et tableau noir et le minuteur de pause pour structurer une explication en direct.
+• Utilisez les modes tableau blanc et tableau noir et le minuteur de pause pour structurer une explication en direct.
 
 CONÇU POUR
 • Les créateurs de tutoriels, enseignants, présentateurs et streamers.
@@ -81,7 +81,7 @@ dessin,capture,vidéo,présentation,tableau,ocr,panorama,tutoriel,créateur,coll
 ### 2.6 What's New
 
 ```text
-Bienvenue dans DoraZoom. Cette première version App Store apporte aux créateurs sur Mac le zoom et le dessin pour guider l’attention, les captures et l’OCR, l’enregistrement d’écran, les panoramas, DemoType ainsi que le flou et le masquage.
+Bienvenue dans DoraZoom. Cette première version App Store apporte aux créateurs sur Mac le zoom et le dessin pour guider l’attention, les captures et l’OCR, l’enregistrement d’écran, les panoramas ainsi que le flou et le masquage.
 ```
 
 ## 3. Textes des captures d’écran
@@ -116,10 +116,11 @@ Vérifié avec le validateur du projet. Les valeurs mesurées figurent dans le r
 |---|---|
 | `Sources/ZoomItMacCore/Resources/fr.lproj/InfoPlist.strings` | Motifs localisés d’accès au micro et à la caméra |
 | `docs/app-store/metadata/fr-FR-app-store-metadata.md` | Métadonnées Store et six textes de captures d’écran |
+| `docs/app-store/metadata/fr-FR-app-store-metadata.md` | Mention de DemoType supprimée : la version App Store compile la fonction hors du binaire. Les captures 02 (raccourcis) et 06 (avancé) la montrent encore et doivent être refaites avec la nouvelle interface. |
 
 ## 6. Vérifications d’exécution et de publication
 
 - L’app suit la langue de l’app ou du système dans macOS ; elle n’ajoute pas de sélecteur de langue intégré.
 - Les demandes d’autorisation suivent la langue de macOS et utilisent le fichier `InfoPlist.strings` localisé.
-- Vérifier le nom, le menu d’état, les réglages, la capture/OCR, l’enregistrement, le panorama et DemoType après un démarrage propre en français.
+- Vérifier le nom, le menu d’état, les réglages, la capture/OCR, l’enregistrement et le panorama après un démarrage propre en français.
 - **Blocage de publication :** remplacer les deux liens juridiques the public legal pages par des URL publiques approuvées avant l’envoi sur l’App Store.

@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 @testable import ZoomItMacCore
 
 final class AppleSettingsNavigationTests: XCTestCase {
@@ -101,6 +102,26 @@ final class AppleSettingsNavigationTests: XCTestCase {
         XCTAssertEqual(controller.windowFrameAutosaveName, "DoraZoom.SettingsWindow")
         XCTAssertEqual(suspendCount, 0)
         XCTAssertEqual(resumeCount, 0)
+
+        // A short page must stay at the top even when the saved window is tall.
+        let window = NSApp.windows.first { $0.title == "DoraZoom Settings" }!
+        let root = window.contentView!
+        func descendants(_ view: NSView) -> [NSView] {
+            [view] + view.subviews.flatMap(descendants)
+        }
+        let table = descendants(root).compactMap { $0 as? NSTableView }.first!
+        table.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+        controller.tableViewSelectionDidChange(Notification(name: NSTableView.selectionDidChangeNotification, object: table))
+        for height: CGFloat in [640, 1100] {
+            window.setContentSize(NSSize(width: 900, height: height))
+            root.layoutSubtreeIfNeeded()
+            let scroll = descendants(root).compactMap { $0 as? NSScrollView }
+                .first { !($0.documentView is NSTableView) }!
+            let title = descendants(scroll).compactMap { $0 as? NSTextField }
+                .first { $0.stringValue == "Shortcuts" }!
+            XCTAssertTrue(scroll.documentView!.isFlipped)
+            XCTAssertEqual(title.convert(title.bounds, to: scroll.contentView).minY, 24, accuracy: 2)
+        }
     }
 }
 

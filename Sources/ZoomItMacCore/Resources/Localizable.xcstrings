@@ -11051,6 +11051,591 @@
         }
       }
     },
+    "save_failure.authorization_missing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no longer has permission to write to your chosen folder."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 已无权写入你所选的文件夹。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 已無權寫入你所選的資料夾。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom は選択したフォルダに書き込む権限を失いました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom에 선택한 폴더에 쓸 권한이 더 이상 없습니다."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom darf nicht mehr in den gewählten Ordner sichern."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom n’a plus l’autorisation d’écrire dans le dossier choisi."
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom ya no tiene permiso para escribir en la carpeta elegida."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom ya no tiene permiso para escribir en la carpeta que elegiste."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O DoraZoom não tem mais permissão para gravar na pasta escolhida."
+          }
+        }
+      }
+    },
+    "save_failure.choose_folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Folder Again…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新选择文件夹…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新選擇資料夾…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダを選び直す…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "폴더 다시 선택…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner erneut wählen…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir un autre dossier…"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir otra carpeta…"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir otra carpeta…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolher outra pasta…"
+          }
+        }
+      }
+    },
+    "save_failure.choose_folder.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: Choose Save Folder"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom：选择保存文件夹"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom：選擇儲存資料夾"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: 保存先フォルダを選択"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: 저장 폴더 선택"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: Sicherungsordner wählen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom : choisir le dossier d’enregistrement"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: elegir la carpeta de guardado"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: elegir la carpeta de guardado"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom: escolher a pasta de salvamento"
+          }
+        }
+      }
+    },
+    "save_failure.clipboard_notice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The image is on the clipboard, so it is not lost."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "图片已复制到剪贴板，不会丢失。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "圖片已複製到剪貼板，不會遺失。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像はクリップボードにあるため、失われることはありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지는 클립보드에 있으므로 사라지지 않습니다."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Bild liegt in der Zwischenablage und geht nicht verloren."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’image est dans le presse-papiers, elle n’est donc pas perdue."
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La imagen está en el portapapeles, así que no se ha perdido."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La imagen está en el portapapeles, así que no se perdió."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A imagem está na área de transferência, portanto não foi perdida."
+          }
+        }
+      }
+    },
+    "save_failure.encoding_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The image could not be encoded:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "图片编码失败："
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "圖片編碼失敗："
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像をエンコードできませんでした："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지를 인코딩할 수 없습니다:"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Bild konnte nicht kodiert werden:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’image n’a pas pu être encodée :"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo codificar la imagen:"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo codificar la imagen:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível codificar a imagem:"
+          }
+        }
+      }
+    },
+    "save_failure.folder_unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The folder is missing or not writable:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件夹不存在或不可写入："
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料夾不存在或無法寫入："
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フォルダが見つからないか、書き込めません："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "폴더가 없거나 쓸 수 없습니다:"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Ordner fehlt oder ist nicht beschreibbar:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le dossier est introuvable ou non modifiable :"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La carpeta no existe o no se puede escribir en ella:"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La carpeta no existe o no se puede escribir en ella:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A pasta não existe ou não pode ser gravada:"
+          }
+        }
+      }
+    },
+    "save_failure.save_as": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save As…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "另存为…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "另存新檔…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別名で保存…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다른 이름으로 저장…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sichern unter…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer sous…"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como…"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar como…"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salvar como…"
+          }
+        }
+      }
+    },
+    "save_failure.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom could not save the image"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 无法保存图片"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 無法儲存圖片"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom は画像を保存できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom이 이미지를 저장하지 못했습니다"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom konnte das Bild nicht sichern"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom n’a pas pu enregistrer l’image"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no pudo guardar la imagen"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no pudo guardar la imagen"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O DoraZoom não pôde salvar a imagem"
+          }
+        }
+      }
+    },
+    "save_failure.write_failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The image could not be written:"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "图片无法写入："
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "圖片無法寫入："
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像を書き込めませんでした："
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지를 쓸 수 없습니다:"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Bild konnte nicht geschrieben werden:"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L’image n’a pas pu être écrite :"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo escribir la imagen:"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo escribir la imagen:"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível gravar a imagem:"
+          }
+        }
+      }
+    },
     "screen_recording_permission.message": {
       "extractionState": "manual",
       "localizations": {
@@ -16637,6 +17222,136 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pasta:"
+          }
+        }
+      }
+    },
+    "settings.snip.folder_grant_failed.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom could not record a lasting permission for this folder, so saving into it may stop working after DoraZoom restarts. Choose a folder inside your home folder, or let DoraZoom ask where to save each time."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 无法为此文件夹记录长期有效的授权，因此 DoraZoom 重启后可能无法继续保存到该文件夹。请选择你个人文件夹内的文件夹，或改为每次由 DoraZoom 询问保存位置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 無法為此資料夾記錄長期有效的授權，因此 DoraZoom 重新啟動後可能無法繼續儲存到該資料夾。請選擇你個人檔案夾內的資料夾，或改為每次由 DoraZoom 詢問儲存位置。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom はこのフォルダの恒久的な許可を記録できませんでした。そのため、DoraZoom の再起動後にこのフォルダへ保存できなくなる可能性があります。ホームフォルダ内のフォルダを選ぶか、保存先を毎回 DoraZoom に確認させてください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom이 이 폴더에 대한 지속적인 권한을 기록하지 못했습니다. 따라서 DoraZoom을 다시 실행한 뒤에는 이 폴더에 저장하지 못할 수 있습니다. 홈 폴더 안의 폴더를 선택하거나, 저장 위치를 매번 DoraZoom이 묻도록 설정하세요."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom konnte für diesen Ordner keine dauerhafte Berechtigung sichern. Nach einem Neustart von DoraZoom kann das Sichern in diesen Ordner daher fehlschlagen. Einen Ordner im Benutzerordner wählen oder DoraZoom jedes Mal nach dem Speicherort fragen lassen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom n’a pas pu enregistrer une autorisation durable pour ce dossier. L’enregistrement dans ce dossier risque donc de ne plus fonctionner après un redémarrage de DoraZoom. Choisir un dossier dans le dossier personnel, ou laisser DoraZoom demander l’emplacement à chaque enregistrement."
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no pudo registrar un permiso duradero para esta carpeta, por lo que guardar en ella podría dejar de funcionar tras reiniciar DoraZoom. Elegir una carpeta dentro de la carpeta personal o dejar que DoraZoom pregunte dónde guardar cada vez."
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no pudo registrar un permiso permanente para esta carpeta, así que guardar en ella podría dejar de funcionar después de reiniciar DoraZoom. Elegir una carpeta dentro de la carpeta personal o dejar que DoraZoom pregunte dónde guardar cada vez."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O DoraZoom não conseguiu registrar uma permissão duradoura para esta pasta, então salvar nela pode parar de funcionar após reiniciar o DoraZoom. Escolher uma pasta dentro da pasta pessoal ou deixar o DoraZoom perguntar onde salvar a cada vez."
+          }
+        }
+      }
+    },
+    "settings.snip.folder_grant_failed.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom could not remember this folder"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 无法记住此文件夹"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom 無法記住此資料夾"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom はこのフォルダを記憶できませんでした"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom이 이 폴더를 기억하지 못했습니다"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom konnte sich diesen Ordner nicht dauerhaft merken"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom n’a pas pu mémoriser ce dossier"
+          }
+        },
+        "es-ES": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no pudo recordar esta carpeta"
+          }
+        },
+        "es-419": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DoraZoom no pudo recordar esta carpeta"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O DoraZoom não pôde memorizar esta pasta"
           }
         }
       }

@@ -82,7 +82,8 @@ struct StatusMenuPlan: Equatable, Sendable {
     static func make(
         status: StatusMenuRuntimeStatus,
         permissions: PermissionCenterPlan,
-        settings: AppSettings
+        settings: AppSettings,
+        demoTypeAvailable: Bool = DemoTypeBuildAvailability.isIncludedInBuild
     ) -> StatusMenuPlan {
         let permissionNeedsAttention = permissions.rows.contains {
             switch $0.state {
@@ -92,6 +93,28 @@ struct StatusMenuPlan: Equatable, Sendable {
                 true
             }
         }
+
+        // DemoType is compiled out of App Store builds, so the store menu must
+        // not offer it: a menu item that cannot dispatch is a dead button.
+        var moreFeatureItems: [StatusMenuItemPlan] = [
+            command(.panorama, text("status_menu.panorama_capture", "Panorama Capture"), shortcut: shortcut(
+                keyCode: settings.panoramaHotKeyCode,
+                rawModifiers: settings.panoramaHotKeyModifiers
+            ))
+        ]
+        if demoTypeAvailable {
+            moreFeatureItems.append(command(.demoType, text("status_menu.demo_type", "DemoType"), shortcut: shortcut(
+                keyCode: settings.demoTypeHotKeyCode,
+                rawModifiers: settings.demoTypeHotKeyModifiers
+            )))
+        }
+        moreFeatureItems.append(contentsOf: [
+            command(.breakTimer, text("status_menu.break_timer", "Break Timer"), shortcut: shortcut(
+                keyCode: settings.breakHotKeyCode,
+                rawModifiers: settings.breakHotKeyModifiers
+            )),
+            command(.advancedEditor, text("status_menu.advanced_video_editor", "Advanced Video Editor…"))
+        ])
 
         return StatusMenuPlan(topLevelItems: [
             StatusMenuItemPlan(
@@ -136,21 +159,7 @@ struct StatusMenuPlan: Equatable, Sendable {
             StatusMenuItemPlan(
                 id: .moreFeatures,
                 title: text("status_menu.more_features", "More Features"),
-                children: [
-                    command(.panorama, text("status_menu.panorama_capture", "Panorama Capture"), shortcut: shortcut(
-                        keyCode: settings.panoramaHotKeyCode,
-                        rawModifiers: settings.panoramaHotKeyModifiers
-                    )),
-                    command(.demoType, text("status_menu.demo_type", "DemoType"), shortcut: shortcut(
-                        keyCode: settings.demoTypeHotKeyCode,
-                        rawModifiers: settings.demoTypeHotKeyModifiers
-                    )),
-                    command(.breakTimer, text("status_menu.break_timer", "Break Timer"), shortcut: shortcut(
-                        keyCode: settings.breakHotKeyCode,
-                        rawModifiers: settings.breakHotKeyModifiers
-                    )),
-                    command(.advancedEditor, text("status_menu.advanced_video_editor", "Advanced Video Editor…"))
-                ]
+                children: moreFeatureItems
             ),
             StatusMenuItemPlan(id: .managementSeparator, title: ""),
             StatusMenuItemPlan(

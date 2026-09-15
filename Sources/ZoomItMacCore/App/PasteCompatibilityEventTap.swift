@@ -1,4 +1,3 @@
- #if !DORAZOOM_APP_STORE
 import AppKit
 import PasteTapBridge
 
@@ -162,5 +161,3 @@ func DoraZoomPasteCompatibilityHandleEvent(
         return DZPasteTapDecisionSuppressOriginal
     }
 }
-
-#endif

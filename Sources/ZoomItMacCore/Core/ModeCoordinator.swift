@@ -13,7 +13,7 @@ final class ModeCoordinator {
     private let feedbackAdapter: FeedbackPresentationAdapter
     private let pasteCompatibilityCoordinator: PasteCompatibilityCoordinator
     private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
-    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
+    private let screenRecordingPermissionArbiter: PermissionFlowArbiter
     private let recordingRecoveryStore: RecordingRecoveryStoring
 
     private(set) var mode: AppMode = .idle {
@@ -37,7 +37,7 @@ final class ModeCoordinator {
         permissionService: permissionService,
         settingsStore: settingsStore,
         permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-        screenRecordingPermissionSession: screenRecordingPermissionSession,
+        screenRecordingPermissionArbiter: screenRecordingPermissionArbiter,
         windowCaptureService: windowCaptureService,
         onPasteboardOutput: { [weak self] output in
             self?.handleSnipPasteboardOutput(output)
@@ -51,7 +51,7 @@ final class ModeCoordinator {
         permissionService: permissionService,
         settingsStore: settingsStore,
         permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-        screenRecordingPermissionSession: screenRecordingPermissionSession,
+        screenRecordingPermissionArbiter: screenRecordingPermissionArbiter,
         preflightProvider: SystemRecordingPreflightProvider(permissionService: permissionService),
         preflightWindowController: RecordingPreflightWindowController(),
         recoveryStore: recordingRecoveryStore
@@ -62,10 +62,12 @@ final class ModeCoordinator {
         permissionService: permissionService,
         settingsStore: settingsStore,
         permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-        screenRecordingPermissionSession: screenRecordingPermissionSession
+        screenRecordingPermissionArbiter: screenRecordingPermissionArbiter
     )
+#if !DORAZOOM_APP_STORE
     /// Drives DemoType text synthesis from a file or [start]-prefixed clipboard.
     private lazy var demoTypeController = DemoTypeController(settingsStore: settingsStore)
+#endif
         /// Drives the full-screen break timer (Control+3).
         private lazy var breakTimerController = BreakTimerController(
             displayManager: displayManager,
@@ -92,7 +94,7 @@ final class ModeCoordinator {
         feedbackAdapter: FeedbackPresentationAdapter,
         recordingRecoveryStore: RecordingRecoveryStoring,
         permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
-        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
+        screenRecordingPermissionArbiter: PermissionFlowArbiter = PermissionFlowArbiter(),
         pasteCompatibilityCoordinator: PasteCompatibilityCoordinator = PasteCompatibilityCoordinator(
             permissionRequester: SystemInputCompatibilityPermissionRequester()
         )
@@ -108,7 +110,7 @@ final class ModeCoordinator {
         self.feedbackAdapter = feedbackAdapter
         self.recordingRecoveryStore = recordingRecoveryStore
         self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
-        self.screenRecordingPermissionSession = screenRecordingPermissionSession
+        self.screenRecordingPermissionArbiter = screenRecordingPermissionArbiter
         self.pasteCompatibilityCoordinator = pasteCompatibilityCoordinator
     }
 
@@ -187,10 +189,21 @@ final class ModeCoordinator {
             }
         case .startPanorama(let save):
             togglePanorama(save: save)
-        case .startDemoType:
-            demoTypeController.startOrStop()
-        case .resetDemoType:
-            demoTypeController.reset()
+        case .startDemoType, .resetDemoType:
+#if DORAZOOM_APP_STORE
+            // DemoType is compiled out of App Store builds, so no route can
+            // dispatch these commands: the status-menu item, the settings
+            // shortcut row, and the global hotkey registration are all excluded
+            // too. Kept as an explicit no-op so the shared command enum stays
+            // exhaustive in both builds.
+            break
+#else
+            if command == .startDemoType {
+                demoTypeController.startOrStop()
+            } else {
+                demoTypeController.reset()
+            }
+#endif
         case .toggleBreakTimer:
             toggleBreakTimer()
         case .setTool(let tool):
@@ -267,7 +280,7 @@ final class ModeCoordinator {
         guard ScreenRecordingPrompt.ensureGranted(
             permissionService,
             permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-            permissionSession: screenRecordingPermissionSession
+            permissionArbiter: screenRecordingPermissionArbiter
         ) else {
             return
         }
@@ -325,7 +338,7 @@ final class ModeCoordinator {
         guard ScreenRecordingPrompt.ensureGranted(
             permissionService,
             permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-            permissionSession: screenRecordingPermissionSession
+            permissionArbiter: screenRecordingPermissionArbiter
         ) else {
             return
         }
@@ -411,7 +424,7 @@ final class ModeCoordinator {
         guard ScreenRecordingPrompt.ensureGranted(
             permissionService,
             permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-            permissionSession: screenRecordingPermissionSession
+            permissionArbiter: screenRecordingPermissionArbiter
         ) else {
             return
         }

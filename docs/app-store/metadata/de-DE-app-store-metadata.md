@@ -59,7 +59,7 @@ KERNWERKZEUGE
 • Erfasse einen Bereich oder ein Fenster in der Zwischenablage oder als Datei und erkenne sichtbaren Text per OCR.
 • Nimm einen Bildschirm, Bereich oder ein Fenster auf – optional mit Mikrofon, Systemaudio, Kamera im Bild-in-Bild-Modus und Pause/Fortsetzen.
 • Erstelle scrollende Panoramaaufnahmen für Seiten und Unterhaltungen, die nicht auf einen Bildschirm passen.
-• Nutze DemoType, weiße und schwarze Tafeln sowie einen Pausentimer, um Live-Erklärungen zu strukturieren.
+• Nutze weiße und schwarze Tafeln sowie einen Pausentimer, um Live-Erklärungen zu strukturieren.
 
 ENTWICKELT FÜR
 • Tutorial-Produzenten, Lehrende, Vortragende und Streamer.
@@ -81,7 +81,7 @@ zeichnen,bildschirmfoto,aufnahme,präsentation,whiteboard,ocr,panorama,tutorial,
 ### 2.6 What's New
 
 ```text
-Willkommen bei DoraZoom. Die erste App-Store-Version bringt Kreativen auf dem Mac Zoom- und Zeichenwerkzeuge zum gezielten Lenken der Aufmerksamkeit, Screenshots und OCR, Bildschirmaufnahme, Panorama, DemoType sowie Weichzeichnungs- und Abdeckwerkzeuge.
+Willkommen bei DoraZoom. Die erste App-Store-Version bringt Kreativen auf dem Mac Zoom- und Zeichenwerkzeuge zum gezielten Lenken der Aufmerksamkeit, Screenshots und OCR, Bildschirmaufnahme, Panorama sowie Weichzeichnungs- und Abdeckwerkzeuge.
 ```
 
 ## 3. Texte für App-Store-Screenshots
@@ -116,10 +116,11 @@ Mit dem Projekt-Validator geprüft. Die gemessenen Werte stehen im Implementieru
 |---|---|
 | `Sources/ZoomItMacCore/Resources/de.lproj/InfoPlist.strings` | Lokalisierte Hinweise zur Mikrofon- und Kameranutzung |
 | `docs/app-store/metadata/de-DE-app-store-metadata.md` | Store-Metadaten und sechs Screenshot-Texte |
+| `docs/app-store/metadata/de-DE-app-store-metadata.md` | DemoType-Bezug entfernt: Die Store-Version kompiliert die Funktion aus. Die Screenshots 02 (Kurzbefehle) und 06 (Erweitert) zeigen sie noch und müssen gegen die neue Oberfläche neu erstellt werden. |
 
 ## 6. Laufzeit- und Release-Prüfungen
 
 - Die App folgt der App- bzw. Systemsprache von macOS; es gibt keinen Sprachschalter in der App.
 - Berechtigungsdialoge folgen der macOS-Sprache und verwenden die lokalisierte `InfoPlist.strings`.
-- App-Name, Statusmenü, Einstellungen, Aufnahme/OCR, Bildschirmaufnahme, Panorama und DemoType bei einem sauberen deutschen Start prüfen.
+- App-Name, Statusmenü, Einstellungen, Aufnahme/OCR, Bildschirmaufnahme und Panorama bei einem sauberen deutschen Start prüfen.
 - **Release-Blocker:** Beide the public legal pages-Rechtslinks vor der App-Store-Einreichung durch freigegebene öffentliche URLs ersetzen.

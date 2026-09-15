@@ -41,10 +41,12 @@ public enum SelfTestRunner {
         try testAnnotationRenderingTouchesPixels()
         try testSettingsRoundTrip()
         try testDemoTypeSettingsRoundTrip()
+#if !DORAZOOM_APP_STORE
         try testDemoTypeScriptCleaningAndTokens()
         try testDemoTypeScriptDecoding()
         try testDemoTypeTypingDelayRange()
         try testDemoTypeUserDrivenStepStopsAtEnd()
+#endif
         try testBreakTimerLayout()
         try testBreakTimerBackgroundNotFlipped()
         try testPanoramaSelectionBorderColor()
@@ -354,6 +356,7 @@ public enum SelfTestRunner {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+#if !DORAZOOM_APP_STORE
     private static func testDemoTypeScriptCleaningAndTokens() throws {
         let cleaned = DemoTypeController.cleanForTesting("\u{0001}\nhello\n[end]\nworld\n[paste]\nchunk\n[/paste]\n[end]\n   ")
         try expect(cleaned == "hello[end]world\n[paste]chunk[/paste][end]", "Unexpected DemoType cleaned script: \(cleaned)")
@@ -395,6 +398,7 @@ public enum SelfTestRunner {
         try expect(DemoTypeController.completedUserDrivenEntryOffsetForTesting(script, startOffset: 7) == script.count, "Expected final [end] to leave DemoType at EOF instead of wrapping in the active entry")
         try expect(DemoTypeController.completedUserDrivenEntryOffsetForTesting("abc", startOffset: 0) == 0, "Expected scripts without [end] to wrap after EOF")
     }
+#endif
 
     private static func testStaticZoomStaysAtOneX() throws {
         // Reaching 1x is a boundary, not a dismissal gesture. Only an explicit
@@ -558,9 +562,16 @@ public enum SelfTestRunner {
             plan.topLevelItems.map(\.id) == expectedOrder,
             "Expected DoraZoom status menu hierarchy"
         )
+        // Derived from the same build flag the plan reads, so this self-test
+        // verifies the store shape too instead of hard-coding the full-build
+        // menu and only ever passing there.
+        var expectedMoreFeatures: [StatusMenuItemID] = [.panorama]
+        if DemoTypeBuildAvailability.isIncludedInBuild {
+            expectedMoreFeatures.append(.demoType)
+        }
+        expectedMoreFeatures.append(contentsOf: [.breakTimer, .advancedEditor])
         try expect(
-            plan.item(.moreFeatures)?.children.map(\.id)
-                == [.panorama, .demoType, .breakTimer, .advancedEditor],
+            plan.item(.moreFeatures)?.children.map(\.id) == expectedMoreFeatures,
             "Expected compatibility features below More Features"
         )
     }

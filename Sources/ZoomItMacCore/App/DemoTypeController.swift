@@ -1,6 +1,13 @@
+#if !DORAZOOM_APP_STORE
 import AppKit
 import Carbon.HIToolbox
 
+/// Types a script into whatever app is frontmost. This is a direct-input
+/// feature: `installBlockingUserKeyTap` creates a session event tap, and
+/// `type`/`postKey`/`paste` post synthetic keyboard events. Neither path has an
+/// entitlement in the App Store target, and in the sandbox both fail silently
+/// rather than reporting an authorization problem, so the whole controller is
+/// compiled out of store builds. See `DemoTypeBuildAvailability`.
 @MainActor
 final class DemoTypeController {
     private enum DemoTypeError: Error, LocalizedError {
@@ -586,3 +593,16 @@ final class DemoTypeController {
         alert.runModal()
     }
 }
+
+#else
+
+// The App Store build compiles DemoType out entirely. Its script reader,
+// synthetic keyboard injection, and key-listening event tap all need
+// authorization the store target does not request, and the feature degrades to
+// a silent no-op without it — which is exactly the "button does nothing" state
+// the low-friction plan forbids. Shared value types (`AppCommand` cases, the
+// `demoType*` settings keys, `StatusMenuItemID.demoType`) stay in the package so
+// both builds keep one command and settings surface; store-build code simply
+// never constructs them.
+
+#endif

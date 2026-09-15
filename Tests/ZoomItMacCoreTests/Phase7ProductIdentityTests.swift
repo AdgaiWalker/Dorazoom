@@ -9,7 +9,7 @@ final class Phase7ProductIdentityTests: XCTestCase {
 
     @MainActor
     func testSingleInstanceNotificationUsesDoraZoomNamespace() {
-        XCTAssertEqual(SingleInstance.showSettingsNotification.rawValue, "com.duola.dorazoom.showSettings")
+        XCTAssertEqual(SingleInstance.showPrimaryEntryNotification.rawValue, "com.duola.dorazoom.showSettings")
     }
 
     func testLaunchAtLoginUnavailableMessageUsesDoraZoomAppName() {

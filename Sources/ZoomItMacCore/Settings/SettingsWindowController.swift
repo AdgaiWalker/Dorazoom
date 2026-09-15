@@ -8,10 +8,21 @@ private final class SettingsWindow: NSWindow {
     }
 }
 
+@MainActor
+private final class SettingsDocumentView: NSView {
+    override var isFlipped: Bool { true }
+}
+
+@MainActor
+private final class SettingsClipView: NSClipView {
+    override var isFlipped: Bool { true }
+}
+
 /// Native macOS settings window with six product-oriented navigation groups.
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     private let settingsStore: SettingsStore
+    private let fileAccess: FileAccessService
     private let onHotKeyChange: () -> Void
     private let onSettingsChange: () -> Void
     private let onSuspendHotkeys: () -> Void
@@ -55,8 +66,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     private weak var snipSaveDirectoryField: NSTextField?
     private weak var snipSaveDirectoryBrowseButton: NSButton?
 
+#if !DORAZOOM_APP_STORE
     // DemoType tab controls.
     private weak var demoTypeFileField: NSTextField?
+#endif
 
     // Webcam controls.
     private weak var webcamDevicePopup: NSPopUpButton?
@@ -81,7 +94,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         case snip
         case snipOcr
         case record
+#if !DORAZOOM_APP_STORE
         case demoType
+#endif
         case panorama
     }
     private weak var hotKeyButton: NSButton?
@@ -91,7 +106,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     private weak var snipHotKeyButton: NSButton?
     private weak var snipOcrHotKeyButton: NSButton?
     private weak var recordHotKeyButton: NSButton?
+#if !DORAZOOM_APP_STORE
     private weak var demoTypeHotKeyButton: NSButton?
+#endif
     private weak var panoramaHotKeyButton: NSButton?
     private weak var activeHotKeyButton: NSButton?
     private var hotKeyMonitor: Any?
@@ -99,6 +116,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     init(
         settingsStore: SettingsStore,
+        fileAccess: FileAccessService = FileAccessService(),
         onHotKeyChange: @escaping () -> Void,
         onSettingsChange: @escaping () -> Void,
         onSuspendHotkeys: @escaping () -> Void,
@@ -109,6 +127,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         onOpenPermissionCenter: @escaping () -> Void
     ) {
         self.settingsStore = settingsStore
+        self.fileAccess = fileAccess
         self.onHotKeyChange = onHotKeyChange
         self.onSettingsChange = onSettingsChange
         self.onSuspendHotkeys = onSuspendHotkeys
@@ -142,7 +161,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         snipHotKeyButton?.title = snipHotKeyDisplayString()
         snipOcrHotKeyButton?.title = snipOcrHotKeyDisplayString()
         recordHotKeyButton?.title = recordHotKeyDisplayString()
+#if !DORAZOOM_APP_STORE
         demoTypeHotKeyButton?.title = demoTypeHotKeyDisplayString()
+#endif
         panoramaHotKeyButton?.title = panoramaHotKeyDisplayString()
         launchAtLoginCheckbox?.state = settings.launchAtLogin ? .on : .off
         NSApp.activate(ignoringOtherApps: true)
@@ -335,7 +356,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             button.bezelStyle = .rounded
             contentViews = [explanation, button]
         case .advanced:
+            // App Store builds compile DemoType out, so the Advanced page must
+            // not carry its tab, help text, file picker, or speed slider.
+#if DORAZOOM_APP_STORE
+            contentViews = [makeAdvancedCaptureView(), makeBreakTab(), makePanoramaTab(), makeAdvancedRecordingView()]
+#else
             contentViews = [makeAdvancedCaptureView(), makeDemoTypeTab(), makeBreakTab(), makePanoramaTab(), makeAdvancedRecordingView()]
+#endif
         }
 
         let stack = NSStackView(views: [title] + contentViews + [makeFooter()])
@@ -345,7 +372,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         stack.edgeInsets = NSEdgeInsets(top: 24, left: 28, bottom: 24, right: 28)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let document = NSView()
+        let document = SettingsDocumentView()
         document.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
@@ -356,6 +383,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         ])
 
         let scroll = NSScrollView()
+        scroll.contentView = SettingsClipView()
         scroll.hasVerticalScroller = true
         scroll.hasHorizontalScroller = false
         scroll.drawsBackground = false
@@ -383,18 +411,24 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             ),
             wraps: true
         )
-        let rows = [
-            makeRow([makeLabel(localized("settings.shortcuts.zoom", "Static Zoom:")), makeShortcutButton(zoomHotKeyDisplayString(), action: #selector(toggleZoomHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.draw", "Draw:")), makeShortcutButton(drawHotKeyDisplayString(), action: #selector(toggleDrawHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.live_zoom", "Live Zoom:")), makeShortcutButton(liveHotKeyDisplayString(), action: #selector(toggleLiveHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.snip", "Snip:")), makeShortcutButton(snipHotKeyDisplayString(), action: #selector(toggleSnipHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.ocr", "OCR:")), makeShortcutButton(snipOcrHotKeyDisplayString(), action: #selector(toggleSnipOcrHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.record", "Record:")), makeShortcutButton(recordHotKeyDisplayString(), action: #selector(toggleRecordHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.demo_type", "DemoType:")), makeShortcutButton(demoTypeHotKeyDisplayString(), action: #selector(toggleDemoTypeHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.panorama", "Panorama:")), makeShortcutButton(panoramaHotKeyDisplayString(), action: #selector(togglePanoramaHotKeyRecording(_:)))]),
-            makeRow([makeLabel(localized("settings.shortcuts.break_timer", "Break Timer:")), makeShortcutButton(breakHotKeyDisplayString(), action: #selector(toggleBreakHotKeyRecording(_:)))])
+        // App Store builds register no DemoType shortcut, so the row is omitted
+        // rather than shown as a recorder that can never take effect.
+        var rows: [[NSView]] = [
+            [makeLabel(localized("settings.shortcuts.zoom", "Static Zoom:")), makeShortcutButton(zoomHotKeyDisplayString(), action: #selector(toggleZoomHotKeyRecording(_:)))],
+            [makeLabel(localized("settings.shortcuts.draw", "Draw:")), makeShortcutButton(drawHotKeyDisplayString(), action: #selector(toggleDrawHotKeyRecording(_:)))],
+            [makeLabel(localized("settings.shortcuts.live_zoom", "Live Zoom:")), makeShortcutButton(liveHotKeyDisplayString(), action: #selector(toggleLiveHotKeyRecording(_:)))],
+            [makeLabel(localized("settings.shortcuts.snip", "Snip:")), makeShortcutButton(snipHotKeyDisplayString(), action: #selector(toggleSnipHotKeyRecording(_:)))],
+            [makeLabel(localized("settings.shortcuts.ocr", "OCR:")), makeShortcutButton(snipOcrHotKeyDisplayString(), action: #selector(toggleSnipOcrHotKeyRecording(_:)))],
+            [makeLabel(localized("settings.shortcuts.record", "Record:")), makeShortcutButton(recordHotKeyDisplayString(), action: #selector(toggleRecordHotKeyRecording(_:)))]
         ]
-        return makeColumn([explanation] + rows, spacing: 10)
+#if !DORAZOOM_APP_STORE
+        rows.append([makeLabel(localized("settings.shortcuts.demo_type", "DemoType:")), makeShortcutButton(demoTypeHotKeyDisplayString(), action: #selector(toggleDemoTypeHotKeyRecording(_:)))])
+#endif
+        rows.append(contentsOf: [
+            [makeLabel(localized("settings.shortcuts.panorama", "Panorama:")), makeShortcutButton(panoramaHotKeyDisplayString(), action: #selector(togglePanoramaHotKeyRecording(_:)))],
+            [makeLabel(localized("settings.shortcuts.break_timer", "Break Timer:")), makeShortcutButton(breakHotKeyDisplayString(), action: #selector(toggleBreakHotKeyRecording(_:)))]
+        ])
+        return makeColumn([explanation, makeFormGrid(rows)], spacing: 16)
     }
 
     private func makeShortcutButton(_ title: String, action: Selector) -> NSButton {
@@ -699,9 +733,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         beginRecording(target: .record, sender: sender)
     }
 
+#if !DORAZOOM_APP_STORE
     @objc private func toggleDemoTypeHotKeyRecording(_ sender: NSButton) {
         beginRecording(target: .demoType, sender: sender)
     }
+#endif
 
     @objc private func togglePanoramaHotKeyRecording(_ sender: NSButton) {
         beginRecording(target: .panorama, sender: sender)
@@ -811,6 +847,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             }
             settings.recordHotKeyCode = newCode
             settings.recordHotKeyModifiers = newModifiers
+#if !DORAZOOM_APP_STORE
         case .demoType:
             if conflictsWithZoom(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDraw(code: newCode, modifiers: newModifiers) ||
@@ -824,6 +861,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
             }
             settings.demoTypeHotKeyCode = newCode
             settings.demoTypeHotKeyModifiers = newModifiers
+#endif
         case .panorama:
             if conflictsWithZoom(code: newCode, modifiers: newModifiers) ||
                 conflictsWithDraw(code: newCode, modifiers: newModifiers) ||
@@ -879,8 +917,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
     }
 
     private func conflictsWithDemoType(code: Int, modifiers: UInt) -> Bool {
+#if DORAZOOM_APP_STORE
+        // App Store builds register no DemoType shortcut, so DemoType owns no
+        // key combination and cannot conflict with one. Reporting a conflict
+        // here would block a shortcut that is actually free.
+        return false
+#else
         settings.demoTypeHotKeyCode != 0 &&
             code == settings.demoTypeHotKeyCode && modifiers == settings.demoTypeHotKeyModifiers
+#endif
     }
 
     private func conflictsWithPanorama(code: Int, modifiers: UInt) -> Bool {
@@ -906,7 +951,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         snipHotKeyButton?.title = snipHotKeyDisplayString()
         snipOcrHotKeyButton?.title = snipOcrHotKeyDisplayString()
         recordHotKeyButton?.title = recordHotKeyDisplayString()
+#if !DORAZOOM_APP_STORE
         demoTypeHotKeyButton?.title = demoTypeHotKeyDisplayString()
+#endif
         panoramaHotKeyButton?.title = panoramaHotKeyDisplayString()
     }
 
@@ -919,7 +966,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         case .snip: snipHotKeyDisplayString()
         case .snipOcr: snipOcrHotKeyDisplayString()
         case .record: recordHotKeyDisplayString()
+#if !DORAZOOM_APP_STORE
         case .demoType: demoTypeHotKeyDisplayString()
+#endif
         case .panorama: panoramaHotKeyDisplayString()
         }
     }
@@ -953,10 +1002,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         Self.describe(keyCode: settings.recordHotKeyCode, modifiers: NSEvent.ModifierFlags(rawValue: settings.recordHotKeyModifiers))
     }
 
+#if !DORAZOOM_APP_STORE
     private func demoTypeHotKeyDisplayString() -> String {
         guard settings.demoTypeHotKeyCode != 0 else { return localized("common.none", "None") }
         return Self.describe(keyCode: settings.demoTypeHotKeyCode, modifiers: NSEvent.ModifierFlags(rawValue: settings.demoTypeHotKeyModifiers))
     }
+#endif
 
     private func panoramaHotKeyDisplayString() -> String {
         Self.describe(keyCode: settings.panoramaHotKeyCode, modifiers: NSEvent.ModifierFlags(rawValue: settings.panoramaHotKeyModifiers))
@@ -1388,9 +1439,39 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         panel.prompt = localized("common.choose", "Choose")
         panel.title = localized("settings.snip.folder_picker.title", "DoraZoom: Choose Snip Folder")
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        applyChosenSaveDirectory(url)
+    }
+
+    /// Applies a folder the user just picked in the open panel.
+    ///
+    /// The chosen path is stored for display, but the path alone is not an
+    /// authorization: under the sandbox it stops working after a relaunch. The
+    /// security-scoped bookmark recorded here is what actually carries the
+    /// grant. Split out of the panel handler so this path stays testable.
+    func applyChosenSaveDirectory(_ url: URL) {
         settings.snipSaveDirectory = url.path
         snipSaveDirectoryField?.stringValue = url.path
+        do {
+            _ = try fileAccess.grantAccess(to: url)
+        } catch {
+            presentSaveDirectoryGrantFailure()
+        }
         persist()
+    }
+
+    private func presentSaveDirectoryGrantFailure() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = localized(
+            "settings.snip.folder_grant_failed.title",
+            "DoraZoom could not remember this folder"
+        )
+        alert.informativeText = localized(
+            "settings.snip.folder_grant_failed.message",
+            "DoraZoom could not record a lasting permission for this folder, so saving into it may stop working after DoraZoom restarts. Choose a folder inside your home folder, or let DoraZoom ask where to save each time."
+        )
+        alert.addButton(withTitle: localized("common.ok", "OK"))
+        alert.runModal()
     }
 
     // MARK: - Record tab
@@ -1764,6 +1845,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
 
     // MARK: - DemoType tab
 
+#if !DORAZOOM_APP_STORE
     private func makeDemoTypeTab() -> NSView {
         let help = makeLabel(
             localized(
@@ -1841,6 +1923,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTableViewDat
         settings.demoTypeUserDriven = sender.state == .on
         persist()
     }
+#endif
 
     // MARK: - Persistence
 

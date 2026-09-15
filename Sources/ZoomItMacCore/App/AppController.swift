@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class AppController: NSObject {
     private let settingsStore: SettingsStore
+    private let fileAccess: FileAccessService
     private let permissionService: PermissionService
     private let hotkeyService: HotkeyService
     private let modeCoordinator: ModeCoordinator
@@ -10,6 +11,7 @@ final class AppController: NSObject {
     private let onMenuNeedsUpdate: () -> Void
     private lazy var settingsWindowController = SettingsWindowController(
         settingsStore: settingsStore,
+        fileAccess: fileAccess,
         onHotKeyChange: { [weak self] in self?.hotkeyService.reloadHotkey() },
         onSettingsChange: { [weak self] in self?.onMenuNeedsUpdate() },
         onSuspendHotkeys: { [weak self] in self?.hotkeyService.stop() },
@@ -22,6 +24,7 @@ final class AppController: NSObject {
 
     init(
         settingsStore: SettingsStore,
+        fileAccess: FileAccessService,
         permissionService: PermissionService,
         hotkeyService: HotkeyService,
         modeCoordinator: ModeCoordinator,
@@ -29,6 +32,7 @@ final class AppController: NSObject {
         onMenuNeedsUpdate: @escaping () -> Void
     ) {
         self.settingsStore = settingsStore
+        self.fileAccess = fileAccess
         self.permissionService = permissionService
         self.hotkeyService = hotkeyService
         self.modeCoordinator = modeCoordinator
@@ -77,9 +81,11 @@ final class AppController: NSObject {
         modeCoordinator.handle(.startPanorama(save: false))
     }
 
+#if !DORAZOOM_APP_STORE
     @objc func startDemoType() {
         modeCoordinator.handle(.startDemoType)
     }
+#endif
 
     @objc func toggleBreakTimer() {
         modeCoordinator.handle(.toggleBreakTimer)

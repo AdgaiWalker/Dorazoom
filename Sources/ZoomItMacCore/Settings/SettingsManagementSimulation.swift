@@ -134,8 +134,15 @@ enum SettingsManagementSimulation {
         )
     }
 
-    static func hotkeyPlan(for settings: AppSettings) -> SettingsHotkeyPlan {
-        let bindings = [
+    /// DemoType availability is a parameter rather than a `#if` so both build
+    /// shapes stay testable. App Store builds register no DemoType shortcut, so
+    /// listing one here would let the settings window report a conflict against
+    /// a command that binary cannot run.
+    static func hotkeyPlan(
+        for settings: AppSettings,
+        demoTypeAvailable: Bool = DemoTypeBuildAvailability.isIncludedInBuild
+    ) -> SettingsHotkeyPlan {
+        var bindings = [
             binding(.staticZoom, code: settings.hotKeyCode, modifiers: settings.hotKeyModifiers),
             binding(.drawWithoutZoom, code: settings.drawHotKeyCode, modifiers: settings.drawHotKeyModifiers),
             binding(.liveZoom, code: settings.liveHotKeyCode, modifiers: settings.liveHotKeyModifiers),
@@ -143,13 +150,21 @@ enum SettingsManagementSimulation {
             binding(.snipToFile, code: settings.snipHotKeyCode, modifiers: addShift(to: settings.snipHotKeyModifiers)),
             binding(.snipOCRToClipboard, code: settings.snipOcrHotKeyCode, modifiers: settings.snipOcrHotKeyModifiers),
             binding(.recordFullScreen, code: settings.recordHotKeyCode, modifiers: settings.recordHotKeyModifiers),
-            binding(.recordRegion, code: settings.recordHotKeyCode, modifiers: addShift(to: settings.recordHotKeyModifiers)),
-            binding(.demoType, code: settings.demoTypeHotKeyCode, modifiers: settings.demoTypeHotKeyModifiers),
-            binding(.demoTypePreviousSegment, code: settings.demoTypeHotKeyCode, modifiers: addShift(to: settings.demoTypeHotKeyModifiers)),
+            binding(.recordRegion, code: settings.recordHotKeyCode, modifiers: addShift(to: settings.recordHotKeyModifiers))
+        ].compactMap { $0 }
+
+        if demoTypeAvailable {
+            bindings.append(contentsOf: [
+                binding(.demoType, code: settings.demoTypeHotKeyCode, modifiers: settings.demoTypeHotKeyModifiers),
+                binding(.demoTypePreviousSegment, code: settings.demoTypeHotKeyCode, modifiers: addShift(to: settings.demoTypeHotKeyModifiers))
+            ].compactMap { $0 })
+        }
+
+        bindings.append(contentsOf: [
             binding(.panoramaToClipboard, code: settings.panoramaHotKeyCode, modifiers: settings.panoramaHotKeyModifiers),
             binding(.panoramaToFile, code: settings.panoramaHotKeyCode, modifiers: addShift(to: settings.panoramaHotKeyModifiers)),
             binding(.breakTimer, code: settings.breakHotKeyCode, modifiers: settings.breakHotKeyModifiers)
-        ].compactMap { $0 }
+        ].compactMap { $0 })
 
         let conflicts = hotkeyConflicts(in: bindings)
         return SettingsHotkeyPlan(

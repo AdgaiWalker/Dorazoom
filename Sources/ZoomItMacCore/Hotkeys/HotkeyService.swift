@@ -13,8 +13,10 @@ final class HotkeyService {
     private var snipOcrHotKeyRef: EventHotKeyRef?
     private var recordHotKeyRef: EventHotKeyRef?
     private var recordRegionHotKeyRef: EventHotKeyRef?
+#if !DORAZOOM_APP_STORE
     private var demoTypeHotKeyRef: EventHotKeyRef?
     private var demoTypeResetHotKeyRef: EventHotKeyRef?
+#endif
     private var panoramaCopyHotKeyRef: EventHotKeyRef?
     private var panoramaSaveHotKeyRef: EventHotKeyRef?
     private var breakHotKeyRef: EventHotKeyRef?
@@ -139,8 +141,10 @@ final class HotkeyService {
                 case 11: command = .startPanorama(save: true)
                 case 12: command = .toggleBreakTimer
                 case 13: command = .snipOcr
+#if !DORAZOOM_APP_STORE
                 case 14: command = .startDemoType
                 case 15: command = .resetDemoType
+#endif
                 default: return OSStatus(eventNotHandledErr)
                 }
 
@@ -261,6 +265,7 @@ final class HotkeyService {
             fallbackBindings: &fallbackBindings
         )
 
+#if !DORAZOOM_APP_STORE
         if settings.demoTypeHotKeyCode != 0 {
             let demoTypeModifiers = NSEvent.ModifierFlags(rawValue: settings.demoTypeHotKeyModifiers)
             register(
@@ -284,6 +289,7 @@ final class HotkeyService {
                 fallbackBindings: &fallbackBindings
             )
         }
+#endif
 
         // Panorama: the base shortcut copies the stitched panorama to the
         // clipboard; the same shortcut with Shift toggled saves it to a file.
@@ -360,6 +366,7 @@ final class HotkeyService {
             UnregisterEventHotKey(recordRegionHotKeyRef)
         }
         recordRegionHotKeyRef = nil
+#if !DORAZOOM_APP_STORE
         if let demoTypeHotKeyRef {
             UnregisterEventHotKey(demoTypeHotKeyRef)
         }
@@ -368,6 +375,7 @@ final class HotkeyService {
             UnregisterEventHotKey(demoTypeResetHotKeyRef)
         }
         demoTypeResetHotKeyRef = nil
+#endif
         if let panoramaCopyHotKeyRef {
             UnregisterEventHotKey(panoramaCopyHotKeyRef)
         }
@@ -416,6 +424,11 @@ final class HotkeyService {
         }
 
         ref = nil
+        // Carbon refuses a shortcut another process already owns. The full build
+        // recovers with an event tap; the store build ships none, so the
+        // shortcut simply stays unbound there and must not be recorded as
+        // needing Input Monitoring.
+#if !DORAZOOM_APP_STORE
         let fallbackBinding = HotkeyFallbackBinding(
             command: command,
             keyCode: keyCode,
@@ -429,9 +442,25 @@ final class HotkeyService {
             String(describing: fallbackBinding.modifiers),
             status
         )
+#else
+        NSLog(
+            "DoraZoom Carbon hotkey registration failed; command=%@ keyCode=%d modifiers=%@ status=%d. No fallback event tap in this build; the shortcut stays unbound.",
+            String(describing: command),
+            keyCode,
+            String(describing: keyboardModifiers(from: modifiers)),
+            status
+        )
+#endif
     }
 
     private func startFallbackEventTapIfNeeded(for bindings: [HotkeyFallbackBinding]) {
+#if DORAZOOM_APP_STORE
+        // The store build compiles in the no-op `SystemHotkeyFallbackEventTap`,
+        // so this path can never deliver a shortcut. Reporting a fallback need
+        // would make the permission center ask for Input Monitoring on behalf of
+        // a capability the binary does not have.
+        requiresInputListeningFallback = false
+#else
         requiresInputListeningFallback = !bindings.isEmpty
         guard !bindings.isEmpty else { return }
         let fallbackEventTap = SystemHotkeyFallbackEventTap(
@@ -442,6 +471,7 @@ final class HotkeyService {
         )
         self.fallbackEventTap = fallbackEventTap
         _ = fallbackEventTap.start()
+#endif
     }
 
     private func keyboardModifiers(from flags: NSEvent.ModifierFlags) -> Set<KeyboardModifier> {

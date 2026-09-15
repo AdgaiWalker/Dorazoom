@@ -98,30 +98,6 @@ enum ScreenRecordingPermissionPromptChoice: Equatable, Sendable {
     case cancel
 }
 
-enum ScreenRecordingPermissionAction: Equatable, Sendable {
-    case granted
-    case promptForAuthorization
-    case waitForRelaunch
-}
-
-/// Keeps the Screen Recording explanation one-shot for the app run while macOS
-/// is still applying a newly granted permission.
-@MainActor
-final class ScreenRecordingPermissionSession {
-    private var didPromptForAuthorization = false
-
-    func action(isGranted: Bool) -> ScreenRecordingPermissionAction {
-        if isGranted {
-            return .granted
-        }
-        guard !didPromptForAuthorization else {
-            return .waitForRelaunch
-        }
-        didPromptForAuthorization = true
-        return .promptForAuthorization
-    }
-}
-
 @MainActor
 protocol ScreenRecordingPermissionPrompting: AnyObject {
     func promptForScreenRecordingAccess() -> ScreenRecordingPermissionPromptChoice
@@ -162,29 +138,57 @@ final class SystemScreenRecordingPermissionPrompter: ScreenRecordingPermissionPr
 enum ScreenRecordingPrompt {
     /// Returns true if Screen Recording is granted. Otherwise it asks macOS to
     /// request/register the permission and returns false.
+    ///
+    /// The decision is made by `PermissionGate`, so a failed preflight check is
+    /// never presented as a denial — `CGPreflightScreenCaptureAccess()` returns
+    /// only a boolean and cannot distinguish "never asked" from "denied". The
+    /// arbiter supplies the application-side facts the system does not report:
+    /// whether the user has already been prompted, and whether a restart is
+    /// still pending.
     @discardableResult
     static func ensureGranted(
         _ service: PermissionService,
         permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
-        permissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
+        permissionArbiter: PermissionFlowArbiter = PermissionFlowArbiter(),
         prompter: ScreenRecordingPermissionPrompting = SystemScreenRecordingPermissionPrompter(),
         now: Date = Date()
     ) -> Bool {
-        switch permissionSession.action(isGranted: service.currentState().screenCapture.isGranted) {
-        case .granted:
+        let hasBeenPrompted = permissionArbiter.hasPrompted(.screenCapture)
+        let state = PermissionGate.state(for: PermissionGateSnapshot(
+            kind: .screenCapture,
+            systemReport: .screenCapture(
+                isGranted: service.currentState().screenCapture.isGranted
+            ),
+            isRequestInFlight: permissionArbiter.inFlight == .screenCapture,
+            isWaitingForSettings: hasBeenPrompted,
+            restartRequired: permissionArbiter.isRestartPending(.screenCapture),
+            hasUserBeenPrompted: hasBeenPrompted
+        ))
+
+        if state.canProceed {
+            // Authorization is in effect now; nothing is left to wait for.
+            permissionArbiter.clearRestartPending(.screenCapture)
             return true
-        case .waitForRelaunch:
-            return false
-        case .promptForAuthorization:
-            break
         }
-        guard prompter.promptForScreenRecordingAccess() == .continueToSystemPrompt else { return false }
+
+        // Already asked, already refused, or a request is outstanding. Asking
+        // again here is what produced stacked prompts before.
+        guard state.canRequestAuthorization else { return false }
+        guard permissionArbiter.beginFlow(.screenCapture) else { return false }
+
+        guard prompter.promptForScreenRecordingAccess() == .continueToSystemPrompt else {
+            // Cancelling ends this attempt only; clicking the feature again
+            // still raises the explanation, matching "取消后仍能继续".
+            permissionArbiter.endFlow()
+            return false
+        }
 
         permissionRelaunchCoordinator?.notePermissionFlowMayRequireRelaunch(now: now)
-        let granted = service.requestScreenCaptureAccess()
-        if !granted {
-            service.openSystemSettings()
-        }
+        permissionArbiter.markRestartPending(.screenCapture)
+        permissionArbiter.waitForSettings(.screenCapture)
+        // macOS owns the system prompt and its Settings link. A false return
+        // also occurs while authorization is pending; do not open a second UI.
+        _ = service.requestScreenCaptureAccess()
         return false
     }
 }

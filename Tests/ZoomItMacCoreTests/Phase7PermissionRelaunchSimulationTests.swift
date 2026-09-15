@@ -44,23 +44,25 @@ final class Phase7PermissionRelaunchSimulationTests: XCTestCase {
 
         XCTAssertEqual(prompter.promptCount, 1)
         XCTAssertEqual(permissionService.requestCount, 1)
+        XCTAssertEqual(permissionService.settingsOpenCount, 0,
+                       "A pending system prompt must not open Settings a second time")
         XCTAssertTrue(coordinator.consumeRelaunchRequest(now: Date(timeIntervalSince1970: 101)))
     }
 
     @MainActor
     func testScreenRecordingHotkeysDoNotRepeatPermissionPromptWhileWaitingForRelaunch() {
-        let session = ScreenRecordingPermissionSession()
+        let arbiter = PermissionFlowArbiter()
         let permissionService = RelaunchScreenRecordingPermissionService(isGranted: false)
         let prompter = RelaunchScreenRecordingPrompter(choice: .continueToSystemPrompt)
 
         XCTAssertFalse(ScreenRecordingPrompt.ensureGranted(
             permissionService,
-            permissionSession: session,
+            permissionArbiter: arbiter,
             prompter: prompter
         ))
         XCTAssertFalse(ScreenRecordingPrompt.ensureGranted(
             permissionService,
-            permissionSession: session,
+            permissionArbiter: arbiter,
             prompter: prompter
         ))
 
@@ -70,7 +72,7 @@ final class Phase7PermissionRelaunchSimulationTests: XCTestCase {
         permissionService.isGranted = true
         XCTAssertTrue(ScreenRecordingPrompt.ensureGranted(
             permissionService,
-            permissionSession: session,
+            permissionArbiter: arbiter,
             prompter: prompter
         ))
     }
@@ -79,6 +81,7 @@ final class Phase7PermissionRelaunchSimulationTests: XCTestCase {
 private final class RelaunchScreenRecordingPermissionService: PermissionService {
     var isGranted: Bool
     var requestCount = 0
+    var settingsOpenCount = 0
 
     init(isGranted: Bool) {
         self.isGranted = isGranted
@@ -93,7 +96,7 @@ private final class RelaunchScreenRecordingPermissionService: PermissionService 
         return isGranted
     }
 
-    func openSystemSettings() {}
+    func openSystemSettings() { settingsOpenCount += 1 }
     func microphoneStatus() -> MicrophonePermission { .granted }
     func requestMicrophoneAccess(completion: (@MainActor @Sendable () -> Void)?) {}
     func openMicrophoneSettings() {}

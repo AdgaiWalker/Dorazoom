@@ -3,7 +3,14 @@ import Foundation
 
 @MainActor
 enum SingleInstance {
-    static let showSettingsNotification = Notification.Name("com.duola.dorazoom.showSettings")
+    /// Posted by a freshly launched second copy to the copy that already holds
+    /// the lock, asking it to show the primary entry.
+    ///
+    /// The wire value stays `showSettings` on purpose: it is the name an
+    /// already-installed older build listens for, so a double-click during an
+    /// upgrade still reaches the running copy instead of silently doing
+    /// nothing. Only the Swift symbol carries the corrected meaning.
+    static let showPrimaryEntryNotification = Notification.Name("com.duola.dorazoom.showSettings")
 
     private static var lockFileDescriptor: CInt = -1
 
@@ -24,7 +31,7 @@ enum SingleInstance {
 
         close(fd)
         DistributedNotificationCenter.default().postNotificationName(
-            showSettingsNotification,
+            showPrimaryEntryNotification,
             object: nil,
             userInfo: nil,
             deliverImmediately: true

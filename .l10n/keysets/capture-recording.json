@@ -75,5 +75,14 @@
   "recording.target.display": "Display",
   "recording.target.selected_region": "Selected Region",
   "recording.target.selected_window": "Selected Window",
-  "recording.trim.open_panel.title": "Trim Video"
+  "recording.trim.open_panel.title": "Trim Video",
+  "save_failure.authorization_missing": "DoraZoom no longer has permission to write to your chosen folder.",
+  "save_failure.choose_folder": "Choose Folder Again…",
+  "save_failure.choose_folder.title": "DoraZoom: Choose Save Folder",
+  "save_failure.clipboard_notice": "The image is on the clipboard, so it is not lost.",
+  "save_failure.encoding_failed": "The image could not be encoded:",
+  "save_failure.folder_unavailable": "The folder is missing or not writable:",
+  "save_failure.save_as": "Save As…",
+  "save_failure.title": "DoraZoom could not save the image",
+  "save_failure.write_failed": "The image could not be written:"
 }

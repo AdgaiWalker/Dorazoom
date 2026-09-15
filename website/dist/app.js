@@ -157,13 +157,14 @@
   function saveBlob(blob) {
     const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'DoraZoom-我的标注.png'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
-  $('#save-site').addEventListener('click', () => {
+const saveSiteButton = $('#save-site');
+if (saveSiteButton) saveSiteButton.addEventListener('click', () => {
     const file = new Blob(['[InternetShortcut]\r\nURL=https://dorazoom.iwalk.pro/\r\n'], { type: 'application/internet-shortcut' });
     const url = URL.createObjectURL(file), link = document.createElement('a');
     link.href = url; link.download = 'DoraZoom-官网.url'; document.body.append(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
     toast('官网快捷方式已保存，打开它即可查看下载状态。');
-  });
+});
   $('#generate').addEventListener('click', async () => { try { await makeExport(); toast('标注截图已生成，可以复制或保存了。'); } catch (error) { toast(error.message); } });
   $('#save-image').addEventListener('click', async () => { try { saveBlob(await makeExport()); toast('已开始保存标注图片。'); } catch (error) { toast(error.message); } });
   $('#copy-image').addEventListener('click', async () => {

@@ -70,6 +70,32 @@ struct PermissionCenterLifecyclePlan: Equatable, Sendable {
     var requestsSystemPermission: Bool
 }
 
+/// The optional capabilities that raise a permission requirement. Kept as a
+/// pure function rather than an inline closure at the composition root so the
+/// set of demand sources is reviewable and testable: a feature that is compiled
+/// out of a build must not leave a demand behind.
+struct PermissionCapabilityDemands: Equatable, Sendable {
+    var needsInputListening: Bool
+}
+
+enum PermissionCapabilityDemandModel {
+    /// Input Monitoring is only needed by capabilities that actually observe
+    /// input in this build: the recording click/keystroke overlay, and the
+    /// event-tap fallback for shortcuts Carbon refused. DemoType also observed
+    /// input, and is deliberately absent here as well as from the binary — the
+    /// App Store target compiles it out, so it must not contribute a demand.
+    static func demands(
+        settings: AppSettings,
+        hotkeyFallbackNeeded: Bool
+    ) -> PermissionCapabilityDemands {
+        PermissionCapabilityDemands(
+            needsInputListening: hotkeyFallbackNeeded
+                || settings.recordMouseClicks
+                || settings.recordShortcutKeys
+        )
+    }
+}
+
 enum PermissionCenterModel {
     static func plan(for input: PermissionCenterInput) -> PermissionCenterPlan {
         PermissionCenterPlan(

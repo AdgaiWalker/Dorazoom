@@ -59,7 +59,7 @@ DoraZoom 是为 Mac 创作者打造的原生 macOS 注意力引导工具。讲�
 • 将区域或窗口截图复制到剪贴板或保存为文件，并用 OCR 提取可见文字。
 • 录制显示器、区域或窗口；可选麦克风、系统声音、摄像头画中画，并支持暂停和继续。
 • 为超出一屏的网页和对话生成滚动长截图。
-• 使用 DemoType、白板、黑板和休息计时器，让现场讲解更有结构。
+• 使用白板、黑板和休息计时器，让现场讲解更有结构。
 
 适合
 • 教程创作者、教育者、演讲者和主播。
@@ -81,7 +81,7 @@ DoraZoom 不宣称内置 AI 或云端推理。捕获内容与权限选择始终�
 ### 2.6 此版本的新增内容
 
 ```text
-欢迎使用 DoraZoom。首个 App Store 版本为 Mac 创作者带来注意力引导式缩放与圈画、截图与 OCR、录屏、滚动长截图、DemoType，以及用于保护敏感信息的模糊和遮挡工具。
+欢迎使用 DoraZoom。首个 App Store 版本为 Mac 创作者带来注意力引导式缩放与圈画、截图与 OCR、录屏、滚动长截图，以及用于保护敏感信息的模糊和遮挡工具。
 ```
 
 ## 3. 宣传截图文案
@@ -125,10 +125,11 @@ DoraZoom 不宣称内置 AI 或云端推理。捕获内容与权限选择始终�
 |---|---|
 | `Sources/ZoomItMacCore/Resources/zh-Hans.lproj/InfoPlist.strings` | 本地化麦克风 / 摄像头权限用途 |
 | `docs/app-store/metadata/zh-Hans-app-store-metadata.md` | 商店元数据与六张截图文案 |
+| `docs/app-store/metadata/zh-Hans-app-store-metadata.md` | 移除 DemoType 宣传：商店构建已编译排除该功能。02 快捷键与 06 高级两张截图仍含该界面，需按新界面重拍。 |
 
 ## 6. 运行时与发布检查
 
 - App 跟随 macOS 的单 App / 系统语言，不增加应用内语言开关。
 - 权限弹窗跟随 macOS 语言，并读取此 locale 的 `InfoPlist.strings`。
-- 使用简体中文冷启动后，验证 App 名称、状态菜单、设置、截图 / OCR、录屏、长截图和 DemoType。
+- 使用简体中文冷启动后，验证 App 名称、状态菜单、设置、截图 / OCR、录屏和长截图。
 - **发布阻断项：**提交 App Store 前，必须把两个 the public legal pages 替换为审核通过且可公开访问的链接。

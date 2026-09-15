@@ -59,7 +59,7 @@ CORE TOOLS
 • Capture a region or window to the clipboard or a file, then extract visible text with OCR.
 • Record a display, region, or window with optional microphone, system audio, webcam picture-in-picture, and pause/resume.
 • Build scrolling panorama captures for pages and conversations that do not fit on one screen.
-• Use DemoType, whiteboard and blackboard canvases, and a break timer when a live explanation needs structure.
+• Use whiteboard and blackboard canvases and a break timer when a live explanation needs structure.
 
 BUILT FOR
 • Tutorial makers, educators, presenters, and streamers.
@@ -81,7 +81,7 @@ draw,screenshot,recording,presentation,whiteboard,ocr,panorama,tutorial,creator,
 ### 2.6 What's New
 
 ```text
-Welcome to DoraZoom. This first App Store release brings attention-guided zoom and drawing, screenshots and OCR, screen recording, panorama capture, DemoType, and privacy-focused blur and redaction tools to macOS creators.
+Welcome to DoraZoom. This first App Store release brings attention-guided zoom and drawing, screenshots and OCR, screen recording, panorama capture, and privacy-focused blur and redaction tools to macOS creators.
 ```
 
 ## 3. Promotional screenshot copy
@@ -125,10 +125,11 @@ The keyword field is also 93 UTF-8 bytes.
 |---|---|
 | `Sources/ZoomItMacCore/Resources/en.lproj/InfoPlist.strings` | Localized microphone/camera permission purposes |
 | `docs/app-store/metadata/en-US-app-store-metadata.md` | Store metadata and six screenshot captions |
+| `docs/app-store/metadata/en-US-app-store-metadata.md` | Dropped the DemoType claim: the store build compiles the feature out. Screenshots 02 (Shortcuts) and 06 (Advanced) still show it and need re-capturing against the new UI. |
 
 ## 6. Runtime and release checks
 
 - The app follows the macOS per-app/system language; it does not add an in-app language switch.
 - Permission dialogs follow the macOS language and read this locale's `InfoPlist.strings`.
-- Verify the app name, status menu, settings, capture/OCR, recording, panorama, and DemoType on a clean English launch.
+- Verify the app name, status menu, settings, capture/OCR, recording, and panorama on a clean English launch.
 - **Release blocker:** replace both the public legal pages legal links with approved public URLs before App Store submission.

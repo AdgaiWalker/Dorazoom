@@ -47,54 +47,75 @@ struct SettingsNavigationPlan: Equatable, Sendable {
 }
 
 enum SettingsNavigationModel {
-    static let defaultPlan = SettingsNavigationPlan(
-        sections: [
-            SettingsNavigationSection(
-                id: .general,
-                title: text("settings_navigation.general", "General"),
-                symbolName: "gearshape",
-                destinations: [.launchAtLogin, .zoomBehavior]
-            ),
-            SettingsNavigationSection(
-                id: .shortcuts,
-                title: text("settings_navigation.shortcuts", "Shortcuts"),
-                symbolName: "keyboard",
-                destinations: [.coreHotkeys]
-            ),
-            SettingsNavigationSection(
-                id: .captureAndDraw,
-                title: text("settings_navigation.capture_and_draw", "Capture & Draw"),
-                symbolName: "pencil.and.outline",
-                destinations: [.snip, .drawing, .text]
-            ),
-            SettingsNavigationSection(
-                id: .recording,
-                title: text("settings_navigation.recording", "Recording"),
-                symbolName: "record.circle",
-                destinations: [.recordingCore]
-            ),
-            SettingsNavigationSection(
-                id: .permissions,
-                title: text("settings_navigation.permissions", "Permissions"),
-                symbolName: "checkmark.shield",
-                destinations: [.permissionCenter]
-            ),
-            SettingsNavigationSection(
-                id: .advanced,
-                title: text("settings_navigation.advanced", "Advanced"),
-                symbolName: "slider.horizontal.3",
-                destinations: [
-                    .demoType,
-                    .breakTimer,
-                    .panorama,
-                    .webcamDetails,
-                    .recordingFormats,
-                    .complexEditor
-                ]
-            )
-        ],
-        platformBoundary: .simulatedOnly
-    )
+    /// The navigation shape for this build.
+    static var defaultPlan: SettingsNavigationPlan {
+        plan(demoTypeAvailable: DemoTypeBuildAvailability.isIncludedInBuild)
+    }
+
+    /// Takes DemoType availability as a parameter so both build shapes stay
+    /// testable from the one test target the package builds. App Store builds
+    /// compile DemoType out, and the Advanced group must not advertise a
+    /// settings surface that the same binary cannot open.
+    static func plan(
+        demoTypeAvailable: Bool = DemoTypeBuildAvailability.isIncludedInBuild
+    ) -> SettingsNavigationPlan {
+        SettingsNavigationPlan(
+            sections: [
+                SettingsNavigationSection(
+                    id: .general,
+                    title: text("settings_navigation.general", "General"),
+                    symbolName: "gearshape",
+                    destinations: [.launchAtLogin, .zoomBehavior]
+                ),
+                SettingsNavigationSection(
+                    id: .shortcuts,
+                    title: text("settings_navigation.shortcuts", "Shortcuts"),
+                    symbolName: "keyboard",
+                    destinations: [.coreHotkeys]
+                ),
+                SettingsNavigationSection(
+                    id: .captureAndDraw,
+                    title: text("settings_navigation.capture_and_draw", "Capture & Draw"),
+                    symbolName: "pencil.and.outline",
+                    destinations: [.snip, .drawing, .text]
+                ),
+                SettingsNavigationSection(
+                    id: .recording,
+                    title: text("settings_navigation.recording", "Recording"),
+                    symbolName: "record.circle",
+                    destinations: [.recordingCore]
+                ),
+                SettingsNavigationSection(
+                    id: .permissions,
+                    title: text("settings_navigation.permissions", "Permissions"),
+                    symbolName: "checkmark.shield",
+                    destinations: [.permissionCenter]
+                ),
+                SettingsNavigationSection(
+                    id: .advanced,
+                    title: text("settings_navigation.advanced", "Advanced"),
+                    symbolName: "slider.horizontal.3",
+                    destinations: advancedDestinations(demoTypeAvailable: demoTypeAvailable)
+                )
+            ],
+            platformBoundary: .simulatedOnly
+        )
+    }
+
+    private static func advancedDestinations(demoTypeAvailable: Bool) -> [SettingsDestination] {
+        var destinations: [SettingsDestination] = []
+        if demoTypeAvailable {
+            destinations.append(.demoType)
+        }
+        destinations.append(contentsOf: [
+            .breakTimer,
+            .panorama,
+            .webcamDetails,
+            .recordingFormats,
+            .complexEditor
+        ])
+        return destinations
+    }
 
     private static func text(_ key: String, _ defaultValue: String) -> String {
         AppLocalization.string(key, defaultValue: defaultValue)

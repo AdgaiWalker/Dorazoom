@@ -228,7 +228,7 @@ final class SnipController {
     private let permissionService: PermissionService
     private let settingsStore: SettingsStore
     private let permissionRelaunchCoordinator: PermissionRelaunchCoordinator?
-    private let screenRecordingPermissionSession: ScreenRecordingPermissionSession
+    private let screenRecordingPermissionArbiter: PermissionFlowArbiter
     private let windowCaptureService: WindowCaptureService
 
     private var window: NSWindow?
@@ -246,7 +246,7 @@ final class SnipController {
         permissionService: PermissionService,
         settingsStore: SettingsStore,
         permissionRelaunchCoordinator: PermissionRelaunchCoordinator? = nil,
-        screenRecordingPermissionSession: ScreenRecordingPermissionSession = ScreenRecordingPermissionSession(),
+        screenRecordingPermissionArbiter: PermissionFlowArbiter = PermissionFlowArbiter(),
         windowCaptureService: WindowCaptureService,
         onPasteboardOutput: ((SnipPasteboardOutput) -> Void)? = nil
     ) {
@@ -255,7 +255,7 @@ final class SnipController {
         self.permissionService = permissionService
         self.settingsStore = settingsStore
         self.permissionRelaunchCoordinator = permissionRelaunchCoordinator
-        self.screenRecordingPermissionSession = screenRecordingPermissionSession
+        self.screenRecordingPermissionArbiter = screenRecordingPermissionArbiter
         self.windowCaptureService = windowCaptureService
         self.onPasteboardOutput = onPasteboardOutput
     }
@@ -278,7 +278,7 @@ final class SnipController {
         guard ScreenRecordingPrompt.ensureGranted(
             permissionService,
             permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-            permissionSession: screenRecordingPermissionSession
+            permissionArbiter: screenRecordingPermissionArbiter
         ) else {
             finish()
             return
@@ -312,7 +312,7 @@ final class SnipController {
             guard ScreenRecordingPrompt.ensureGranted(
                 permissionService,
                 permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-                permissionSession: screenRecordingPermissionSession
+                permissionArbiter: screenRecordingPermissionArbiter
             ) else {
                 onFinished()
                 return
@@ -350,7 +350,7 @@ final class SnipController {
         guard ScreenRecordingPrompt.ensureGranted(
             permissionService,
             permissionRelaunchCoordinator: permissionRelaunchCoordinator,
-            permissionSession: screenRecordingPermissionSession
+            permissionArbiter: screenRecordingPermissionArbiter
         ) else {
             onFinished()
             return
