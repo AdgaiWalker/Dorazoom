@@ -81,7 +81,7 @@ function home(c, en) {
 for (const [lang,c] of Object.entries(copy)) {
   const out = lang === 'en' ? join(root,'en') : root;
   mkdirSync(out,{recursive:true});
-  writeFileSync(join(out,'index.html'),home(c,lang === 'en'));
+  writeFileSync(join(out,'index.html'),home(c,lang === 'en').replaceAll('site.js"','site.js?v=2"'));
 }
 
 // English translations of the existing published legal and support content.
