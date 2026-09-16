@@ -2,6 +2,7 @@
   'use strict';
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
+  const { t, en } = window.DoraZoomI18n;
   const canvas = $('#drawing-canvas');
   const display = canvas.getContext('2d');
   const sceneCanvas = document.createElement('canvas');
@@ -36,27 +37,27 @@
     roundRect(226, 8, 268, 22, 5, '#f0f2f5');
     text('acme.design / pricing', 360, 23, 10, '#a4a9b2', 400, 'center');
     text('acme', 43, 77, 19, '#252b37', 750);
-    text('产品', 504, 75, 10, '#a0a6b1'); text('价格', 550, 75, 10, '#505967'); text('关于', 596, 75, 10, '#a0a6b1');
-    text('好点子，值得一个好开始。', 360, 130, 26, '#242b39', 600, 'center');
-    text('选一个计划，让你的下一个想法发生。', 360, 158, 11, '#a2a8b4', 400, 'center');
+    text(t('产品'), 504, 75, 10, '#a0a6b1'); text(t('价格'), 550, 75, 10, '#505967'); text(t('关于'), 596, 75, 10, '#a0a6b1');
+    text(t('好点子，值得一个好开始。'), 360, 130, 26, '#242b39', 600, 'center');
+    text(t('选一个计划，让你的下一个想法发生。'), 360, 158, 11, '#a2a8b4', 400, 'center');
     const cards = [
-      { x: 52, name: 'Starter', price: '0', subtitle: '给刚刚萌芽的想法', button: '免费开始', features: ['1 个创作空间', '基础组件库'] },
-      { x: 276, name: 'Pro', price: '29', subtitle: '给想再向前一步的你', button: '开始试用', features: ['无限创作空间', '完整组件与导出'], pro: true },
-      { x: 500, name: 'Team', price: '99', subtitle: '给一起创造的团队', button: '联系团队', features: ['团队共享空间', '协作与成员管理'] }
+      { x: 52, name: 'Starter', price: '0', subtitle: t('给刚刚萌芽的想法'), button: t('免费开始'), features: [t('1 个创作空间'), t('基础组件库')] },
+      { x: 276, name: 'Pro', price: '29', subtitle: t('给想再向前一步的你'), button: t('开始试用'), features: [t('无限创作空间'), t('完整组件与导出')], pro: true },
+      { x: 500, name: 'Team', price: '99', subtitle: t('给一起创造的团队'), button: t('联系团队'), features: [t('团队共享空间'), t('协作与成员管理')] }
     ];
     cards.forEach((c) => {
       roundRect(c.x, 194, 168, 199, 10, c.pro ? '#f7f8fc' : '#fff', c.pro ? '#d6dce8' : '#e8ebf0');
-      if (c.pro) { roundRect(c.x + 103, 204, 54, 19, 5, '#e8edf7'); text('人气之选', c.x + 130, 217, 8, '#7a89ab', 500, 'center'); }
+      if (c.pro) { roundRect(c.x + 103, 204, 54, 19, 5, '#e8edf7'); text(t('人气之选'), c.x + 130, 217, 8, '#7a89ab', 500, 'center'); }
       text(c.name, c.x + 16, 222, 12, '#596271', 600);
       text(c.subtitle, c.x + 16, 244, 9, '#a8adb7');
       text('¥', c.x + 16, 282, 15, '#303847', 500);
       text(c.price, c.x + 30, 282, 30, '#303847', 600);
-      text('/ 月', c.x + (c.price.length === 1 ? 55 : 71), 281, 9, '#a4aab4');
+      text(t('/ 月'), c.x + (c.price.length === 1 ? 55 : 71), 281, 9, '#a4aab4');
       roundRect(c.x + 16, 309, 136, 33, 6, c.pro ? '#293345' : '#f4f5f8', c.pro ? undefined : '#e7eaf0');
       text(c.button, c.x + 84, 330, 11, c.pro ? '#fff' : '#7d8592', 500, 'center');
       c.features.forEach((f, i) => { text('✓', c.x + 17, 363 + i * 16, 10, '#b0b6c0'); text(f, c.x + 34, 363 + i * 16, 9, '#a0a7b2'); });
     });
-    text('网页示例 · 在这里标注你的修改想法', 360, 427, 9, '#c0c4cc', 400, 'center');
+    text(t('网页示例 · 在这里标注你的修改想法'), 360, 427, 9, '#c0c4cc', 400, 'center');
   }
   function drawMark(mark) {
     const first = mark.points[0], last = mark.points[mark.points.length - 1];
@@ -75,13 +76,13 @@
     ctx.setTransform(2, 0, 0, 2, 0, 0); base(); marks.forEach(drawMark); if (drawing) drawMark(drawing);
     display.clearRect(0, 0, canvas.width, canvas.height);
     display.drawImage(sceneCanvas, viewport.x * 2, viewport.y * 2, viewport.width * 2, viewport.height * 2, 0, 0, canvas.width, canvas.height);
-    $('#annotation-count').textContent = `${marks.length} 处标注`;
+    $('#annotation-count').textContent = en ? `${marks.length} annotation${marks.length === 1 ? '' : 's'}` : `${marks.length} 处标注`;
     $('#undo').disabled = !marks.length; $('#clear').disabled = !marks.length;
-    canvas.setAttribute('aria-label', `圈画体验区，已有 ${marks.length} 处标注。鼠标或手指拖动标注，按 Enter 标注示例按钮。`);
+    canvas.setAttribute('aria-label', en ? `Drawing playground, ${marks.length} annotation${marks.length === 1 ? '' : 's'}. Drag to draw or press Enter to mark the example button.` : `圈画体验区，已有 ${marks.length} 处标注。鼠标或手指拖动标注，按 Enter 标注示例按钮。`);
   }
   function invalidate() {
     revision++;
-    if (exportBlob) $('#generate').innerHTML = '更新标注截图 <span aria-hidden="true">↗</span>';
+    if (exportBlob) $('#generate').innerHTML = t('更新标注截图 <span aria-hidden="true">↗</span>');
     render();
   }
   function point(event) {
@@ -125,9 +126,9 @@
   canvas.addEventListener('pointercancel', (event) => finishDraw(event, true));
   canvas.addEventListener('lostpointercapture', (event) => finishDraw(event, true));
   function setTool(next) {
-    if (!['ellipse', 'pen', 'arrow'].includes(next)) throw new Error('不支持的圈画工具');
+    if (!['ellipse', 'pen', 'arrow'].includes(next)) throw new Error(t('不支持的圈画工具'));
     tool = next; $$('[data-tool]').forEach((button) => { const selected = button.dataset.tool === next; button.classList.toggle('active', selected); button.setAttribute('aria-pressed', String(selected)); });
-    $('#canvas-instruction').textContent = { ellipse: '拖动画一个圈', pen: '自由画出你的想法', arrow: '拖动指出方向' }[next];
+    $('#canvas-instruction').textContent = { ellipse: t('拖动画一个圈'), pen: t('自由画出你的想法'), arrow: t('拖动指出方向') }[next];
   }
   $$('[data-tool]').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
   $$('[data-color]').forEach((button) => button.addEventListener('click', () => { color = button.dataset.color; $$('[data-color]').forEach((b) => { const selected = b === button; b.classList.toggle('active', selected); b.setAttribute('aria-pressed', String(selected)); }); }));
@@ -147,39 +148,39 @@
     const capturedRevision = revision;
     // Export the complete scene, including marks outside the mobile close-up.
     ctx.setTransform(2, 0, 0, 2, 0, 0); base(); marks.forEach(drawMark);
-    const blob = await new Promise((resolve, reject) => sceneCanvas.toBlob((result) => result ? resolve(result) : reject(new Error('图片生成失败，请重试')), 'image/png'));
+    const blob = await new Promise((resolve, reject) => sceneCanvas.toBlob((result) => result ? resolve(result) : reject(new Error(t('图片生成失败，请重试'))), 'image/png'));
     if (exportUrl) URL.revokeObjectURL(exportUrl);
     exportBlob = blob; exportUrl = URL.createObjectURL(blob); exportRevision = capturedRevision;
     $('#attachment-image').src = exportUrl; $('#attachment-image').hidden = false; $('#attachment').classList.add('ready'); $('#export-actions').hidden = false;
-    $('#generate').innerHTML = '重新生成截图 <span aria-hidden="true">↗</span>';
+    $('#generate').innerHTML = t('重新生成截图 <span aria-hidden="true">↗</span>');
     return blob;
   }
   function saveBlob(blob) {
-    const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'DoraZoom-我的标注.png'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+    const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = t('DoraZoom-我的标注.png'); document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 const saveSiteButton = $('#save-site');
 if (saveSiteButton) saveSiteButton.addEventListener('click', () => {
     const file = new Blob(['[InternetShortcut]\r\nURL=https://dorazoom.iwalk.pro/\r\n'], { type: 'application/internet-shortcut' });
     const url = URL.createObjectURL(file), link = document.createElement('a');
-    link.href = url; link.download = 'DoraZoom-官网.url'; document.body.append(link); link.click(); link.remove();
+    link.href = url; link.download = t('DoraZoom-官网.url'); document.body.append(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    toast('官网快捷方式已保存，打开它即可查看下载状态。');
+    toast(t('官网快捷方式已保存，打开它即可查看下载状态。'));
 });
-  $('#generate').addEventListener('click', async () => { try { await makeExport(); toast('标注截图已生成，可以复制或保存了。'); } catch (error) { toast(error.message); } });
-  $('#save-image').addEventListener('click', async () => { try { saveBlob(await makeExport()); toast('已开始保存标注图片。'); } catch (error) { toast(error.message); } });
+  $('#generate').addEventListener('click', async () => { try { await makeExport(); toast(t('标注截图已生成，可以复制或保存了。')); } catch (error) { toast(error.message); } });
+  $('#save-image').addEventListener('click', async () => { try { saveBlob(await makeExport()); toast(t('已开始保存标注图片。')); } catch (error) { toast(error.message); } });
   $('#copy-image').addEventListener('click', async () => {
     try {
-      if (!navigator.clipboard?.write || !window.ClipboardItem) { saveBlob(await makeExport()); toast('当前浏览器不支持复制图片，已为你保存。'); return; }
+      if (!navigator.clipboard?.write || !window.ClipboardItem) { saveBlob(await makeExport()); toast(t('当前浏览器不支持复制图片，已为你保存。')); return; }
       const imagePromise = makeExport();
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': imagePromise })]);
-      toast('标注图片已复制，去 AI 对话中粘贴吧。');
-    } catch { toast('暂时无法复制图片，请点击「保存图片」。'); }
+      toast(t('标注图片已复制，去 AI 对话中粘贴吧。'));
+    } catch { toast(t('暂时无法复制图片，请点击「保存图片」。')); }
   });
   $('#copy-prompt').addEventListener('click', async () => {
     const input = $('#prompt-text');
-    if (!input.value.trim()) { toast('先写一句你的修改想法吧。'); input.focus(); return; }
-    try { await navigator.clipboard.writeText(input.value); toast('补充文字已复制。'); }
-    catch { input.focus(); input.select(); toast('请按 Command / Control + C 复制选中的文字。'); }
+    if (!input.value.trim()) { toast(t('先写一句你的修改想法吧。')); input.focus(); return; }
+    try { await navigator.clipboard.writeText(input.value); toast(t('补充文字已复制。')); }
+    catch { input.focus(); input.select(); toast(t('请按 Command / Control + C 复制选中的文字。')); }
   });
   const dialog = $('#video-dialog'), video = $('#promo-video');
   let videoTrigger = null;
@@ -197,13 +198,13 @@ if (saveSiteButton) saveSiteButton.addEventListener('click', () => {
   dialog.addEventListener('click', (event) => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) closeVideo(); } });
   dialog.addEventListener('close', () => { video.pause(); document.body.style.overflow = ''; videoTrigger?.focus({ preventScroll: true }); });
   const scenes = {
-    ai: { tag: 'VIBE CODING', title: '你的想法，<br>不必翻译成长提示词。', description: '圈出想修改的组件，标好方向，截下画面。把「改这里」连同上下文，一起粘贴给 AI。', points: ['圈出具体元素，减少位置描述', '截图到剪贴板，接上现有工作流', '由你使用的 AI 工具完成后续修改'], image: 'assets/ai-result.png', alt: '圈选按钮、粘贴到 AI 对话并展示页面结果的示意画面', caption: '圈出意图 → 截图传达 → AI 接着完成', start: 12.5 },
-    teach: { tag: 'PRESENT & EXPLAIN', title: '你讲到哪里，<br>目光就跟到哪里。', description: '放大关键一步，圈出需要注意的细节。面对文档、公式和复杂界面，让大家始终看见同一个重点。', points: ['静态与实时缩放，聚焦细节', '圈画、高亮、文字，一起讲清楚', '白板与黑板，随时展开思路'], image: 'assets/teach.png', alt: '放大数学推导步骤，并用红笔圈出重点的教学示意画面', caption: '放大细节 → 圈出重点 → 同步理解', start: 2.5 },
-    record: { tag: 'RECORD & SHARE', title: '你不在场，<br>讲解也能继续。', description: '把操作过程和屏幕圈画一起录下来。发出一段有重点的演示，让反馈、交接和说明都更直观。', points: ['全屏、区域或窗口录制', '把圈画保留在讲解视频中', '录制后预览、裁剪与导出'], image: 'assets/record.png', alt: '包含红色圈画标注的录制视频播放器示意画面', caption: '开始录制 → 边操作边标注 → 分享讲解', start: 22.5 }
+    ai: { tag: 'VIBE CODING', title: t('你的想法，<br>不必翻译成长提示词。'), description: t('圈出想修改的组件，标好方向，截下画面。把「改这里」连同上下文，一起粘贴给 AI。'), points: [t('圈出具体元素，减少位置描述'), t('截图到剪贴板，接上现有工作流'), t('由你使用的 AI 工具完成后续修改')], image: 'assets/ai-result.png', alt: t('圈选按钮、粘贴到 AI 对话并展示页面结果的示意画面'), caption: t('圈出意图 → 截图传达 → AI 接着完成'), start: 12.5 },
+    teach: { tag: 'PRESENT & EXPLAIN', title: t('你讲到哪里，<br>目光就跟到哪里。'), description: t('放大关键一步，圈出需要注意的细节。面对文档、公式和复杂界面，让大家始终看见同一个重点。'), points: [t('静态与实时缩放，聚焦细节'), t('圈画、高亮、文字，一起讲清楚'), t('白板与黑板，随时展开思路')], image: 'assets/teach.png', alt: t('放大数学推导步骤，并用红笔圈出重点的教学示意画面'), caption: t('放大细节 → 圈出重点 → 同步理解'), start: 2.5 },
+    record: { tag: 'RECORD & SHARE', title: t('你不在场，<br>讲解也能继续。'), description: t('把操作过程和屏幕圈画一起录下来。发出一段有重点的演示，让反馈、交接和说明都更直观。'), points: [t('全屏、区域或窗口录制'), t('把圈画保留在讲解视频中'), t('录制后预览、裁剪与导出')], image: 'assets/record.png', alt: t('包含红色圈画标注的录制视频播放器示意画面'), caption: t('开始录制 → 边操作边标注 → 分享讲解'), start: 22.5 }
   };
   let currentScene = 'ai';
   function setScene(key) {
-    if (!Object.hasOwn(scenes, key)) throw new Error('未知的使用场景');
+    if (!Object.hasOwn(scenes, key)) throw new Error(t('未知的使用场景'));
     currentScene = key; const scene = scenes[key];
     $$('[data-scene]').forEach((button) => { const selected = button.dataset.scene === key; button.classList.toggle('active', selected); button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1; });
     $('#scene-panel').setAttribute('aria-labelledby', `tab-${key}`); $('#scene-tag').textContent = scene.tag; $('#scene-title').innerHTML = scene.title; $('#scene-description').textContent = scene.description;
@@ -222,7 +223,7 @@ if (saveSiteButton) saveSiteButton.addEventListener('click', () => {
   function registerTools() {
     if (!document.modelContext?.registerTool) return;
     const lifecycle = new AbortController();
-    const tools = [{ name: 'get_annotation_state', title: '读取圈画状态', description: '读取本地圈画体验的工具、标注数量和截图是否需要更新，不读取补充文字。', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true, untrustedContentHint: false }, execute(input) { if (!input || typeof input !== 'object' || Object.keys(input).length) throw new Error('请输入空对象'); return { tool, color, annotationCount: marks.length, screenshotReady: !!exportBlob, screenshotCurrent: exportRevision === revision }; } }, { name: 'select_product_scene', title: '切换产品场景', description: '在官网中显示 AI 协作、教学讲解或录屏分享场景。不会生成或修改图片。', inputSchema: { type: 'object', properties: { scene: { type: 'string', enum: ['ai', 'teach', 'record'] } }, required: ['scene'], additionalProperties: false }, annotations: { readOnlyHint: false, untrustedContentHint: false }, execute(input) { if (!input || typeof input !== 'object' || Object.keys(input).length !== 1 || !Object.hasOwn(scenes, input.scene)) throw new Error('请选择 ai、teach 或 record'); setScene(input.scene); return { scene: currentScene, title: $('#scene-title').textContent }; } }];
+    const tools = [{ name: 'get_annotation_state', title: t('读取圈画状态'), description: t('读取本地圈画体验的工具、标注数量和截图是否需要更新，不读取补充文字。'), inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true, untrustedContentHint: false }, execute(input) { if (!input || typeof input !== 'object' || Object.keys(input).length) throw new Error(t('请输入空对象')); return { tool, color, annotationCount: marks.length, screenshotReady: !!exportBlob, screenshotCurrent: exportRevision === revision }; } }, { name: 'select_product_scene', title: t('切换产品场景'), description: t('在官网中显示 AI 协作、教学讲解或录屏分享场景。不会生成或修改图片。'), inputSchema: { type: 'object', properties: { scene: { type: 'string', enum: ['ai', 'teach', 'record'] } }, required: ['scene'], additionalProperties: false }, annotations: { readOnlyHint: false, untrustedContentHint: false }, execute(input) { if (!input || typeof input !== 'object' || Object.keys(input).length !== 1 || !Object.hasOwn(scenes, input.scene)) throw new Error(t('请选择 ai、teach 或 record')); setScene(input.scene); return { scene: currentScene, title: $('#scene-title').textContent }; } }];
     for (const entry of tools) { try { Promise.resolve(document.modelContext.registerTool(entry, { signal: lifecycle.signal })).catch(() => {}); } catch {} }
     window.addEventListener('pagehide', () => lifecycle.abort(), { once: true });
   }

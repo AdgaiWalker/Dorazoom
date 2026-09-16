@@ -1,6 +1,8 @@
 # DoraZoom website
 
-A responsive, Chinese-language product website for the DoraZoom macOS screen annotation app.
+A responsive Chinese/English product homepage for the DoraZoom macOS screen annotation app, preserving the original concise design.
+
+Language selection: `?lang=zh` or `?lang=en`, then the saved selection, then the browser's preferred language (Chinese for `zh`, English otherwise). The navigation switch remembers the choice. Legal/support pages and the existing video remain Chinese; English labels disclose this.
 
 ## Local preview
 
@@ -10,7 +12,7 @@ Run `python3 -m http.server 4277 --bind 127.0.0.1 --directory dist` from this di
 
 - The canvas supports ellipse, freehand, and arrow tools, three colors, undo, clear, mouse, pen, and touch input. Narrow drawing panes show a close-up of the center card; annotations keep full-scene coordinates and PNG exports always contain the full 1440×900 scene.
 - Narrow toolbars use two rows with 44×44px targets. The explicit example notice sits outside the canvas.
-- The release section identifies DoraZoom 1.0.0 (build 6) as submitted to Mac App Store review and links to the formal GitHub release. It does not promise a public Mac download before Apple approval.
+- The release section says “Coming soon to the Mac App Store”, with a one-time-purchase note and one drawing-demo button. GitHub source is linked in the footer. No download availability is promised before release.
 - Focus the canvas and use 1/2/3 to select tools, Enter to mark the example button, and Command/Control + Z to undo.
 - Generate a PNG, copy the image or accompanying text, or save the image. Exports always include current committed annotations; when image clipboard access is unavailable, saving remains available.
 - Scene tabs support mouse, touch, and arrow-key navigation. Video dialogs start at the corresponding scene and support Escape to close.
